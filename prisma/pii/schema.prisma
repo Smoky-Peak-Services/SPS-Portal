@@ -1,0 +1,207 @@
+// SPS Portal 2.0 — PII-tier schema (Neon sps-pii or monolith fallback).
+// Generate: npm run db:generate:pii
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/pii"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CustomerType {
+  RESIDENTIAL
+  COMMERCIAL
+  STR
+}
+
+enum LeadSource {
+  WEBSITE
+  PHONE
+  REFERRAL
+  WALK_IN
+  OTHER
+}
+
+enum LeadStatus {
+  INQUIRY
+  SITE_VISIT
+  ESTIMATE_SENT
+  APPROVED
+  WON
+  LOST
+  DISQUALIFIED
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  EMAIL
+  SMS
+  MEETING
+  STATUS_CHANGE
+}
+
+enum ContactRoleTag {
+  CLIENT
+  PROPERTY_MANAGER
+  ESTIMATOR
+  TENANT
+}
+
+enum ServiceLocationClassification {
+  RESIDENTIAL
+  COMMERCIAL
+}
+
+// Division metadata replicated from ops DB (no cross-DB FK).
+model Division {
+  id        String   @id
+  slug      String   @unique
+  name      String
+  segments  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customers  Customer[]
+  leads      Lead[]
+  ingestKeys IngestKey[]
+
+  @@map("division")
+}
+
+model Customer {
+  id          String       @id @default(cuid())
+  type        CustomerType
+  displayName String
+  generalEmail String?
+  mainPhone   String?
+  website     String?
+  hqLine1     String?
+  hqLine2     String?
+  hqCity      String?
+  hqRegion    String?
+  hqPostal    String?
+  divisionId  String
+  division    Division     @relation(fields: [divisionId], references: [id])
+  source      String?
+  notes       String?
+  archivedAt  DateTime?
+  createdById String
+  contacts    Contact[]
+  serviceLocations ServiceLocation[]
+  leads       Lead[]
+  activities  Activity[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([displayName])
+  @@index([divisionId])
+  @@index([archivedAt])
+  @@map("customer")
+}
+
+model Contact {
+  id          String          @id @default(cuid())
+  customerId  String
+  customer    Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  firstName   String
+  lastName    String?
+  directEmail String?
+  directPhone String?
+  roleTag     ContactRoleTag?
+  isPrimary   Boolean         @default(false)
+  isBilling   Boolean         @default(false)
+  activities  Activity[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([customerId])
+  @@map("contact")
+}
+
+model ServiceLocation {
+  id             String                        @id @default(cuid())
+  customerId     String?
+  customer       Customer?                     @relation(fields: [customerId], references: [id])
+  siteName       String?
+  classification ServiceLocationClassification @default(RESIDENTIAL)
+  line1          String
+  line2          String?
+  city           String
+  region         String
+  postalCode     String
+  country        String                        @default("US")
+  latitude       Float?
+  longitude      Float?
+  notes          String?
+  activities     Activity[]
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
+
+  @@index([customerId])
+  @@map("service_location")
+}
+
+model Lead {
+  id          String     @id @default(cuid())
+  divisionId  String
+  division    Division   @relation(fields: [divisionId], references: [id])
+  customerId  String?
+  customer    Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  name        String
+  email       String?
+  phone       String?
+  company     String?
+  message     String?
+  source      LeadSource @default(WEBSITE)
+  status      LeadStatus @default(INQUIRY)
+  budget      String?
+  timeline    String?
+  closedAt    DateTime?
+  activities  Activity[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([divisionId])
+  @@index([status])
+  @@index([email])
+  @@map("lead")
+}
+
+model Activity {
+  id         String       @id @default(cuid())
+  type       ActivityType
+  body       String?
+  meta       Json?
+  customerId String?
+  customer   Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactId  String?
+  contact    Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  leadId     String?
+  lead       Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId String?
+  property   ServiceLocation? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdAt  DateTime     @default(now())
+
+  @@index([customerId])
+  @@index([leadId])
+  @@map("activity")
+}
+
+model IngestKey {
+  id         String   @id @default(cuid())
+  divisionId String
+  division   Division @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  label      String
+  keyHash    String   @unique
+  keyPrefix  String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([divisionId])
+  @@map("ingest_key")
+}
