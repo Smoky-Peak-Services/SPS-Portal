@@ -149,13 +149,13 @@ Round-trip Excel for a **Division + Segment** scope via `/materials/import-expor
 
 Same page (`/materials/import-export`, second section) and `GET /api/materials/attributes/export`. Pure logic in `attribute-io.ts` / `attribute-io-actions.ts` (not overloaded into catalog `io.ts`).
 
+- **Canonical picklists** live in `src/features/materials/attribute-list-defs.ts` (Jacket Color, Cable Jacket Rating, Plastics Color, Hardware Finish, Power Type, Voltage, Amp Rating, POE Class, Box Length, Patch Cable Length, Manufacturer, Attachment Type). Apply with `npm run sync:attribute-lists` (also run from `prisma/seed.ts`). Sync hard-deletes `vendor`, deactivates legacy `color`, renames `length_feet` → `patch_cable_length`, and deactivates stale options.
 - Workbook: index sheet `Attribute Lists` (`list_key | list_name | filter_mode`) + one sheet per `list_key` (`label | sort_order | tags | rfq_contact | rfq_email`).
-- Mapping: `list_key`→`MaterialAttribute.slug`, `list_name`→`name`, `inputType=SELECT`; option `label`→label, `value=slugify(label)`, `sort_order`→`sortOrder`.
+- Mapping: `list_key`→`MaterialAttribute.slug`, `list_name`→`name`, `inputType=SELECT`; option `label`→label, `value=slugify(label)` (Power Type / POE Class use stable values in the sync defs), `sort_order`→`sortOrder`.
 - **Ignored columns (intentional):** `filter_mode` (filtering is per-assignment `isFilterable`, not on the attribute); `rfq_contact` / `rfq_email` (vendor/RFQ out of catalog scope); **`tags`** (legacy option↔category visibility tags — **no model yet**; do not invent a schema as a side effect of import — decide later if worth a join/tag design).
-- Upsert by attribute `slug` and option `(attributeId, value)`; never delete missing rows. Layout gate rejects files without a valid index / list_key rows (blocks catalog workbooks from creating fake attributes).
+- Excel upsert by attribute `slug` and option `(attributeId, value)` is **additive only** (never deletes). Use the sync script for full replace/delete semantics.
 - Flow: `previewAttributeListsImport` → `commitAttributeListsImport` (**admin only**, re-parse, `$transaction`).
-- Fixture ground truth: `claude/prompts/samples/attribute-lists-2026-06-24.xlsx` → 6 attributes / 134 options (`npm run test:materials-attribute-io`).
-
+- Fixture: `claude/prompts/samples/attribute-lists-canonical.xlsx` (regenerate with `npm run write:attribute-lists-fixture`). Prior export `attribute-lists-2026-06-24.xlsx` kept for historical reference only.
 ### Delete
 
 Hard delete (not soft/`isActive`) lives in `src/features/materials/delete-actions.ts`, wired on list pages:

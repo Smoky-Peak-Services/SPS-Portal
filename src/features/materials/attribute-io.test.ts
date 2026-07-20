@@ -132,36 +132,48 @@ describe("attribute-io parse + plan", () => {
 
 const FIXTURE = path.join(
   process.cwd(),
-  "claude/prompts/samples/attribute-lists-2026-06-24.xlsx",
+  "claude/prompts/samples/attribute-lists-canonical.xlsx",
 );
 
 describe("attribute-lists fixture", () => {
-  it("parses ground-truth counts when fixture is present", async () => {
+  it("parses canonical ground-truth counts when fixture is present", async () => {
     if (!existsSync(FIXTURE)) {
       console.log("skip: fixture not present at", FIXTURE);
       return;
     }
+    const { CANONICAL_ATTRIBUTE_LISTS } = await import("./attribute-list-defs");
+    const expectedTotal = CANONICAL_ATTRIBUTE_LISTS.reduce(
+      (n, a) => n + a.options.length,
+      0,
+    );
     const buf = await readFile(FIXTURE);
     const parsed = await parseAttributeWorkbookBuffer(buf);
     assert.equal(parsed.layoutOk, true);
-    assert.equal(parsed.attributes.length, 6);
+    assert.equal(parsed.attributes.length, CANONICAL_ATTRIBUTE_LISTS.length);
 
     const bySlug = Object.fromEntries(
       parsed.attributes.map((a) => [a.slug, a.options.length]),
     );
-    assert.equal(bySlug["attachment_type_pathways"], 14);
-    assert.equal(bySlug["box_length"], 6);
-    assert.equal(bySlug["color"], 31);
-    assert.equal(bySlug["length_feet"], 14);
-    assert.equal(bySlug["manufacturer"], 59);
-    assert.equal(bySlug["vendor"], 10);
+    for (const def of CANONICAL_ATTRIBUTE_LISTS) {
+      assert.equal(
+        bySlug[def.slug],
+        def.options.length,
+        `option count for ${def.slug}`,
+      );
+    }
 
     const total = parsed.attributes.reduce((n, a) => n + a.options.length, 0);
-    assert.equal(total, 134);
+    assert.equal(total, expectedTotal);
 
     const plan = planAttributeImport({ attributes: [] }, parsed);
-    assert.equal(plan.attributeCreates.length, 6);
-    assert.equal(plan.optionCreates.length, 134);
+    assert.equal(plan.attributeCreates.length, CANONICAL_ATTRIBUTE_LISTS.length);
+    assert.equal(plan.optionCreates.length, expectedTotal);
+
+    // Vendor and Color must not appear in the canonical fixture
+    assert.equal(bySlug["vendor"], undefined);
+    assert.equal(bySlug["color"], undefined);
+    assert.equal(bySlug["length_feet"], undefined);
+    assert.ok(bySlug["patch_cable_length"]);
   });
 });
 

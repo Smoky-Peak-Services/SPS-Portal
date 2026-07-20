@@ -5,6 +5,7 @@ import { company } from "../src/config/company";
 import { prisma } from "../src/lib/prisma";
 import { prismaPii } from "../src/lib/prisma-pii";
 import { seedStripeTaxCodes } from "../scripts/seed-stripe-tax-codes";
+import { syncAttributeLists } from "../scripts/sync-attribute-lists";
 
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -158,6 +159,18 @@ async function main() {
   console.log("Seeding Stripe tax codes…");
   const taxCount = await seedStripeTaxCodes(prisma);
   console.log(`  ✓ ${taxCount} StripeTaxCode rows + labor defaults`);
+
+  console.log("Syncing material attribute lists…");
+  const attrSync = await syncAttributeLists(prisma);
+  console.log(
+    `  ✓ ${attrSync.attributesUpserted} attributes, ${attrSync.optionsUpserted} options` +
+      (attrSync.attributesDeleted.length
+        ? `; deleted ${attrSync.attributesDeleted.join(", ")}`
+        : "") +
+      (attrSync.attributesDeactivated.length
+        ? `; deactivated ${attrSync.attributesDeactivated.join(", ")}`
+        : ""),
+  );
 
   console.log("Seed complete.");
 }
