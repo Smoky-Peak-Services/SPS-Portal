@@ -9,7 +9,7 @@ import {
   createCategory,
   updateCategory,
 } from "@/features/materials/actions";
-import type { MaterialTaxProfile } from "@prisma/client";
+import { deriveTaxProfileFromStripeCode } from "@/features/materials/tax";
 import {
   StripeTaxCodeCombobox,
   type StripeTaxCodeOption,
@@ -34,7 +34,6 @@ type Props = {
     sortOrder: number;
     isActive: boolean;
     requiresManualPartNumber: boolean;
-    taxProfile: MaterialTaxProfile;
     stripeTaxCodeId: string | null;
     laborInstallTaxCodeId: string | null;
     laborServiceTaxCodeId: string | null;
@@ -46,6 +45,10 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const derivedProfile = deriveTaxProfileFromStripeCode(
+    initial?.stripeTaxCodeId ?? null,
+  );
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -61,9 +64,6 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
           sortOrder: Number(fd.get("sortOrder") || 0),
           isActive: fd.get("isActive") === "on",
           requiresManualPartNumber: fd.get("requiresManualPartNumber") === "on",
-          taxProfile: String(
-            fd.get("taxProfile") || "REAL_PROPERTY",
-          ) as MaterialTaxProfile,
           stripeTaxCodeId: String(fd.get("stripeTaxCodeId") || ""),
           laborInstallTaxCodeId: String(fd.get("laborInstallTaxCodeId") || ""),
           laborServiceTaxCodeId: String(fd.get("laborServiceTaxCodeId") || ""),
@@ -116,28 +116,23 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
           defaultValue={initial?.description ?? ""}
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="taxProfile">Tax profile (default)</Label>
-        <select
-          id="taxProfile"
-          name="taxProfile"
-          defaultValue={initial?.taxProfile ?? "REAL_PROPERTY"}
-          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-        >
-          <option value="REAL_PROPERTY">Real property</option>
-          <option value="TPP">Tangible personal property</option>
-        </select>
-        <p className="text-xs text-slate-500">
-          Default for new categories is real property (installed systems). Carve
-          out software, patch cables, servers, workstations, hard drives as TPP.
-        </p>
-      </div>
       <StripeTaxCodeCombobox
         name="stripeTaxCodeId"
         label="Stripe tax code (default)"
         codes={taxCodes}
         defaultValue={initial?.stripeTaxCodeId}
       />
+      <p className="text-xs text-slate-500">
+        Tax profile is derived from this code: Nontaxable (
+        <code className="text-[11px]">txcd_00000000</code>) or blank → real
+        property; any other code → TPP. Currently:{" "}
+        <span className="font-medium text-slate-700">
+          {derivedProfile === "REAL_PROPERTY"
+            ? "Real property"
+            : "Tangible personal property"}
+        </span>{" "}
+        (updates on save).
+      </p>
       <StripeTaxCodeCombobox
         name="laborInstallTaxCodeId"
         label="Labor tax code override — install"

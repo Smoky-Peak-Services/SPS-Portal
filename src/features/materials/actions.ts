@@ -14,6 +14,7 @@ import {
 import { isCoreCategoryAttributeSlug } from "./attribute-list-defs";
 import { ensureCoreAssignmentsForCategory } from "./ensure-core-assignments";
 import { slugify } from "./slug";
+import { deriveTaxProfileFromStripeCode } from "./tax";
 import { assertItemAttributeValues } from "./validation";
 import {
   createAttributeSchema,
@@ -292,6 +293,10 @@ export async function createCategory(raw: unknown) {
   if (writeCatalog) assertCatalogWrite(user);
 
   const slug = data.slug?.trim() || slugify(data.name);
+  const stripeTaxCodeId = writeFin
+    ? emptyToNull(data.stripeTaxCodeId)
+    : null;
+  const taxProfile = deriveTaxProfileFromStripeCode(stripeTaxCodeId);
   const category = await prisma.materialCategory.create({
     data: {
       domainId: data.domainId,
@@ -301,17 +306,15 @@ export async function createCategory(raw: unknown) {
       sortOrder: data.sortOrder ?? 0,
       isActive: data.isActive ?? true,
       requiresManualPartNumber: data.requiresManualPartNumber ?? false,
+      taxProfile,
       ...(writeFin
         ? {
-            taxProfile: data.taxProfile ?? "REAL_PROPERTY",
-            stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+            stripeTaxCodeId,
             laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
             laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
             taxReviewed: data.taxReviewed ?? false,
           }
-        : {
-            taxProfile: "REAL_PROPERTY" as const,
-          }),
+        : {}),
     },
   });
   await ensureCoreAssignmentsForCategory(
@@ -333,6 +336,9 @@ export async function updateCategory(raw: unknown) {
   }
 
   const slug = data.slug?.trim() || slugify(data.name);
+  const stripeTaxCodeId = writeFin
+    ? emptyToNull(data.stripeTaxCodeId)
+    : undefined;
   const category = await prisma.materialCategory.update({
     where: { id: data.id },
     data: {
@@ -349,8 +355,8 @@ export async function updateCategory(raw: unknown) {
         : {}),
       ...(writeFin
         ? {
-            taxProfile: data.taxProfile ?? "REAL_PROPERTY",
-            stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+            taxProfile: deriveTaxProfileFromStripeCode(stripeTaxCodeId ?? null),
+            stripeTaxCodeId: stripeTaxCodeId ?? null,
             laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
             laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
             ...(data.taxReviewed !== undefined
@@ -612,7 +618,7 @@ export async function createItem(raw: unknown) {
             wasteFactorPct: data.isConsumable
               ? (data.wasteFactorPct ?? null)
               : null,
-            taxProfile: data.taxProfile ?? null,
+            taxProfile: null,
             stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
             laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
             laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
@@ -662,7 +668,7 @@ export async function updateItem(raw: unknown) {
             wasteFactorPct: data.isConsumable
               ? (data.wasteFactorPct ?? null)
               : null,
-            taxProfile: data.taxProfile ?? null,
+            taxProfile: null,
             stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
             laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
             laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),

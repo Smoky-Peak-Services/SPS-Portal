@@ -25,6 +25,7 @@
     "sync:divisions-pii": "tsx --env-file=.env.local scripts/sync-divisions-to-pii.ts",
     "sync:attribute-lists": "tsx --env-file=.env.local scripts/sync-attribute-lists.ts",
     "ensure:core-assignments": "tsx --env-file=.env.local scripts/ensure-core-assignments.ts",
+    "backfill:tax-profiles": "tsx --env-file=.env.local scripts/backfill-tax-profiles.ts",
     "write:attribute-lists-fixture": "tsx scripts/write-attribute-lists-fixture.ts",
     "db:seed": "tsx --env-file=.env.local prisma/seed.ts",
     "db:admin-doctor": "tsx --env-file=.env.local prisma/admin-doctor.ts"

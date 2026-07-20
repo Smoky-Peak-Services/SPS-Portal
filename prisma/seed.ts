@@ -8,6 +8,7 @@ import { seedStripeTaxCodes } from "../scripts/seed-stripe-tax-codes";
 import { syncAttributeLists } from "../scripts/sync-attribute-lists";
 import { seedCapabilities } from "../src/config/capabilities";
 import { ensureCoreAssignmentsForAllCategories } from "../src/features/materials/ensure-core-assignments";
+import { deriveTaxProfileFromStripeCode } from "../src/features/materials/tax";
 
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -161,6 +162,29 @@ async function main() {
   console.log("Seeding Stripe tax codes…");
   const taxCount = await seedStripeTaxCodes(prisma);
   console.log(`  ✓ ${taxCount} StripeTaxCode rows + labor defaults`);
+
+  console.log("Syncing category tax profiles from Stripe codes…");
+  const categories = await prisma.materialCategory.findMany({
+    select: { id: true, stripeTaxCodeId: true, taxProfile: true },
+  });
+  let profilesUpdated = 0;
+  for (const cat of categories) {
+    const next = deriveTaxProfileFromStripeCode(cat.stripeTaxCodeId);
+    if (cat.taxProfile !== next) {
+      await prisma.materialCategory.update({
+        where: { id: cat.id },
+        data: { taxProfile: next },
+      });
+      profilesUpdated += 1;
+    }
+  }
+  const itemsCleared = await prisma.materialItem.updateMany({
+    where: { taxProfile: { not: null } },
+    data: { taxProfile: null },
+  });
+  console.log(
+    `  ✓ ${profilesUpdated} categories re-derived; ${itemsCleared.count} item overrides cleared`,
+  );
 
   console.log("Syncing material attribute lists…");
   const attrSync = await syncAttributeLists(prisma);

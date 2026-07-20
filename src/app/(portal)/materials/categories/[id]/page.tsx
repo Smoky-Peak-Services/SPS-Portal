@@ -62,7 +62,6 @@ export default async function CategoryDetailPage({
           sortOrder: category.sortOrder,
           isActive: category.isActive,
           requiresManualPartNumber: category.requiresManualPartNumber,
-          taxProfile: category.taxProfile,
           stripeTaxCodeId: category.stripeTaxCodeId,
           laborInstallTaxCodeId: category.laborInstallTaxCodeId,
           laborServiceTaxCodeId: category.laborServiceTaxCodeId,

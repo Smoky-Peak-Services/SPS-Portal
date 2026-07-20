@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createItem, updateItem } from "@/features/materials/actions";
-import type { MaterialTaxProfile } from "@prisma/client";
+import { deriveTaxProfileFromStripeCode } from "@/features/materials/tax";
 import {
   StripeTaxCodeCombobox,
   type StripeTaxCodeOption,
@@ -61,7 +61,6 @@ type Props = {
     supplier: string | null;
     notes: string | null;
     isActive: boolean;
-    taxProfile: MaterialTaxProfile | null;
     stripeTaxCodeId: string | null;
     laborInstallTaxCodeId: string | null;
     laborServiceTaxCodeId: string | null;
@@ -142,7 +141,6 @@ export function ItemForm({
       return { attributeId: id };
     });
 
-    const taxRaw = String(fd.get("taxProfile") || "");
     start(async () => {
       try {
         const baseCostRaw = String(fd.get("baseCost") || "");
@@ -161,10 +159,6 @@ export function ItemForm({
           supplier: String(fd.get("supplier") || ""),
           notes: String(fd.get("notes") || ""),
           isActive: fd.get("isActive") === "on",
-          taxProfile:
-            taxRaw === ""
-              ? null
-              : (taxRaw as MaterialTaxProfile),
           stripeTaxCodeId: String(fd.get("stripeTaxCodeId") || ""),
           laborInstallTaxCodeId: String(fd.get("laborInstallTaxCodeId") || ""),
           laborServiceTaxCodeId: String(fd.get("laborServiceTaxCodeId") || ""),
@@ -293,25 +287,25 @@ export function ItemForm({
           </div>
         </div>
       ) : null}
-      <div className="space-y-2">
-        <Label htmlFor="taxProfile">Tax profile override</Label>
-        <select
-          id="taxProfile"
-          name="taxProfile"
-          defaultValue={initial?.taxProfile ?? ""}
-          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-        >
-          <option value="">Inherit category</option>
-          <option value="REAL_PROPERTY">Real property</option>
-          <option value="TPP">TPP</option>
-        </select>
-      </div>
       <StripeTaxCodeCombobox
         name="stripeTaxCodeId"
         label="Stripe tax code override (blank = inherit)"
         codes={taxCodes}
         defaultValue={initial?.stripeTaxCodeId}
       />
+      <p className="text-xs text-slate-500">
+        Tax profile follows the resolved material Stripe code (item override or
+        category): Nontaxable / blank → real property; any other code → TPP
+        {initial?.stripeTaxCodeId
+          ? ` · item override → ${
+              deriveTaxProfileFromStripeCode(initial.stripeTaxCodeId) ===
+              "REAL_PROPERTY"
+                ? "Real property"
+                : "TPP"
+            }`
+          : ""}
+        .
+      </p>
       <StripeTaxCodeCombobox
         name="laborInstallTaxCodeId"
         label="Labor tax code override — install"
