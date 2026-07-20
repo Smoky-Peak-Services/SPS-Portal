@@ -8,14 +8,14 @@ alwaysApply: true
 
 `claude/ARCHITECTURE.md` describes a target layering: tRPC `server/routers`, a `services/` business-logic layer, and `functions/` Lambda consumers. **That layer does not exist in this codebase yet.** Do not create `server/` or `services/` folders or introduce tRPC unless the user explicitly asks for that migration. Build against the pattern actually in `src/` today:
 
-- `src/app/(portal)/<area>/` — pages (Next.js App Router, server components). Keep thin: call feature functions, render the result. Areas today: dashboard, `account`, and `materials` (desktop admin catalog). Jobs/tickets/schedule/CRM were reverted 2026-07-19 (see `AGENTS.md` §2a); rebuild is piece by piece after materials (quoting next), targeting one work-order entity — don't recreate the old `jobs`/`tickets` split.
-- `src/features/<domain>/` — where real logic lives. Today: `materials` (catalog EAV), `accounting` (schema-guard), `auth`, `cron`, `ingress`. Each domain generally holds:
+- `src/app/(portal)/<area>/` — pages (Next.js App Router, server components). Keep thin: call feature functions, render the result. Areas today: dashboard, `account`, and `materials` (desktop admin catalog + `/materials/import-export`). Jobs/tickets/schedule/CRM were reverted 2026-07-19 (see `AGENTS.md` §2a); rebuild is piece by piece after materials (quoting next), targeting one work-order entity — don't recreate the old `jobs`/`tickets` split.
+- `src/features/<domain>/` — where real logic lives. Today: `materials` (catalog EAV + Excel IO in `io.ts` / `io-actions.ts`: preview then admin-only commit; never deletes missing rows), `accounting` (schema-guard), `auth`, `cron`, `ingress`. Each domain generally holds:
   - `actions.ts` — `"use server"` Server Actions. Pattern: auth/permission check first (`requireUser`/`requireArea` from `src/lib/session.ts`), then `schema.parse(raw)`, then the Prisma call, then `revalidatePath(...)` for every affected route.
   - `schemas.ts` — Zod schemas (Zod 4) for input validation, shared between the action and any client form.
   - `components/` — feature-specific UI.
 - `src/lib/` — infra clients and cross-cutting helpers: `prisma.ts` (ops DB client), `prisma-pii.ts` (PII DB client), `auth.ts` (Better Auth config), `session.ts` (session + permission helpers), `device-surface.ts` / `get-server-surface.ts` / `require-desktop.ts` (desktop vs. mobile routing).
 - `src/config/` — `company.ts` (company/division/feature-flag source of truth) and `permissions.ts` (roles + area access rules; includes `materials` for admin/staff).
-- `src/proxy.ts` — the edge auth gate (this codebase's equivalent of `middleware.ts`): redirects unauthenticated requests to `/sign-in`, restricts `/api/v1/leads` to POST. Update `PUBLIC_PREFIXES` here when adding a new unauthenticated route.
+- `src/proxy.ts` — the edge auth gate (this codebase's equivalent of `middleware.ts`): redirects unauthenticated requests to `/sign-in`, restricts `/api/v1/leads` to POST. Update `PUBLIC_PREFIXES` here when adding a new unauthenticated route. Authenticated APIs such as `/api/materials/export` stay off that list.
 - `src/components/ui/` — shared UI primitives (shadcn/Radix style).
 
 When `claude/ARCHITECTURE.md` and the actual code disagree, follow the code. If a change would require reconciling the two, say so to the user rather than silently reintroducing the tRPC/services plan.

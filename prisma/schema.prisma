@@ -280,6 +280,7 @@ model MaterialItem {
 
   values MaterialItemAttributeValue[]
 
+  @@unique([categoryId, name])
   @@index([categoryId])
   @@index([unitId])
   @@map("material_item")

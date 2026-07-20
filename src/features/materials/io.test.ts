@@ -1,0 +1,228 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import ExcelJS from "exceljs";
+import {
+  buildExportWorkbookBuffer,
+  parseDomainSheet,
+  parseWorkbookBuffer,
+  planImport,
+  summarizePlan,
+  type ExistingSnapshot,
+  type ParsedWorkbook,
+} from "./io";
+import { normalizeName, nameMatchKey, slugify } from "./normalize";
+import { parseScopeFromFilename, scopeCodeFor } from "./scope-code";
+
+describe("normalizeName", () => {
+  it("trims and collapses whitespace", () => {
+    assert.equal(normalizeName("Card  Reader"), "Card Reader");
+    assert.equal(normalizeName("Miscellaneous Materials "), "Miscellaneous Materials");
+    assert.equal(
+      nameMatchKey("Card  Reader"),
+      nameMatchKey("card reader"),
+    );
+  });
+
+  it("slugify uses cleaned name", () => {
+    assert.equal(slugify("Card  Reader"), "card-reader");
+  });
+});
+
+describe("scope-code", () => {
+  it("derives IS_COM from division code + segment", () => {
+    assert.equal(scopeCodeFor("IS", "COMMERCIAL"), "IS_COM");
+  });
+
+  it("parses catalog filename", () => {
+    const parsed = parseScopeFromFilename("catalog_IS_COM_2026-07-08.xlsx");
+    assert.ok(parsed);
+    assert.equal(parsed!.scopeCode, "IS_COM");
+    assert.equal(parsed!.segment, "COMMERCIAL");
+    assert.equal(parsed!.date, "2026-07-08");
+  });
+});
+
+describe("parseDomainSheet", () => {
+  it("parses category blocks including empty categories", () => {
+    const { categories, warnings } = parseDomainSheet("Access Control", [
+      ["Card  Reader"],
+      ["description", "unit", "laborUnits", "laborUnitNotes"],
+      ["HID Reader  ", "EACH", "0.33", "mount"],
+      [],
+      ["Empty Cat"],
+      ["description", "unit", "laborUnits", "laborUnitNotes"],
+      [],
+      ["Locks"],
+      ["description", "unit", "laborUnits", "laborUnitNotes"],
+      ["Mag lock", "EACH", "not-a-number", ""],
+    ]);
+
+    assert.equal(categories.length, 3);
+    assert.equal(categories[0]!.name, "Card Reader");
+    assert.equal(categories[0]!.items.length, 1);
+    assert.equal(categories[0]!.items[0]!.name, "HID Reader");
+    assert.equal(categories[0]!.items[0]!.laborUnits, 0.33);
+    assert.equal(categories[1]!.name, "Empty Cat");
+    assert.equal(categories[1]!.items.length, 0);
+    assert.equal(categories[2]!.items[0]!.laborUnits, 0);
+    assert.ok(warnings.some((w) => /Unparseable laborUnits/.test(w.message)));
+  });
+});
+
+async function syntheticWorkbookBuffer(): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const ac = wb.addWorksheet("Access Control");
+  ac.addRow(["Card  Reader"]);
+  ac.addRow(["description", "unit", "laborUnits", "laborUnitNotes"]);
+  ac.addRow(["Reader A", "EACH", "0.25", "note"]);
+  ac.addRow([]);
+  ac.addRow(["Locks"]);
+  ac.addRow(["description", "unit", "laborUnits", "laborUnitNotes"]);
+  ac.addRow(["Mag lock", "EACH", "0.5", ""]);
+
+  const alarm = wb.addWorksheet("Alarm Systems");
+  alarm.addRow(["Panels"]);
+  alarm.addRow(["description", "unit", "laborUnits", "laborUnitNotes"]);
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+describe("parseWorkbookBuffer + planImport", () => {
+  it("plans creates from empty snapshot", async () => {
+    const parsed = await parseWorkbookBuffer(await syntheticWorkbookBuffer());
+    assert.equal(parsed.domains.length, 2);
+    assert.equal(
+      parsed.domains.reduce((n, d) => n + d.categories.length, 0),
+      3,
+    );
+    assert.equal(
+      parsed.domains.reduce(
+        (n, d) => n + d.categories.reduce((m, c) => m + c.items.length, 0),
+        0,
+      ),
+      2,
+    );
+
+    const empty: ExistingSnapshot = {
+      units: [],
+      domains: [],
+      categories: [],
+      items: [],
+    };
+    const plan = planImport(empty, parsed);
+    const summary = summarizePlan(plan);
+    assert.equal(summary.domainsCreated, 2);
+    assert.equal(summary.categoriesCreated, 3);
+    assert.equal(summary.unitsCreated, 1);
+    assert.equal(summary.itemsCreated, 2);
+    assert.equal(summary.itemsUpdated, 0);
+  });
+
+  it("re-plan is idempotent when snapshot matches file", async () => {
+    const parsed = await parseWorkbookBuffer(await syntheticWorkbookBuffer());
+    const snapshot = snapshotFromParsed(parsed);
+    const plan = planImport(snapshot, parsed);
+    const summary = summarizePlan(plan);
+    assert.equal(summary.domainsCreated, 0);
+    assert.equal(summary.categoriesCreated, 0);
+    assert.equal(summary.unitsCreated, 0);
+    assert.equal(summary.itemsCreated, 0);
+    assert.equal(summary.itemsUpdated, 0);
+    assert.equal(summary.itemsUnchanged, 2);
+  });
+
+  it("detects laborUnits update", async () => {
+    const parsed = await parseWorkbookBuffer(await syntheticWorkbookBuffer());
+    const snapshot = snapshotFromParsed(parsed);
+    const item = snapshot.items.find((i) => i.name === "Mag lock")!;
+    item.laborUnits = "0.1";
+
+    const plan = planImport(snapshot, parsed);
+    assert.equal(plan.itemUpdates.length, 1);
+    assert.equal(plan.itemUpdates[0]!.name, "Mag lock");
+    assert.equal(plan.itemUpdates[0]!.changes[0]!.field, "laborUnits");
+    assert.equal(plan.itemCreates.length, 0);
+    assert.equal(plan.unchangedItemCount, 1);
+  });
+
+  it("export then re-import yields zero changes", async () => {
+    const parsed = await parseWorkbookBuffer(await syntheticWorkbookBuffer());
+    const domains = parsed.domains.map((d, di) => ({
+      name: d.name,
+      sortOrder: di,
+      categories: d.categories.map((c, ci) => ({
+        name: c.name,
+        sortOrder: ci,
+        items: c.items.map((item) => ({
+          name: item.name,
+          unitCode: item.unitCode,
+          laborUnits: String(item.laborUnits),
+          laborUnitNotes: item.laborUnitNotes,
+        })),
+      })),
+    }));
+    const exported = await buildExportWorkbookBuffer(domains);
+    const reparsed = await parseWorkbookBuffer(exported);
+    const snapshot = snapshotFromParsed(parsed);
+    const plan = planImport(snapshot, reparsed);
+    const summary = summarizePlan(plan);
+    assert.equal(summary.domainsCreated, 0);
+    assert.equal(summary.categoriesCreated, 0);
+    assert.equal(summary.itemsCreated, 0);
+    assert.equal(summary.itemsUpdated, 0);
+  });
+});
+
+function snapshotFromParsed(parsed: ParsedWorkbook): ExistingSnapshot {
+  const units = new Map<string, { id: string; code: string }>();
+  const domains: ExistingSnapshot["domains"] = [];
+  const categories: ExistingSnapshot["categories"] = [];
+  const items: ExistingSnapshot["items"] = [];
+
+  parsed.domains.forEach((d, di) => {
+    const domainId = `d${di}`;
+    const domainSlug = slugify(d.name);
+    domains.push({
+      id: domainId,
+      name: d.name,
+      slug: domainSlug,
+      sortOrder: di,
+    });
+    d.categories.forEach((c, ci) => {
+      const categoryId = `c${di}_${ci}`;
+      const categorySlug = slugify(c.name);
+      categories.push({
+        id: categoryId,
+        domainId,
+        domainSlug,
+        name: c.name,
+        slug: categorySlug,
+        sortOrder: ci,
+      });
+      c.items.forEach((item, ii) => {
+        const code = item.unitCode.toUpperCase();
+        if (!units.has(code)) {
+          units.set(code, { id: `u_${code}`, code });
+        }
+        items.push({
+          id: `i${di}_${ci}_${ii}`,
+          categoryId,
+          domainSlug,
+          categorySlug,
+          name: item.name,
+          unitCode: code,
+          laborUnits: String(item.laborUnits),
+          laborUnitNotes: item.laborUnitNotes,
+        });
+      });
+    });
+  });
+
+  return {
+    units: [...units.values()],
+    domains,
+    categories,
+    items,
+  };
+}

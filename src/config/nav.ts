@@ -38,6 +38,13 @@ export const navSections: NavSection[] = [
         roles: ["admin", "staff"],
         surface: "desktop",
       },
+      {
+        label: "Catalog I/O",
+        href: "/materials/import-export",
+        icon: "Package",
+        roles: ["admin", "staff"],
+        surface: "desktop",
+      },
     ],
   },
 ];

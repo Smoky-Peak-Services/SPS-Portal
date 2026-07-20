@@ -16,7 +16,7 @@ This is being built by one person (Ryan) with a real services company's operatio
 
 Smoky Peak Services LLC is a multi-division contractor and short-term-rental service company. This portal is its internal ERP: staff/admin operations, field jobs, scheduling, and (eventually) estimating, billing, and job costing.
 
-**Current state (2026-07-19): the app is a dashboard-only shell.** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume any feature area beyond sign-in, the dashboard, and account exists until it's rebuilt.
+**Current state (2026-07-19): dashboard shell + materials catalog (CRUD + Excel import/export).** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume any feature area beyond sign-in, the dashboard, account, and materials exists until it's rebuilt.
 
 Divisions as currently modeled in `src/config/company.ts` (the single source of truth for company/division/branding — edit only that file for those changes):
 
@@ -125,6 +125,17 @@ Tax fields (`taxProfile`, `stripeTaxCode`) are classification metadata only: ite
 `MaterialCategory.requiresManualPartNumber` flags that future quote lines must collect a real part number; do not add `partNumber` / manufacturer to `MaterialItem`.
 
 Admin UI: `/materials` (desktop-only, `requireArea("materials")` — admin + staff). Feature code: `src/features/materials/`. Write-time validation rejects attribute values not assigned to the item's category and rejects missing required attributes.
+
+### Import / export (Excel)
+
+Round-trip Excel for a **Division + Segment** scope via `/materials/import-export` and `GET /api/materials/export`:
+
+- Workbook: one sheet per domain name; category blocks = title row → literal header `description | unit | laborUnits | laborUnitNotes` → items → blank separator. Empty categories (header, zero items) are valid.
+- Scope code (e.g. `IS_COM`) is derived from `company.divisions[].code` + segment abbrev; filename `catalog_{SCOPE}_{YYYY-MM-DD}.xlsx` only pre-fills a guess.
+- Matching uses whitespace-normalized names (`normalizeName` / slugify). Item uniqueness is `@@unique([categoryId, name])`.
+- Upsert only: create missing domains/categories/units/items; update item when unit/laborUnits/laborUnitNotes differ; **never delete** rows absent from the file.
+- Flow: `previewMaterialsImport` (admin/staff, no writes) → `commitMaterialsImport` (**admin only**, re-parses file, single `$transaction`).
+- Fixture for ground-truth counts (5 domains / 115 categories / 102 items): `claude/prompts/samples/catalog_IS_COM_2026-07-08.xlsx` — drop the file there when available; unit tests use a synthetic workbook until then (`npm run test:materials-io`).
 
 ---
 
