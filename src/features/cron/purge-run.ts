@@ -1,11 +1,11 @@
 /**
- * Right-to-erasure purge stub.
+ * Right-to-erasure purge stub (lead-focused until CRM returns).
  *
  * When wired to a cron:
- * 1. Find PII customers with archivedAt older than company.retention.customerArchiveYears
- * 2. Delete related ops jobs/tickets by customerId string match
- * 3. Hard-delete the PII customer (cascades contacts, locations, activities)
- * 4. Find closed leads older than leadArchiveYears and delete
+ * 1. Find closed PII leads older than company.retention.leadArchiveYears and delete
+ *    (cascades lead-scoped activities)
+ * 2. When Customer/CRM models return: archive past customerArchiveYears, then
+ *    hard-delete PII customers and cascade-related ops rows by string id match
  *
  * This module is intentionally a no-op skeleton so the erasure path is documented
  * before tax/billing complexity lands.

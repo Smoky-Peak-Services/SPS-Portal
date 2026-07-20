@@ -1,5 +1,5 @@
-// SPS Portal 2.0 — ops-tier schema (staff, jobs, tickets, auth).
-// Customer PII lives in prisma/pii/schema.prisma (separate Neon project).
+// SPS Portal 2.0 — ops-tier schema (auth + org only; Field Ops rebuilt later).
+// Customer / lead PII lives in prisma/pii/schema.prisma (separate Neon project).
 
 generator client {
   provider = "prisma-client-js"
@@ -16,51 +16,6 @@ enum Role {
   sales
 }
 
-enum JobStatus {
-  NEW
-  SCHEDULED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-  ON_HOLD
-}
-
-enum JobPriority {
-  LOW
-  NORMAL
-  HIGH
-  URGENT
-}
-
-enum JobBillingBasis {
-  TIME_AND_MATERIALS
-  NOT_TO_EXCEED
-  QUOTE
-}
-
-enum TicketStatus {
-  UNASSIGNED
-  ASSIGNED
-  EN_ROUTE
-  ONSITE
-  COMPLETED
-  CANCELLED
-  ON_HOLD
-}
-
-enum TicketSource {
-  STAFF
-  CUSTOMER
-  WEBSITE
-  PHONE
-  SYSTEM
-}
-
-enum TimeEntrySource {
-  TIMER
-  MANUAL
-}
-
 // ---------- Better-Auth core ----------
 
 model User {
@@ -74,18 +29,9 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions          Session[]
-  accounts          Account[]
-  memberships       DivisionMembership[]
-  jobsAssigned      Job[]                @relation("JobAssignee")
-  jobsCreated       Job[]                @relation("JobCreatedBy")
-  jobStatusEvents   JobStatusEvent[]     @relation("JobStatusEventBy")
-  timeEntries       TimeEntry[]
-  ticketsAssigned   Ticket[]             @relation("TicketAssignee")
-  ticketsCreated    Ticket[]             @relation("TicketCreatedBy")
-  ticketStatusEvents TicketEvent[]       @relation("TicketEventBy")
-  jobAssignments    JobAssignment[]
-  ticketAssignments TicketAssignment[]
+  sessions    Session[]
+  accounts    Account[]
+  memberships DivisionMembership[]
 
   @@map("user")
 }
@@ -145,8 +91,6 @@ model Division {
   updatedAt DateTime @updatedAt
 
   memberships DivisionMembership[]
-  jobs        Job[]
-  tickets     Ticket[]
 
   @@map("division")
 }
@@ -176,163 +120,4 @@ model Invitation {
 
   @@index([email])
   @@map("invitation")
-}
-
-// ---------- Field Ops ----------
-
-model Job {
-  id              String          @id @default(cuid())
-  number          String?         @unique
-  divisionId      String
-  division        Division        @relation(fields: [divisionId], references: [id])
-  // PII boundary: IDs only — join display names via pii-join.
-  customerId      String?
-  propertyId      String?
-  type            String          @default("service")
-  title           String
-  description     String?
-  billingBasis    JobBillingBasis @default(TIME_AND_MATERIALS)
-  notToExceed     Decimal?        @db.Decimal(12, 2)
-  status          JobStatus       @default(NEW)
-  priority        JobPriority     @default(NORMAL)
-  scheduledFor    DateTime?
-  scheduledEndsAt DateTime?
-  completedAt     DateTime?
-  assignedToId    String?
-  assignedTo      User?           @relation("JobAssignee", fields: [assignedToId], references: [id])
-  createdById     String
-  createdBy       User            @relation("JobCreatedBy", fields: [createdById], references: [id])
-  meta            Json?
-
-  statusEvents JobStatusEvent[]
-  timeEntries  TimeEntry[]
-  tickets      Ticket[]
-  assignments  JobAssignment[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-
-  @@index([divisionId])
-  @@index([status])
-  @@index([assignedToId])
-  @@index([scheduledFor])
-  @@index([customerId])
-  @@map("job")
-}
-
-model JobStatusEvent {
-  id        String    @id @default(cuid())
-  jobId     String
-  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  fromStatus JobStatus?
-  toStatus  JobStatus
-  note      String?
-  byId      String?
-  by        User?     @relation("JobStatusEventBy", fields: [byId], references: [id], onDelete: SetNull)
-  createdAt DateTime  @default(now())
-
-  @@index([jobId])
-  @@map("job_status_event")
-}
-
-model JobAssignment {
-  id        String   @id @default(cuid())
-  jobId     String
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  isPrimary Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@unique([jobId, userId])
-  @@index([userId])
-  @@map("job_assignment")
-}
-
-model Ticket {
-  id              String        @id @default(cuid())
-  number          String        @unique
-  divisionId      String
-  division        Division      @relation(fields: [divisionId], references: [id])
-  customerId      String?
-  propertyId      String?
-  title           String
-  description     String?
-  source          TicketSource  @default(STAFF)
-  status          TicketStatus  @default(UNASSIGNED)
-  priority        JobPriority   @default(NORMAL)
-  scheduledFor    DateTime?
-  scheduledEndsAt DateTime?
-  completedAt     DateTime?
-  completionNotes String?
-  assignedToId    String?
-  assignedTo      User?         @relation("TicketAssignee", fields: [assignedToId], references: [id])
-  createdById     String
-  createdBy       User          @relation("TicketCreatedBy", fields: [createdById], references: [id])
-  jobId           String?
-  job             Job?          @relation(fields: [jobId], references: [id])
-
-  statusEvents TicketEvent[]
-  assignments  TicketAssignment[]
-  timeEntries  TimeEntry[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-
-  @@index([divisionId])
-  @@index([status])
-  @@index([assignedToId])
-  @@index([customerId])
-  @@index([jobId])
-  @@index([scheduledFor])
-  @@map("ticket")
-}
-
-model TicketEvent {
-  id         String        @id @default(cuid())
-  ticketId   String
-  ticket     Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  fromStatus TicketStatus?
-  toStatus   TicketStatus
-  note       String?
-  byId       String?
-  by         User?         @relation("TicketEventBy", fields: [byId], references: [id], onDelete: SetNull)
-  createdAt  DateTime      @default(now())
-
-  @@index([ticketId])
-  @@map("ticket_event")
-}
-
-model TicketAssignment {
-  id        String   @id @default(cuid())
-  ticketId  String
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  isPrimary Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@unique([ticketId, userId])
-  @@index([userId])
-  @@map("ticket_assignment")
-}
-
-model TimeEntry {
-  id         String          @id @default(cuid())
-  jobId      String?
-  job        Job?            @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  ticketId   String?
-  ticket     Ticket?         @relation(fields: [ticketId], references: [id], onDelete: SetNull)
-  userId     String
-  user       User            @relation(fields: [userId], references: [id])
-  startedAt  DateTime
-  endedAt    DateTime?
-  minutes    Int?
-  source     TimeEntrySource
-  note       String?
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-
-  @@index([jobId])
-  @@index([ticketId])
-  @@index([userId])
-  @@map("time_entry")
 }

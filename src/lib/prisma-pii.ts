@@ -77,4 +77,4 @@ export const prismaPii = new Proxy({} as PrismaClient, {
   },
 });
 
-export type { CustomerType, LeadStatus, LeadSource, ActivityType } from "../../prisma/generated/pii";
+export type { LeadStatus, LeadSource, ActivityType } from "../../prisma/generated/pii";

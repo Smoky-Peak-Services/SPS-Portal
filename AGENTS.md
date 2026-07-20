@@ -29,7 +29,7 @@ Two things described in `claude/project-context.md` are **not yet in code**: the
 
 ## 2. Current phase and deliberate non-goals
 
-Per the project `README.md`: this is "Phase 1: buildable base + Field Ops shell." The following are explicitly **not built yet, on purpose** — don't add them speculatively even though `claude/project-context.md` describes them as the eventual target:
+Per the project `README.md`: this is a login + dashboard shell baseline (Field Ops rebuilt next). The following are explicitly **not built yet, on purpose** — don't add them speculatively even though `claude/project-context.md` describes them as the eventual target:
 
 - No custom Tennessee tax engine, de-minimis logic, or use-tax accruals.
 - No Stripe invoice push or payments Lambda.
@@ -45,7 +45,9 @@ A first pass built `Job` and `Ticket` as two separate top-level entities (a `Tic
 
 On 2026-07-19 the jobs/tickets/schedule/CRM buildout was reverted back to a dashboard-only shell (checkpoint commit `a2caa11`, message "Checkpoint: full field-ops build (jobs/tickets/schedule/CRM) before reset to dashboard-only shell" — the old code is fully recoverable from git history if any of it is worth salvaging, but treat it as reference only, not a base to build on). What survived the reset: auth, sessions, permissions scaffolding, company config, device-surface (mobile/desktop) plumbing, the ops/PII database split and its client libraries, the public lead-ingest endpoint, and the erasure-purge stub.
 
-**The rebuild plan going forward is piece by piece, tested at each step, in this order:** quoting/estimating first, because it drives almost everything else (it's the entry point that should create the operational work item directly, ServiceM8/ServiceTitan-style — one work-order entity, no separate ticket-to-job conversion step). `prisma/schema.prisma` still contains the old `Job`/`Ticket` models and related enums (they're unused by any app code right now, not deleted, since redesigning the schema is part of the quoting/estimating rebuild, not a bare cleanup task) — expect that schema to be redesigned, not just re-wired, when that work starts. Don't resurrect the old two-entity shape when building the new work-order model unless the user asks for it back.
+**The rebuild plan going forward is piece by piece, tested at each step, in this order:** quoting/estimating first, because it drives almost everything else (it's the entry point that should create the operational work item directly, ServiceM8/ServiceTitan-style — one work-order entity, no separate ticket-to-job conversion step).
+
+**Schemas now match that baseline:** ops `prisma/schema.prisma` is auth + org only (no `Job`/`Ticket` residue). PII keeps lead ingest (`Division`, `Lead`, `Activity`, `IngestKey`); CRM `Customer` / `Contact` / `ServiceLocation` were dropped until that phase. Don't resurrect the old two-entity Job/Ticket shape when building the new work-order model unless the user asks for it back.
 
 ---
 
@@ -75,7 +77,6 @@ What's actually here, in `src/`, post-reset (§2a):
 - **`lib/`** — infra clients and cross-cutting helpers, no business rules:
   - `prisma.ts` — ops DB client.
   - `prisma-pii.ts` — PII DB client (lazy proxy, see §5).
-  - `pii-join.ts` — the manual join layer between ops rows and PII data (see §5).
   - `auth.ts` — Better Auth configuration.
   - `session.ts` — `getSession`, `requireUser`, `requireArea` (see §6).
   - `device-surface.ts`, `get-server-surface.ts`, `require-desktop.ts` — mobile vs. desktop routing (see §7).
@@ -95,22 +96,21 @@ This is the single most important — and most fragile — architectural decisio
 |---|---|---|
 | Schema | `prisma/schema.prisma` | `prisma/pii/schema.prisma` |
 | Client | `src/lib/prisma.ts` → `prisma` | `src/lib/prisma-pii.ts` → `prismaPii` |
-| Owns | `User`, `Session`, `Account`, `Division`, `Job`, `Ticket`, time entries, status events, invitations | `Customer`, `Contact`, `ServiceLocation`, `Lead`, `Activity`, `IngestKey` |
+| Owns | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation` | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
+| Deferred | Field Ops / work-order models | CRM `Customer`, `Contact`, `ServiceLocation` |
 | Env vars | `OPS_DATABASE_URL`, `OPS_DIRECT_URL` | `PII_DATABASE_URL`, `PII_DIRECT_URL` |
 | Generate | `npm run db:generate` | `npm run db:generate:pii` |
 | Migrate | `npm run db:migrate` | `npm run db:migrate:pii` |
 
-`Job` and `Ticket` (and their status/assignment/time-entry tables) still exist in `prisma/schema.prisma` but are currently unused by any app code — see §2a. Expect them to be redesigned into a single work-order entity when quoting/estimating is rebuilt, not just re-wired to new pages.
+`Division` is replicated into the PII database (same `id`, no FK) so PII rows can reference a division without crossing the boundary; run `npm run sync:divisions-pii` after any ops migration that touches `Division` rows. There is no cross-database Prisma relation.
 
-`Job` and `Ticket` in the ops schema hold `customerId` / `propertyId` as **plain strings, not Prisma relations** — there is no cross-database foreign key. `Division` is replicated into the PII database (same `id`, no FK) so PII rows can reference a division without crossing the boundary; run `npm run sync:divisions-pii` after any ops migration that touches `Division` rows.
+**The rule: never add a PII-identity column (name, email, phone, street address) to the ops schema.** This is mechanically enforced by `src/features/accounting/ops-pii-schema-guard.test.ts` (`npm run test:schema-guard`), which greps the ops schema for forbidden field names and asserts PII still owns lead ingest (and not deferred CRM models). Run it after touching either schema. When ops rows later need customer display data, batch-fetch from `prismaPii` and merge in memory — don't add a cross-DB relation.
 
-**The rule: never add a PII-identity column (name, email, phone, street address) to the ops schema.** This is mechanically enforced by `src/features/accounting/ops-pii-schema-guard.test.ts` (`npm run test:schema-guard`), which greps both schema files for forbidden field names and asserts `Job`/`Ticket` keep `customerId?`/`propertyId?` as their only PII pointers. Run it after touching either schema. If a task seems to need customer data joined onto an ops row, the answer is `attachCustomers()` / `attachLocations()` in `src/lib/pii-join.ts`, which batch-fetch from `prismaPii` and merge in memory — follow that pattern, don't add a relation.
-
-**The PII database is not guaranteed to be configured.** On Vercel, PII access is meant to go through AWS Secrets Manager (`CLIENT_DB_SECRET_ARN`), which per the README is **not wired yet** — until it is, CRM customer joins on Vercel need either a local/monolith setup or a temporary ops=pii configuration. Because of this, `isPiiConfigured()` (in `prisma-pii.ts`) must be checked before relying on `prismaPii`, and every caller must degrade gracefully — return `null` customer/property data, never let a missing PII config throw and 500 the page. `pii-join.ts` and `src/features/ingress/lead-handler.ts` both already follow this pattern (the lead handler returns a `503` with `reason: "pii_unconfigured"` rather than throwing); match it in new code.
+**The PII database is not guaranteed to be configured.** On Vercel, PII access is meant to go through AWS Secrets Manager (`CLIENT_DB_SECRET_ARN`), which per the README is **not wired yet**. Because of this, `isPiiConfigured()` (in `prisma-pii.ts`) must be checked before relying on `prismaPii`, and every caller must degrade gracefully — never let a missing PII config throw and 500 the page. `src/features/ingress/lead-handler.ts` returns a `503` with `reason: "pii_unconfigured"` rather than throwing; match it in new code.
 
 **Public lead intake** (`POST /api/v1/leads`, handled by `handleLeadIngest` in `src/features/ingress/lead-handler.ts`) writes directly into the PII database. It authenticates via a per-division `IngestKey` (hashed, checked against `x-ingest-key`) or a shared server secret (`INGEST_SERVER_SECRET` against `x-ingest-secret`) — treat this endpoint as public-internet-facing and validate accordingly; `proxy.ts` already restricts it to `POST`/`OPTIONS`.
 
-**Right to erasure**: retention windows live in `company.retention` (`customerArchiveYears`, `leadArchiveYears`). `src/features/cron/purge-run.ts` is currently an intentional no-op stub documenting the erasure path (archive customers past the cutoff → cascade-delete their ops jobs/tickets by `customerId` string match → hard-delete the PII customer → delete stale closed leads). It is not wired to a real cron yet. Don't implement the real deletion logic without checking with the user first — this is exactly the kind of code where a bug deletes real customer data.
+**Right to erasure**: retention windows live in `company.retention` (`customerArchiveYears`, `leadArchiveYears`). `src/features/cron/purge-run.ts` is currently an intentional no-op stub documenting the erasure path (today: closed leads past the cutoff; later: archived customers and related ops rows by string id match). It is not wired to a real cron yet. Don't implement the real deletion logic without checking with the user first — this is exactly the kind of code where a bug deletes real customer data.
 
 ---
 
@@ -200,5 +200,5 @@ npm run sync:divisions-pii   # re-sync Division rows ops -> pii after an ops mig
 
 - `claude/project-context.md` — full scope, stack rationale, reference platforms/repos, build order.
 - `claude/ARCHITECTURE.md` — target layered architecture and worked request traces.
-- `README.md` — quick-start, env file table, Field Ops route table.
+- `README.md` — quick-start, env file table, current portal routes.
 - `.cursor/rules/*.mdc` — the same guardrails as short, glob-scoped Cursor rules.

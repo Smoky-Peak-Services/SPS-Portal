@@ -1,6 +1,6 @@
 ---
 description: Ops/PII database split - the most fragile rule in this codebase
-globs: prisma/**/*,src/lib/prisma*.ts,src/lib/pii-join.ts,src/features/**/*.ts
+globs: prisma/**/*,src/lib/prisma*.ts,src/features/**/*.ts
 alwaysApply: false
 ---
 
@@ -8,11 +8,11 @@ alwaysApply: false
 
 Two separate Postgres databases, two separate Prisma schemas:
 
-- `prisma/schema.prisma` → ops DB, client `src/lib/prisma.ts` (`prisma`). Jobs, tickets, divisions, users, schedule. Holds `customerId` / `propertyId` foreign references only, never the underlying identity data.
-- `prisma/pii/schema.prisma` → PII DB, client `src/lib/prisma-pii.ts` (`prismaPii`, a lazily-connected proxy). Owns `Customer`, `Lead`, `ServiceLocation`, `IngestKey` — anything with a name, email, phone, or street address.
+- `prisma/schema.prisma` → ops DB, client `src/lib/prisma.ts` (`prisma`). Auth (`User`/`Session`/`Account`/`Verification`), `Division`, memberships, invitations. No Field Ops models yet (jobs/tickets rebuilt later).
+- `prisma/pii/schema.prisma` → PII DB, client `src/lib/prisma-pii.ts` (`prismaPii`, a lazily-connected proxy). Owns lead ingest: `Division` (replicated), `Lead`, `Activity`, `IngestKey`. CRM `Customer` / `Contact` / `ServiceLocation` are deferred.
 
-**Never add a PII-identity column (name, email, phone, street address) to the ops schema.** This is enforced by `src/features/accounting/ops-pii-schema-guard.test.ts` (`npm run test:schema-guard`) — run it after touching either schema. To attach customer or property display data to an ops row, join in application code via `attachCustomers` / `attachLocations` in `src/lib/pii-join.ts`. There is no cross-database Prisma relation; don't try to model one.
+**Never add a PII-identity column (name, email, phone, street address) to the ops schema.** This is enforced by `src/features/accounting/ops-pii-schema-guard.test.ts` (`npm run test:schema-guard`) — run it after touching either schema. When ops rows later need customer display data, join in application code against `prismaPii` (batch fetch + merge). There is no cross-database Prisma relation; don't try to model one.
 
-The PII DB is not guaranteed to be configured in every environment (Vercel `CLIENT_DB_SECRET_ARN` wiring is still pending — see the header comment in `prisma-pii.ts`). Always check `isPiiConfigured()` before relying on `prismaPii`, and degrade gracefully (return `null` customer/property rather than throw) — `pii-join.ts` already follows this pattern; match it in new code instead of calling `prismaPii` directly and letting a missing config crash the page.
+The PII DB is not guaranteed to be configured in every environment (Vercel `CLIENT_DB_SECRET_ARN` wiring is still pending — see the header comment in `prisma-pii.ts`). Always check `isPiiConfigured()` before relying on `prismaPii`, and degrade gracefully (e.g. lead ingest returns `503` / `pii_unconfigured`) — match that pattern in new code instead of letting a missing config crash the page.
 
 Two schemas mean two of most commands: `db:generate` + `db:generate:pii`, `db:migrate` + `db:migrate:pii`. Run `sync:divisions-pii` after an ops migration touches `Division` rows, to keep the two databases' division tables aligned.

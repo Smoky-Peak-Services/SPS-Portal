@@ -1,20 +1,18 @@
 # SPS Portal 2.0
 
-Fresh rebuild of the Smoky Peak Services portal. Phase 1: buildable base + Field Ops shell.
+Fresh rebuild of the Smoky Peak Services portal. Current baseline: invite-only login + empty dashboard shell + public lead ingest. Field Ops / CRM are rebuilt next in a structured pass.
 
 ## Architecture
 
 - **Node 24** Active LTS · **Next.js 16** App Router · React 19 · TypeScript 5 · Tailwind 3
-- **Dual Neon Postgres**: ops (staff, jobs, tickets, auth) + PII (customers, leads, locations)
+- **Dual Neon Postgres**: ops (auth, divisions, invitations) + PII (leads, ingest keys)
 - **Better Auth** — invite-only email/password
 - **Company config** — `src/config/company.ts` is the clone-via-config single source of truth
-- **Feature folders** — `src/features/{jobs,tickets,schedule,crm,ingress}`
-
-Ops tables store `customerId` / `propertyId` as plain strings (no cross-DB FKs). Display names are joined via `src/lib/pii-join.ts`.
+- **Feature folders** — today: `auth`, `ingress`, `cron`, `accounting` (schema guard). Domain folders return as each phase lands.
 
 ## Right to erasure
 
-Customer identity lives only in the PII database. Retention windows are in `company.retention`. The purge stub (`src/features/cron/purge-run.ts`) documents the erase path; wire a cron when ready.
+Lead (and future customer) identity lives only in the PII database. Retention windows are in `company.retention`. The purge stub (`src/features/cron/purge-run.ts`) documents the erase path; wire a cron when ready.
 
 Public marketing forms ingest into PII via `POST /api/v1/leads` (per-division `IngestKey`).
 
@@ -63,22 +61,17 @@ powershell -File scripts/sync-vercel-env.ps1 -EnvFile .env.vercel `
   -Keys OPS_DATABASE_URL,OPS_DIRECT_URL,BETTER_AUTH_SECRET,BETTER_AUTH_URL,NEXT_PUBLIC_APP_URL
 ```
 
-Until `CLIENT_DB_SECRET_ARN` is wired, CRM customer joins on Vercel need local/monolith PII or a temporary ops=pii setup.
+Until `CLIENT_DB_SECRET_ARN` is wired, PII-backed features (lead ingest) need `PII_DATABASE_URL` locally; on Vercel without that wiring, lead ingest returns `503` / `pii_unconfigured`.
 
 ## PWA
 
 Installable standalone app (browser “Install” / Add to Home Screen). Service worker registers in production only.
 
-## Mobile vs desktop surfaces
-
-Same codebase. Mobile surfaces: My Day, Jobs, Tickets, Schedule, Account. Desktop-only: Dashboard, Clients, create job/ticket forms.
-
-## Field Ops (phase 1)
+## Portal routes (current)
 
 | Route | Purpose |
 |-------|---------|
-| `/jobs` | Jobs CRUD |
-| `/tickets` | Service tickets |
-| `/schedule` | Week list + assign tech |
-| `/field/today` | My Day |
-| `/clients` | Minimal CRM (PII) — desktop |
+| `/sign-in` | Invite-only sign-in |
+| `/` | Empty dashboard shell |
+| `/account` | Profile |
+| `POST /api/v1/leads` | Public lead ingest (PII) |
