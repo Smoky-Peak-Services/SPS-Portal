@@ -67,11 +67,11 @@ On 2026-07-19 the jobs/tickets/schedule/CRM buildout was reverted back to a dash
 
 `claude/ARCHITECTURE.md` describes a target layering: `app/` (thin UI) → `server/` (tRPC routers) → `services/` (all business logic) → `lib/` (infra clients), plus `functions/` for Lambda event consumers. **None of `server/`, `services/`, or `functions/` exist in this repo, and there is no tRPC.** Do not create them or introduce tRPC unless the user explicitly asks for that migration — it's a real plan for later, not a mistake to silently "fix" now.
 
-What's actually here, in `src/`, post-reset (§2a):
+What's actually here, in `src/`, post-reset (§2a) plus materials catalog:
 
-- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account` and the dashboard (`page.tsx`) only. Add a new folder per area as it's rebuilt.
-- **`features/<domain>/`** — where the real logic lives, one folder per domain. Today that's just `accounting` (schema-guard test only), `auth` (sign-in form), `cron` (purge stub), and `ingress` (public lead intake) — the domains with real business logic (jobs/tickets/schedule/crm) were removed in the reset and will return one at a time, starting with quoting/estimating. The shape to build new domains in, once a domain has enough logic to need it:
-  - `actions.ts` — `"use server"` Server Actions. Every exported action follows the same order: `requireUser()`/`requireArea(area)` first, then `schema.parse(raw)`, then the Prisma call(s), then `revalidatePath(...)` for every route that shows the changed data. (The pre-reset `src/features/jobs/actions.ts` was the reference implementation of this pattern — it's gone from the working tree but recoverable from checkpoint commit `a2caa11` if you want to see it.)
+- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account`, dashboard (`page.tsx`), and `materials` (admin catalog CRUD).
+- **`features/<domain>/`** — where the real logic lives, one folder per domain. Today: `materials` (catalog EAV), `accounting` (schema-guard test), `auth`, `cron`, `ingress`. Jobs/tickets/schedule/crm were removed in the reset (§2a) and return later (quoting next). Domain shape:
+  - `actions.ts` — `"use server"` Server Actions. Every exported action follows the same order: `requireUser()`/`requireArea(area)` first, then `schema.parse(raw)`, then the Prisma call(s), then `revalidatePath(...)` for every route that shows the changed data.
   - `schemas.ts` — Zod schemas shared between the server action and the client form.
   - `components/` — feature-specific UI.
 - **`lib/`** — infra clients and cross-cutting helpers, no business rules:
@@ -96,7 +96,7 @@ This is the single most important — and most fragile — architectural decisio
 |---|---|---|
 | Schema | `prisma/schema.prisma` | `prisma/pii/schema.prisma` |
 | Client | `src/lib/prisma.ts` → `prisma` | `src/lib/prisma-pii.ts` → `prismaPii` |
-| Owns | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation` | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
+| Owns | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`) | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
 | Deferred | Field Ops / work-order models | CRM `Customer`, `Contact`, `ServiceLocation` |
 | Env vars | `OPS_DATABASE_URL`, `OPS_DIRECT_URL` | `PII_DATABASE_URL`, `PII_DIRECT_URL` |
 | Generate | `npm run db:generate` | `npm run db:generate:pii` |
@@ -114,9 +114,23 @@ This is the single most important — and most fragile — architectural decisio
 
 ---
 
+## 5a. Materials catalog (ops)
+
+Foundation for quoting. Ops-only EAV taxonomy — no customer PII, no tax calculation, no part numbers on items.
+
+Hierarchy: `MaterialDomain` (scoped to `divisionId` + `Segment`) → `MaterialCategory` → `MaterialItem`, with global `MaterialAttribute` / options assigned to categories via `MaterialAttributeAssignment`. Units live in `MaterialUnit` (seeded: EACH, FT, BOX, ROLL).
+
+Tax fields (`taxProfile`, `stripeTaxCode`) are classification metadata only: item override → category default → null. Never invent a fallback Stripe code. Resolve with `resolveItemTaxClassification` in `src/features/materials/tax.ts`.
+
+`MaterialCategory.requiresManualPartNumber` flags that future quote lines must collect a real part number; do not add `partNumber` / manufacturer to `MaterialItem`.
+
+Admin UI: `/materials` (desktop-only, `requireArea("materials")` — admin + staff). Feature code: `src/features/materials/`. Write-time validation rejects attribute values not assigned to the item's category and rejects missing required attributes.
+
+---
+
 ## 6. Auth & permissions
 
-Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public sign-up, 1-hour session with a 5-minute update window. Roles: `admin | staff | sales | field` (`src/config/permissions.ts`, mirrored in the ops `Role` enum). Area access is governed by `AREA_ROLES` + `canAccess()` — change access there, never with an inline role check in a page or action. Post-reset (§2a), `AREA_ROLES` is trimmed to just `dashboard` and `settings`; add an area key per feature as it's rebuilt rather than reusing `dashboard` for everything.
+Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public sign-up, 1-hour session with a 5-minute update window. Roles: `admin | staff | sales | field` (`src/config/permissions.ts`, mirrored in the ops `Role` enum). Area access is governed by `AREA_ROLES` + `canAccess()` — change access there, never with an inline role check in a page or action. Areas today: `dashboard`, `materials` (admin/staff), `settings`. Add an area key per feature as it's rebuilt.
 
 Every Server Action's first line is `requireUser()` or `requireArea(area)` from `src/lib/session.ts`. This does two jobs at once: it's the actual permission gate, and it returns the acting `SessionUser` used for audit fields (`createdById`, `byId` on status-change events). Client-side role checks — hiding a nav item, disabling a button — are UX convenience only. A user can always call a Server Action directly, so the server-side check is the one that matters and must be present even when the UI already hid the option.
 
@@ -128,7 +142,7 @@ Every Server Action's first line is `requireUser()` or `requireArea(area)` from 
 
 ## 7. Mobile vs. desktop surfaces
 
-One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. Post-reset (§2a), `isDesktopOnlyPath()` always returns `false` and `MOBILE_FALLBACK_ROUTE` is `/` — the dashboard shell works on any surface. Re-populate the desktop-only path list and pick a real mobile fallback route as features that need that split (e.g. a desktop-only client/quote builder, a mobile-first field surface) come back. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
+One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. `/materials` and children are desktop-only; `MOBILE_FALLBACK_ROUTE` is `/`. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
 
 Navigation visibility is driven by `src/config/nav.ts` (`navSections`, each `NavItem` carries `roles` and `surface: "mobile" | "desktop" | "both"`), filtered by `filterNavForRole()`. If you add a new desktop-only or mobile-only route, register it in both `device-surface.ts` (for the redirect) and `nav.ts` (for visibility) — they are not derived from each other.
 

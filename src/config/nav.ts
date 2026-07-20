@@ -18,8 +18,7 @@ export interface NavSection {
   items: NavItem[];
 }
 
-// Trimmed to a dashboard-only shell (see AGENTS.md). Add sections back here
-// as each feature is rebuilt, piece by piece, starting with quoting/estimating.
+// Dashboard shell + materials catalog. Add sections as features rebuild.
 export const navSections: NavSection[] = [
   {
     id: "operations",
@@ -31,6 +30,13 @@ export const navSections: NavSection[] = [
         icon: "LayoutDashboard",
         roles: ["admin", "staff", "sales", "field"],
         surface: "both",
+      },
+      {
+        label: "Materials",
+        href: "/materials",
+        icon: "Package",
+        roles: ["admin", "staff"],
+        surface: "desktop",
       },
     ],
   },

@@ -10,11 +10,10 @@ export function surfaceFromViewportWidth(width: number): DeviceSurface {
 
 /**
  * Routes that require a desktop surface (mobile redirects away).
- * Empty for now — the dashboard-only shell works on any surface. Add
- * desktop-only routes back here as features that need them are rebuilt.
+ * Materials admin is desktop-only; add more as features that need them rebuild.
  */
-export function isDesktopOnlyPath(_pathname: string): boolean {
-  return false;
+export function isDesktopOnlyPath(pathname: string): boolean {
+  return pathname === "/materials" || pathname.startsWith("/materials/");
 }
 
 export const MOBILE_FALLBACK_ROUTE = "/";

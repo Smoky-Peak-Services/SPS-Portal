@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CircleUser, LayoutDashboard } from "lucide-react";
+import { CircleUser, LayoutDashboard, Package } from "lucide-react";
 import {
   filterFooterForRole,
   filterNavForRole,
@@ -14,6 +14,7 @@ import type { DeviceSurface } from "@/lib/device-surface";
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
   CircleUser,
+  Package,
 };
 
 export function PortalNavLinks({

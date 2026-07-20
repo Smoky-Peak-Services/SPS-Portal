@@ -8,13 +8,13 @@ alwaysApply: true
 
 `claude/ARCHITECTURE.md` describes a target layering: tRPC `server/routers`, a `services/` business-logic layer, and `functions/` Lambda consumers. **That layer does not exist in this codebase yet.** Do not create `server/` or `services/` folders or introduce tRPC unless the user explicitly asks for that migration. Build against the pattern actually in `src/` today:
 
-- `src/app/(portal)/<area>/` — pages (Next.js App Router, server components). Keep thin: call feature functions, render the result. **Currently just `account` and the dashboard** — a full jobs/tickets/schedule/CRM buildout was reverted on 2026-07-19 (see `AGENTS.md` §2a and checkpoint commit `a2caa11`) because it repeated a two-entity "ticket, then attach a job" mistake from a prior build. Rebuild is piece by piece, starting with quoting/estimating, targeting one unified work-order entity — don't recreate the old `jobs`/`tickets` split.
-- `src/features/<domain>/` — where real logic lives, one folder per domain. Today that's just `accounting` (schema-guard test), `auth`, `cron`, and `ingress` — see `AGENTS.md` §2a for what was removed and why. Each new domain generally holds:
+- `src/app/(portal)/<area>/` — pages (Next.js App Router, server components). Keep thin: call feature functions, render the result. Areas today: dashboard, `account`, and `materials` (desktop admin catalog). Jobs/tickets/schedule/CRM were reverted 2026-07-19 (see `AGENTS.md` §2a); rebuild is piece by piece after materials (quoting next), targeting one work-order entity — don't recreate the old `jobs`/`tickets` split.
+- `src/features/<domain>/` — where real logic lives. Today: `materials` (catalog EAV), `accounting` (schema-guard), `auth`, `cron`, `ingress`. Each domain generally holds:
   - `actions.ts` — `"use server"` Server Actions. Pattern: auth/permission check first (`requireUser`/`requireArea` from `src/lib/session.ts`), then `schema.parse(raw)`, then the Prisma call, then `revalidatePath(...)` for every affected route.
-  - `schemas.ts` — Zod schemas (Zod 4) for input validation, shared between the action and any client form (`react-hook-form` + `@hookform/resolvers`).
+  - `schemas.ts` — Zod schemas (Zod 4) for input validation, shared between the action and any client form.
   - `components/` — feature-specific UI.
 - `src/lib/` — infra clients and cross-cutting helpers: `prisma.ts` (ops DB client), `prisma-pii.ts` (PII DB client), `auth.ts` (Better Auth config), `session.ts` (session + permission helpers), `device-surface.ts` / `get-server-surface.ts` / `require-desktop.ts` (desktop vs. mobile routing).
-- `src/config/` — `company.ts` (company/division/feature-flag source of truth) and `permissions.ts` (roles + area access rules).
+- `src/config/` — `company.ts` (company/division/feature-flag source of truth) and `permissions.ts` (roles + area access rules; includes `materials` for admin/staff).
 - `src/proxy.ts` — the edge auth gate (this codebase's equivalent of `middleware.ts`): redirects unauthenticated requests to `/sign-in`, restricts `/api/v1/leads` to POST. Update `PUBLIC_PREFIXES` here when adding a new unauthenticated route.
 - `src/components/ui/` — shared UI primitives (shadcn/Radix style).
 

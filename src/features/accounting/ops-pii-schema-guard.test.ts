@@ -37,7 +37,7 @@ describe("ops-pii schema guard", () => {
     }
   });
 
-  it("ops schema is auth + org only (no Field Ops models yet)", () => {
+  it("ops schema is auth + org + materials (no Field Ops Job/Ticket)", () => {
     const schema = readFileSync(
       join(process.cwd(), "prisma", "schema.prisma"),
       "utf8",
@@ -45,6 +45,8 @@ describe("ops-pii schema guard", () => {
     assert.match(schema, /model User \{/);
     assert.match(schema, /model Division \{/);
     assert.match(schema, /model Invitation \{/);
+    assert.match(schema, /model MaterialItem \{/);
+    assert.match(schema, /model MaterialDomain \{/);
     assert.equal(schema.includes("model Job {"), false);
     assert.equal(schema.includes("model Ticket {"), false);
     assert.equal(schema.includes("model TimeEntry {"), false);

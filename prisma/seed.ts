@@ -138,6 +138,22 @@ async function main() {
     }
   }
 
+  console.log("Seeding material units…");
+  const units = [
+    { code: "EACH", name: "Each" },
+    { code: "FT", name: "Foot" },
+    { code: "BOX", name: "Box" },
+    { code: "ROLL", name: "Roll" },
+  ];
+  for (const u of units) {
+    await prisma.materialUnit.upsert({
+      where: { code: u.code },
+      create: u,
+      update: { name: u.name, isActive: true },
+    });
+    console.log(`  ✓ ${u.code}`);
+  }
+
   console.log("Seed complete.");
 }
 

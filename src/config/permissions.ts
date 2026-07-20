@@ -11,10 +11,11 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   field: "Field Tech",
 };
 
-// Trimmed to the dashboard-only shell. Add areas back (customers, jobs,
+// Trimmed shell + materials catalog. Add areas back (customers, jobs,
 // tickets, schedule, myDay, ...) as each feature is rebuilt.
 export const AREA_ROLES = {
   dashboard: ["admin", "staff", "sales", "field"],
+  materials: ["admin", "staff"],
   settings: ["admin"],
 } satisfies Record<string, AppRole[]>;
 
