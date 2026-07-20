@@ -52,7 +52,7 @@ Don't build anything that consumes `WorkContext` yet — no job/ticket UI, no "t
 - No Stripe API calls (no `stripe.taxCalculations`, no live rate lookups).
 - No job/ticket/quote model changes — `WorkContext` is a standalone enum with nothing attached to it yet.
 - No bulk reclassification of existing category data — flag for review, don't auto-correct.
-- Don't encode the case as settled sales-tax law in code comments — it's a Business Tax Act case about a distributor's own tax classification, used here as supporting reasoning for a business decision, not as a direct sales-tax ruling. Comment the classification as "per Ryan's classification, informed by *SES v. Roberts* — see `06-materials-tax-code-linkage.md`," not as case-law-mandated.
+- Don't encode the case as settled sales-tax law in code comments — it's a Business Tax Act case about a distributor's own tax classification, used here as supporting reasoning for a business decision, not as a direct sales-tax ruling. Comment the classification as "per Ryan's classification, informed by *SES v. Roberts* — see `05-materials-tax-code-linkage.md`," not as case-law-mandated.
 
 ## Verification checklist before calling this done
 
