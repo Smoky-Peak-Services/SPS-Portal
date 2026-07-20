@@ -4,6 +4,7 @@ import { requireDesktopSurface } from "@/lib/require-desktop";
 import {
   getItem,
   listCategories,
+  listStripeTaxCodes,
   listUnits,
 } from "@/features/materials/actions";
 import { ItemForm } from "@/features/materials/components/item-form";
@@ -16,10 +17,11 @@ export default async function EditItemPage({
 }) {
   const { id } = await params;
   await requireDesktopSurface(`/materials/items/${id}`);
-  const [item, categories, units] = await Promise.all([
+  const [item, categories, units, taxCodes] = await Promise.all([
     getItem(id),
     listCategories(),
     listUnits(),
+    listStripeTaxCodes(),
   ]);
   if (!item) notFound();
 
@@ -37,13 +39,16 @@ export default async function EditItemPage({
         <h1 className="text-2xl font-semibold">{item.name}</h1>
         <p className="text-sm text-slate-500">
           Resolved tax: {tax.taxProfile ?? "unclassified"}
-          {tax.stripeTaxCode ? ` · ${tax.stripeTaxCode}` : " · no Stripe code"}
+          {tax.stripeTaxCodeId
+            ? ` · ${tax.stripeTaxCodeId}`
+            : " · no Stripe code"}
           {tax.inheritedFrom ? ` (from ${tax.inheritedFrom})` : ""}
         </p>
       </div>
       <ItemForm
         categories={categories}
         units={units}
+        taxCodes={taxCodes}
         assignments={item.category.assignments.map((a) => ({
           attributeId: a.attributeId,
           isRequired: a.isRequired,
@@ -71,7 +76,7 @@ export default async function EditItemPage({
           notes: item.notes,
           isActive: item.isActive,
           taxProfile: item.taxProfile,
-          stripeTaxCode: item.stripeTaxCode,
+          stripeTaxCodeId: item.stripeTaxCodeId,
           values: item.values,
         }}
       />

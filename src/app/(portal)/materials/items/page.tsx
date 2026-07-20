@@ -65,7 +65,7 @@ export default async function ItemsPage() {
                     <td className="px-4 py-3">{item.unit.code}</td>
                     <td className="px-4 py-3 text-slate-600">
                       {tax.taxProfile ?? "—"}
-                      {tax.stripeTaxCode ? ` · ${tax.stripeTaxCode}` : ""}
+                      {tax.stripeTaxCodeId ? ` · ${tax.stripeTaxCodeId}` : ""}
                       {tax.inheritedFrom === "category" ? (
                         <span className="ml-1 text-xs text-slate-400">
                           (category)

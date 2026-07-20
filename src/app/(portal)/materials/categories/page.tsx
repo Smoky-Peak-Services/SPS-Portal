@@ -1,14 +1,21 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
-import { requireArea } from "@/lib/session";
 import { listCategories } from "@/features/materials/actions";
 import { CategoryDeleteCell } from "@/features/materials/components/category-delete-cell";
+import { MarkTaxReviewedButton } from "@/features/materials/components/mark-tax-reviewed-button";
 import { Button } from "@/components/ui/button";
+import { requireArea } from "@/lib/session";
 
-export default async function CategoriesPage() {
+export default async function CategoriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ taxReview?: string }>;
+}) {
   await requireDesktopSurface("/materials/categories");
   const user = await requireArea("materials");
-  const categories = await listCategories();
+  const { taxReview } = await searchParams;
+  const needsTaxReview = taxReview === "1";
+  const categories = await listCategories(undefined, { needsTaxReview });
   const isAdmin = user.role === "admin";
 
   return (
@@ -22,6 +29,21 @@ export default async function CategoriesPage() {
             ← Materials
           </Link>
           <h1 className="text-2xl font-semibold">Categories</h1>
+          <p className="text-sm text-slate-500">
+            {needsTaxReview
+              ? "Showing categories that still need tax review."
+              : "All categories."}{" "}
+            <Link
+              href={
+                needsTaxReview
+                  ? "/materials/categories"
+                  : "/materials/categories?taxReview=1"
+              }
+              className="text-teal-800 hover:underline"
+            >
+              {needsTaxReview ? "Show all" : "Needs tax review"}
+            </Link>
+          </p>
         </div>
         <Button asChild>
           <Link href="/materials/categories/new">New category</Link>
@@ -36,14 +58,17 @@ export default async function CategoriesPage() {
               <th className="px-4 py-3">Tax</th>
               <th className="px-4 py-3">Items</th>
               <th className="px-4 py-3">Attrs</th>
+              <th className="px-4 py-3 text-right">Tax review</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {categories.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                  No categories yet.
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                  {needsTaxReview
+                    ? "No categories awaiting tax review."
+                    : "No categories yet."}
                 </td>
               </tr>
             ) : (
@@ -67,10 +92,23 @@ export default async function CategoriesPage() {
                   </td>
                   <td className="px-4 py-3">
                     {c.taxProfile}
-                    {c.stripeTaxCode ? ` · ${c.stripeTaxCode}` : ""}
+                    {c.stripeTaxCode
+                      ? ` · ${c.stripeTaxCode.id}`
+                      : ""}
+                    {!c.taxReviewed ? (
+                      <span className="ml-1 text-xs text-amber-700">
+                        unreviewed
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">{c._count.items}</td>
                   <td className="px-4 py-3">{c._count.assignments}</td>
+                  <td className="px-4 py-3">
+                    <MarkTaxReviewedButton
+                      id={c.id}
+                      taxReviewed={c.taxReviewed}
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     {isAdmin ? (
                       <CategoryDeleteCell

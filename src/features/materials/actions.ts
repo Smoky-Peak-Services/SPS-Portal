@@ -12,6 +12,7 @@ import {
   createItemSchema,
   createOptionSchema,
   deleteAssignmentSchema,
+  markCategoryTaxReviewedSchema,
   updateAttributeSchema,
   updateCategorySchema,
   updateDomainSchema,
@@ -78,16 +79,36 @@ export async function getDomain(id: string) {
   });
 }
 
-export async function listCategories(domainId?: string) {
+export async function listCategories(
+  domainId?: string,
+  opts?: { needsTaxReview?: boolean },
+) {
   await requireArea("materials");
   return prisma.materialCategory.findMany({
-    where: domainId ? { domainId } : undefined,
+    where: {
+      ...(domainId ? { domainId } : {}),
+      ...(opts?.needsTaxReview ? { taxReviewed: false } : {}),
+    },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     include: {
       domain: {
         include: { division: { select: { name: true, slug: true } } },
       },
+      stripeTaxCode: { select: { id: true, name: true } },
       _count: { select: { items: true, assignments: true } },
+    },
+  });
+}
+
+export async function listStripeTaxCodes() {
+  await requireArea("materials");
+  return prisma.stripeTaxCode.findMany({
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      description: true,
     },
   });
 }
@@ -255,8 +276,9 @@ export async function createCategory(raw: unknown) {
       sortOrder: data.sortOrder ?? 0,
       isActive: data.isActive ?? true,
       requiresManualPartNumber: data.requiresManualPartNumber ?? false,
-      taxProfile: data.taxProfile ?? "TPP",
-      stripeTaxCode: emptyToNull(data.stripeTaxCode),
+      taxProfile: data.taxProfile ?? "REAL_PROPERTY",
+      stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+      taxReviewed: data.taxReviewed ?? false,
     },
   });
   revalidateMaterials();
@@ -277,9 +299,23 @@ export async function updateCategory(raw: unknown) {
       sortOrder: data.sortOrder ?? 0,
       isActive: data.isActive ?? true,
       requiresManualPartNumber: data.requiresManualPartNumber ?? false,
-      taxProfile: data.taxProfile ?? "TPP",
-      stripeTaxCode: emptyToNull(data.stripeTaxCode),
+      taxProfile: data.taxProfile ?? "REAL_PROPERTY",
+      stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+      ...(data.taxReviewed !== undefined
+        ? { taxReviewed: data.taxReviewed }
+        : {}),
     },
+  });
+  revalidateMaterials();
+  return category;
+}
+
+export async function markCategoryTaxReviewed(raw: unknown) {
+  await requireArea("materials");
+  const data = markCategoryTaxReviewedSchema.parse(raw);
+  const category = await prisma.materialCategory.update({
+    where: { id: data.id },
+    data: { taxReviewed: data.taxReviewed },
   });
   revalidateMaterials();
   return category;
@@ -458,7 +494,7 @@ export async function createItem(raw: unknown) {
       notes: emptyToNull(data.notes),
       isActive: data.isActive ?? true,
       taxProfile: data.taxProfile ?? null,
-      stripeTaxCode: emptyToNull(data.stripeTaxCode),
+      stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
     },
   });
 
@@ -488,7 +524,7 @@ export async function updateItem(raw: unknown) {
       notes: emptyToNull(data.notes),
       isActive: data.isActive ?? true,
       taxProfile: data.taxProfile ?? null,
-      stripeTaxCode: emptyToNull(data.stripeTaxCode),
+      stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
     },
   });
 

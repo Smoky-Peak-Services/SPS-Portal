@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createItem, updateItem } from "@/features/materials/actions";
 import type { MaterialTaxProfile } from "@prisma/client";
+import {
+  StripeTaxCodeCombobox,
+  type StripeTaxCodeOption,
+} from "./stripe-tax-code-combobox";
 
 type Unit = { id: string; code: string; name: string };
 type CategoryOption = {
@@ -39,6 +43,7 @@ type ExistingValue = {
 type Props = {
   categories: CategoryOption[];
   units: Unit[];
+  taxCodes: StripeTaxCodeOption[];
   /** Assignments for the selected category (loaded for edit, or empty on create until category chosen via page). */
   assignments: Assignment[];
   defaultCategoryId?: string;
@@ -57,7 +62,7 @@ type Props = {
     notes: string | null;
     isActive: boolean;
     taxProfile: MaterialTaxProfile | null;
-    stripeTaxCode: string | null;
+    stripeTaxCodeId: string | null;
     values: ExistingValue[];
   };
 };
@@ -70,6 +75,7 @@ function numStr(v: { toString(): string } | number | null | undefined) {
 export function ItemForm({
   categories,
   units,
+  taxCodes,
   assignments,
   defaultCategoryId,
   initial,
@@ -157,7 +163,7 @@ export function ItemForm({
             taxRaw === ""
               ? null
               : (taxRaw as MaterialTaxProfile),
-          stripeTaxCode: String(fd.get("stripeTaxCode") || ""),
+          stripeTaxCodeId: String(fd.get("stripeTaxCodeId") || ""),
           attributeValues,
         };
 
@@ -283,30 +289,25 @@ export function ItemForm({
           </div>
         </div>
       ) : null}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="taxProfile">Tax profile override</Label>
-          <select
-            id="taxProfile"
-            name="taxProfile"
-            defaultValue={initial?.taxProfile ?? ""}
-            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-          >
-            <option value="">Inherit category</option>
-            <option value="TPP">TPP</option>
-            <option value="REAL_PROPERTY">Real property</option>
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="stripeTaxCode">Stripe tax code override</Label>
-          <Input
-            id="stripeTaxCode"
-            name="stripeTaxCode"
-            placeholder="blank = inherit"
-            defaultValue={initial?.stripeTaxCode ?? ""}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="taxProfile">Tax profile override</Label>
+        <select
+          id="taxProfile"
+          name="taxProfile"
+          defaultValue={initial?.taxProfile ?? ""}
+          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+        >
+          <option value="">Inherit category</option>
+          <option value="REAL_PROPERTY">Real property</option>
+          <option value="TPP">TPP</option>
+        </select>
       </div>
+      <StripeTaxCodeCombobox
+        name="stripeTaxCodeId"
+        label="Stripe tax code override (blank = inherit)"
+        codes={taxCodes}
+        defaultValue={initial?.stripeTaxCodeId}
+      />
       <div className="space-y-2">
         <Label htmlFor="supplier">Supplier</Label>
         <Input

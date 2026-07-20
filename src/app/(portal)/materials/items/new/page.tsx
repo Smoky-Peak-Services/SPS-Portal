@@ -3,6 +3,7 @@ import { requireDesktopSurface } from "@/lib/require-desktop";
 import {
   getCategory,
   listCategories,
+  listStripeTaxCodes,
   listUnits,
 } from "@/features/materials/actions";
 import { ItemForm } from "@/features/materials/components/item-form";
@@ -14,9 +15,10 @@ export default async function NewItemPage({
 }) {
   await requireDesktopSurface("/materials/items/new");
   const { categoryId } = await searchParams;
-  const [categories, units, category] = await Promise.all([
+  const [categories, units, taxCodes, category] = await Promise.all([
     listCategories(),
     listUnits(),
+    listStripeTaxCodes(),
     categoryId ? getCategory(categoryId) : Promise.resolve(null),
   ]);
 
@@ -42,6 +44,7 @@ export default async function NewItemPage({
         <ItemForm
           categories={categories}
           units={units}
+          taxCodes={taxCodes}
           defaultCategoryId={categoryId}
           assignments={assignments.map((a) => ({
             attributeId: a.attributeId,

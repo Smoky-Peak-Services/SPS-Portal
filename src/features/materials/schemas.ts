@@ -33,7 +33,8 @@ export const createCategorySchema = z.object({
   isActive: z.boolean().optional(),
   requiresManualPartNumber: z.boolean().optional(),
   taxProfile: taxProfileSchema.optional(),
-  stripeTaxCode: z.string().max(64).optional().or(z.literal("")),
+  stripeTaxCodeId: z.string().max(64).optional().or(z.literal("")),
+  taxReviewed: z.boolean().optional(),
 });
 
 export const updateCategorySchema = createCategorySchema.extend({
@@ -109,10 +110,15 @@ export const createItemSchema = z.object({
   notes: z.string().max(5000).optional().or(z.literal("")),
   isActive: z.boolean().optional(),
   taxProfile: taxProfileSchema.optional().nullable(),
-  stripeTaxCode: z.string().max(64).optional().or(z.literal("")),
+  stripeTaxCodeId: z.string().max(64).optional().or(z.literal("")),
   attributeValues: z.array(attributeValueSchema).optional(),
 });
 
 export const updateItemSchema = createItemSchema.extend({
   id: z.string().min(1),
+});
+
+export const markCategoryTaxReviewedSchema = z.object({
+  id: z.string().min(1),
+  taxReviewed: z.boolean(),
 });

@@ -35,6 +35,11 @@ enum MaterialTaxProfile {
   TPP
 }
 
+enum WorkContext {
+  INSTALL
+  SERVICE
+}
+
 // ---------- Better-Auth core ----------
 
 model User {
@@ -187,8 +192,15 @@ model MaterialCategory {
   sortOrder                Int                @default(0)
   isActive                 Boolean            @default(true)
   requiresManualPartNumber Boolean            @default(false)
-  taxProfile               MaterialTaxProfile @default(TPP)
-  stripeTaxCode            String?
+  /// Per Ryan's classification (informed by SES v. Roberts) — see claude/prompts/05-materials-tax-code-linkage.md
+  taxProfile               MaterialTaxProfile @default(REAL_PROPERTY)
+  taxReviewed              Boolean            @default(false)
+  stripeTaxCodeId          String?
+  stripeTaxCode            StripeTaxCode?     @relation("CategoryMaterialTaxCode", fields: [stripeTaxCodeId], references: [id])
+  laborInstallTaxCodeId    String?
+  laborInstallTaxCode      StripeTaxCode?     @relation("CategoryLaborInstallTaxCode", fields: [laborInstallTaxCodeId], references: [id])
+  laborServiceTaxCodeId    String?
+  laborServiceTaxCode      StripeTaxCode?     @relation("CategoryLaborServiceTaxCode", fields: [laborServiceTaxCodeId], references: [id])
   createdAt                DateTime           @default(now())
   updatedAt                DateTime           @updatedAt
 
@@ -197,6 +209,7 @@ model MaterialCategory {
 
   @@unique([domainId, slug])
   @@index([domainId])
+  @@index([taxReviewed])
   @@map("material_category")
 }
 
@@ -258,25 +271,30 @@ model MaterialAttributeAssignment {
 }
 
 model MaterialItem {
-  id             String              @id @default(cuid())
-  categoryId     String
-  category       MaterialCategory    @relation(fields: [categoryId], references: [id])
-  unitId         String
-  unit           MaterialUnit        @relation(fields: [unitId], references: [id])
-  name           String
-  laborUnits     Decimal             @default(0) @db.Decimal(12, 4)
-  laborUnitNotes String?
-  isConsumable   Boolean             @default(false)
-  baseCost       Decimal?            @db.Decimal(12, 2)
-  markupPct      Decimal?            @db.Decimal(6, 4)
-  wasteFactorPct Decimal?            @db.Decimal(6, 4)
-  supplier       String?
-  notes          String?
-  isActive       Boolean             @default(true)
-  taxProfile     MaterialTaxProfile?
-  stripeTaxCode  String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id                    String              @id @default(cuid())
+  categoryId            String
+  category              MaterialCategory    @relation(fields: [categoryId], references: [id])
+  unitId                String
+  unit                  MaterialUnit        @relation(fields: [unitId], references: [id])
+  name                  String
+  laborUnits            Decimal             @default(0) @db.Decimal(12, 4)
+  laborUnitNotes        String?
+  isConsumable          Boolean             @default(false)
+  baseCost              Decimal?            @db.Decimal(12, 2)
+  markupPct             Decimal?            @db.Decimal(6, 4)
+  wasteFactorPct        Decimal?            @db.Decimal(6, 4)
+  supplier              String?
+  notes                 String?
+  isActive              Boolean             @default(true)
+  taxProfile            MaterialTaxProfile?
+  stripeTaxCodeId       String?
+  stripeTaxCode         StripeTaxCode?      @relation("ItemMaterialTaxCode", fields: [stripeTaxCodeId], references: [id])
+  laborInstallTaxCodeId String?
+  laborInstallTaxCode   StripeTaxCode?      @relation("ItemLaborInstallTaxCode", fields: [laborInstallTaxCodeId], references: [id])
+  laborServiceTaxCodeId String?
+  laborServiceTaxCode   StripeTaxCode?      @relation("ItemLaborServiceTaxCode", fields: [laborServiceTaxCodeId], references: [id])
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   values MaterialItemAttributeValue[]
 
@@ -284,6 +302,42 @@ model MaterialItem {
   @@index([categoryId])
   @@index([unitId])
   @@map("material_item")
+}
+
+/// Stripe product tax codes (reference data). Seeded from product_tax_codes.csv.
+model StripeTaxCode {
+  id                               String   @id
+  name                             String
+  description                      String   @db.Text
+  type                             String
+  performanceLocationRequirement   String
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  categoryMaterial     MaterialCategory[]     @relation("CategoryMaterialTaxCode")
+  categoryLaborInstall MaterialCategory[]     @relation("CategoryLaborInstallTaxCode")
+  categoryLaborService MaterialCategory[]     @relation("CategoryLaborServiceTaxCode")
+  itemMaterial         MaterialItem[]         @relation("ItemMaterialTaxCode")
+  itemLaborInstall     MaterialItem[]         @relation("ItemLaborInstallTaxCode")
+  itemLaborService     MaterialItem[]         @relation("ItemLaborServiceTaxCode")
+  laborDefaults        LaborTaxCodeDefault[]
+
+  @@map("stripe_tax_code")
+}
+
+/// Default labor Stripe tax code for (taxProfile, workContext).
+/// Per Ryan's classification — see claude/prompts/05-materials-tax-code-linkage.md
+model LaborTaxCodeDefault {
+  id              String             @id @default(cuid())
+  taxProfile      MaterialTaxProfile
+  workContext     WorkContext
+  stripeTaxCodeId String
+  stripeTaxCode   StripeTaxCode      @relation(fields: [stripeTaxCodeId], references: [id])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([taxProfile, workContext])
+  @@map("labor_tax_code_default")
 }
 
 model MaterialItemAttributeValue {

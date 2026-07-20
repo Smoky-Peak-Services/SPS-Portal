@@ -120,7 +120,14 @@ Foundation for quoting. Ops-only EAV taxonomy — no customer PII, no tax calcul
 
 Hierarchy: `MaterialDomain` (scoped to `divisionId` + `Segment`) → `MaterialCategory` → `MaterialItem`, with global `MaterialAttribute` / options assigned to categories via `MaterialAttributeAssignment`. Units live in `MaterialUnit` (seeded: EACH, FT, BOX, ROLL).
 
-Tax fields (`taxProfile`, `stripeTaxCode`) are classification metadata only: item override → category default → null. Never invent a fallback Stripe code. Resolve with `resolveItemTaxClassification` in `src/features/materials/tax.ts`.
+Tax classification is metadata only — no Stripe Tax API, no amount calculation, no use-tax accrual in this phase.
+
+- **`StripeTaxCode`**: seeded reference table from `claude/prompts/samples/product_tax_codes.csv` (~673 codes). Category/item `stripeTaxCodeId` are nullable FKs (searchable combobox in admin forms), not free text.
+- **`taxProfile`**: `REAL_PROPERTY` | `TPP`. New categories default to **`REAL_PROPERTY`** (installed systems). Explicit TPP carve-outs (when present): software/licenses, patch cables, servers, workstations, hard drives — per Ryan’s classification (informed by *SES v. Roberts*; see `claude/prompts/05-materials-tax-code-linkage.md`), not as settled sales-tax law.
+- **`taxReviewed`**: on `MaterialCategory`; existing rows are **not** bulk-reclassified when the default changes. Walk `/materials/categories?taxReview=1` deliberately.
+- Resolve material code with `resolveItemTaxClassification` (item → category → null; never invent a code).
+- **Labor codes**: `WorkContext` (`INSTALL` | `SERVICE`) + `LaborTaxCodeDefault` + `resolveLaborTaxCode` in `tax.ts` (item labor override → category labor override → default table → null). Nothing consumes `WorkContext` yet (no jobs/quotes). Computer-repair override (`txcd_20080010`) is set manually via category/item labor service FK when reviewing TPP computer categories.
+- Same `taxProfile` will later inform both customer-facing tax codes and contractor use-tax on realty materials — remittance tracking is out of scope here.
 
 `MaterialCategory.requiresManualPartNumber` flags that future quote lines must collect a real part number; do not add `partNumber` / manufacturer to `MaterialItem`.
 

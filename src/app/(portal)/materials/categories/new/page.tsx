@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
-import { listDomains } from "@/features/materials/actions";
+import { listDomains, listStripeTaxCodes } from "@/features/materials/actions";
 import { CategoryForm } from "@/features/materials/components/category-form";
 
 export default async function NewCategoryPage() {
   await requireDesktopSurface("/materials/categories/new");
-  const domains = await listDomains();
+  const [domains, taxCodes] = await Promise.all([
+    listDomains(),
+    listStripeTaxCodes(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -23,7 +26,7 @@ export default async function NewCategoryPage() {
           Create a domain first, then add categories.
         </p>
       ) : (
-        <CategoryForm domains={domains} />
+        <CategoryForm domains={domains} taxCodes={taxCodes} />
       )}
     </div>
   );

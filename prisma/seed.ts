@@ -4,6 +4,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { company } from "../src/config/company";
 import { prisma } from "../src/lib/prisma";
 import { prismaPii } from "../src/lib/prisma-pii";
+import { seedStripeTaxCodes } from "../scripts/seed-stripe-tax-codes";
 
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -153,6 +154,10 @@ async function main() {
     });
     console.log(`  ✓ ${u.code}`);
   }
+
+  console.log("Seeding Stripe tax codes…");
+  const taxCount = await seedStripeTaxCodes(prisma);
+  console.log(`  ✓ ${taxCount} StripeTaxCode rows + labor defaults`);
 
   console.log("Seed complete.");
 }

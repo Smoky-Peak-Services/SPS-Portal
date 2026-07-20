@@ -10,6 +10,10 @@ import {
   updateCategory,
 } from "@/features/materials/actions";
 import type { MaterialTaxProfile } from "@prisma/client";
+import {
+  StripeTaxCodeCombobox,
+  type StripeTaxCodeOption,
+} from "./stripe-tax-code-combobox";
 
 type DomainOption = {
   id: string;
@@ -20,6 +24,7 @@ type DomainOption = {
 
 type Props = {
   domains: DomainOption[];
+  taxCodes: StripeTaxCodeOption[];
   initial?: {
     id: string;
     domainId: string;
@@ -30,11 +35,12 @@ type Props = {
     isActive: boolean;
     requiresManualPartNumber: boolean;
     taxProfile: MaterialTaxProfile;
-    stripeTaxCode: string | null;
+    stripeTaxCodeId: string | null;
+    taxReviewed: boolean;
   };
 };
 
-export function CategoryForm({ domains, initial }: Props) {
+export function CategoryForm({ domains, taxCodes, initial }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -53,8 +59,11 @@ export function CategoryForm({ domains, initial }: Props) {
           sortOrder: Number(fd.get("sortOrder") || 0),
           isActive: fd.get("isActive") === "on",
           requiresManualPartNumber: fd.get("requiresManualPartNumber") === "on",
-          taxProfile: String(fd.get("taxProfile") || "TPP") as MaterialTaxProfile,
-          stripeTaxCode: String(fd.get("stripeTaxCode") || ""),
+          taxProfile: String(
+            fd.get("taxProfile") || "REAL_PROPERTY",
+          ) as MaterialTaxProfile,
+          stripeTaxCodeId: String(fd.get("stripeTaxCodeId") || ""),
+          taxReviewed: fd.get("taxReviewed") === "on",
         };
         if (initial) await updateCategory({ id: initial.id, ...base });
         else await createCategory(base);
@@ -103,29 +112,28 @@ export function CategoryForm({ domains, initial }: Props) {
           defaultValue={initial?.description ?? ""}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="taxProfile">Tax profile (default)</Label>
-          <select
-            id="taxProfile"
-            name="taxProfile"
-            defaultValue={initial?.taxProfile ?? "TPP"}
-            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-          >
-            <option value="TPP">Tangible personal property</option>
-            <option value="REAL_PROPERTY">Real property</option>
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="stripeTaxCode">Stripe tax code (default)</Label>
-          <Input
-            id="stripeTaxCode"
-            name="stripeTaxCode"
-            placeholder="txcd_…"
-            defaultValue={initial?.stripeTaxCode ?? ""}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="taxProfile">Tax profile (default)</Label>
+        <select
+          id="taxProfile"
+          name="taxProfile"
+          defaultValue={initial?.taxProfile ?? "REAL_PROPERTY"}
+          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+        >
+          <option value="REAL_PROPERTY">Real property</option>
+          <option value="TPP">Tangible personal property</option>
+        </select>
+        <p className="text-xs text-slate-500">
+          Default for new categories is real property (installed systems). Carve
+          out software, patch cables, servers, workstations, hard drives as TPP.
+        </p>
       </div>
+      <StripeTaxCodeCombobox
+        name="stripeTaxCodeId"
+        label="Stripe tax code (default)"
+        codes={taxCodes}
+        defaultValue={initial?.stripeTaxCodeId}
+      />
       <div className="flex flex-wrap gap-4 text-sm">
         <label className="flex items-center gap-2">
           <input
@@ -142,6 +150,14 @@ export function CategoryForm({ domains, initial }: Props) {
             defaultChecked={initial?.isActive ?? true}
           />
           Active
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="taxReviewed"
+            defaultChecked={initial?.taxReviewed ?? false}
+          />
+          Tax reviewed
         </label>
       </div>
       <div className="space-y-2">
