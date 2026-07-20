@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/session";
 import { PortalShell } from "@/components/portal-shell";
+import { SessionWatchdog } from "@/components/session-watchdog";
 
 export default async function PortalLayout({
   children,
@@ -12,6 +13,7 @@ export default async function PortalLayout({
       capabilities={[...user.capabilities]}
       userName={user.name}
     >
+      <SessionWatchdog />
       {children}
     </PortalShell>
   );

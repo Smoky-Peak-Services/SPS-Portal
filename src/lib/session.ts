@@ -23,7 +23,12 @@ export type SessionUser = PermissionSubject & {
 };
 
 export async function getSession() {
-  return auth.api.getSession({ headers: await headers() });
+  // RSCs cannot Set-Cookie. Disable refresh here so we don't extend DB expiresAt
+  // without updating the browser cookie; SessionWatchdog refreshes via the client.
+  return auth.api.getSession({
+    headers: await headers(),
+    query: { disableRefresh: true },
+  });
 }
 
 async function loadCapabilities(

@@ -170,7 +170,9 @@ Import upsert and UI delete are separate: missing Excel rows are never removed b
 
 ## 6. Auth & permissions
 
-Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public sign-up, 1-hour session with a 5-minute update age. Roles: `admin | power_user | sales | accounting | field_supervisor | field_tech` (ops `Role` enum).
+Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public sign-up, **1-hour** session with a **5-minute** `updateAge`. Roles: `admin | power_user | sales | accounting | field_supervisor | field_tech` (ops `Role` enum).
+
+**Session sliding / idle:** Next.js RSCs cannot `Set-Cookie`, so `getSession()` in [`src/lib/session.ts`](src/lib/session.ts) uses `disableRefresh: true`. Cookie extension happens on the client via [`SessionWatchdog`](src/components/session-watchdog.tsx) (`authClient.getSession` on activity, debounced to `updateAge`). Idle timeout is **45 minutes** of no pointer/keyboard/scroll (`NEXT_PUBLIC_SESSION_IDLE_MINUTES`, must stay below Better Auth `expiresIn`). `nextCookies()` is registered last in auth plugins for Server Action / route-handler cookie writes.
 
 **Capabilities (not hard-coded role lists)** gate access. Catalog: `src/config/capabilities.ts`. Persisted matrix: `RoleCapability` + optional `UserCapabilityOverride` (`ALLOW` / `DENY`; deny wins). Seed with `seedCapabilities` (also via `db:seed`). Admins edit `/settings/permissions` and `/settings/users`.
 
