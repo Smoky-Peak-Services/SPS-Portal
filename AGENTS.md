@@ -200,5 +200,6 @@ npm run sync:divisions-pii   # re-sync Division rows ops -> pii after an ops mig
 
 - `claude/project-context.md` — full scope, stack rationale, reference platforms/repos, build order.
 - `claude/ARCHITECTURE.md` — target layered architecture and worked request traces.
+- `claude/prompts/` — scoped build prompts for each rebuild phase, in order (`01-materials-catalog.md` is the current one). Read the next-numbered prompt before starting the next phase of the rebuild.
 - `README.md` — quick-start, env file table, current portal routes.
 - `.cursor/rules/*.mdc` — the same guardrails as short, glob-scoped Cursor rules.
