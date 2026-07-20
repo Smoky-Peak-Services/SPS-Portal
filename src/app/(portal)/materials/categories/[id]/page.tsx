@@ -21,7 +21,7 @@ export default async function CategoryDetailPage({
   const [category, domains, attributes, taxCodes] = await Promise.all([
     getCategory(id),
     listDomains(),
-    listAttributes(),
+    listAttributes({ activeOnly: true }),
     listStripeTaxCodes(),
   ]);
   if (!category) notFound();

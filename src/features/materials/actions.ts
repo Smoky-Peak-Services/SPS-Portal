@@ -145,9 +145,10 @@ export async function getCategory(id: string) {
   });
 }
 
-export async function listAttributes() {
+export async function listAttributes(opts?: { activeOnly?: boolean }) {
   await requireMaterialsAccess();
   return prisma.materialAttribute.findMany({
+    where: opts?.activeOnly ? { isActive: true } : undefined,
     orderBy: { name: "asc" },
     include: {
       _count: { select: { options: true, assignments: true } },

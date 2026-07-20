@@ -2,12 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   deleteAssignment,
   upsertAssignment,
 } from "@/features/materials/actions";
+import { cn } from "@/lib/utils";
 
 type AttributeOption = {
   id: string;
@@ -40,118 +39,185 @@ export function AssignmentPanel({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const assignedIds = new Set(assignments.map((a) => a.attributeId));
-  const unassigned = availableAttributes.filter((a) => !assignedIds.has(a.id));
+  const byAttributeId = new Map(
+    assignments.map((a) => [a.attributeId, a] as const),
+  );
+  const assignedCount = assignments.length;
+  const totalCount = availableAttributes.length;
 
-  function onAssign(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+  function run(attributeId: string, fn: () => Promise<void>) {
     setError(null);
+    setBusyId(attributeId);
     start(async () => {
       try {
-        await upsertAssignment({
-          categoryId,
-          attributeId: String(fd.get("attributeId") || ""),
-          isRequired: fd.get("isRequired") === "on",
-          isFilterable: fd.get("isFilterable") === "on",
-          isVariantDefining: fd.get("isVariantDefining") === "on",
-        });
+        await fn();
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Assign failed");
+        setError(err instanceof Error ? err.message : "Update failed");
+      } finally {
+        setBusyId(null);
       }
     });
   }
 
-  function onRemove(id: string) {
-    setError(null);
-    start(async () => {
-      try {
-        await deleteAssignment({ id });
-        router.refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Remove failed");
-      }
+  function toggleAssign(attr: AttributeOption) {
+    const existing = byAttributeId.get(attr.id);
+    if (existing) {
+      run(attr.id, async () => {
+        await deleteAssignment({ id: existing.id });
+      });
+      return;
+    }
+    run(attr.id, async () => {
+      await upsertAssignment({
+        categoryId,
+        attributeId: attr.id,
+        isRequired: false,
+        isFilterable: true,
+        isVariantDefining: false,
+      });
+    });
+  }
+
+  function setFlag(
+    assignment: Assignment,
+    patch: Partial<{
+      isRequired: boolean;
+      isFilterable: boolean;
+      isVariantDefining: boolean;
+    }>,
+  ) {
+    run(assignment.attributeId, async () => {
+      await upsertAssignment({
+        categoryId,
+        attributeId: assignment.attributeId,
+        isRequired: patch.isRequired ?? assignment.isRequired,
+        isFilterable: patch.isFilterable ?? assignment.isFilterable,
+        isVariantDefining:
+          patch.isVariantDefining ?? assignment.isVariantDefining,
+        sortOrder: assignment.sortOrder,
+      });
     });
   }
 
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Attribute assignments
-      </h2>
-      <ul className="divide-y text-sm">
-        {assignments.map((a) => (
-          <li
-            key={a.id}
-            className="flex items-center justify-between gap-3 py-2"
-          >
-            <div>
-              <div className="font-medium">{a.attribute.name}</div>
-              <div className="text-xs text-slate-500">
-                {a.attribute.slug} · {a.attribute.inputType}
-                {a.isRequired ? " · required" : ""}
-                {a.isFilterable ? " · filterable" : ""}
-                {a.isVariantDefining ? " · variant" : ""}
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={() => onRemove(a.id)}
-            >
-              Remove
-            </Button>
-          </li>
-        ))}
-        {assignments.length === 0 ? (
-          <li className="py-2 text-slate-500">No attributes assigned.</li>
-        ) : null}
-      </ul>
-
-      {unassigned.length > 0 ? (
-        <form onSubmit={onAssign} className="space-y-3 border-t pt-4">
-          <div className="space-y-2">
-            <Label htmlFor="attributeId">Assign attribute</Label>
-            <select
-              id="attributeId"
-              name="attributeId"
-              required
-              className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-            >
-              {unassigned.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({a.inputType})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-wrap gap-4 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="isRequired" />
-              Required
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="isFilterable" defaultChecked />
-              Filterable
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="isVariantDefining" />
-              Variant-defining
-            </label>
-          </div>
-          <Button type="submit" size="sm" disabled={pending}>
-            {pending ? "Saving…" : "Assign"}
-          </Button>
-        </form>
-      ) : (
-        <p className="text-sm text-slate-500">
-          All attributes are already assigned (or none exist yet).
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Attribute assignments
+        </h2>
+        <p className="text-sm text-slate-600">
+          <span className="font-medium text-teal-900">{assignedCount}</span>
+          {" of "}
+          <span className="font-medium">{totalCount}</span>
+          {" attributes assigned"}
         </p>
+      </div>
+      <p className="text-xs text-slate-500">
+        Tap a bubble to assign or remove. Assigned attributes can be marked
+        required, filterable, or variant-defining.
+      </p>
+
+      {availableAttributes.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          No active attributes yet. Create some under Materials → Attributes.
+        </p>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {availableAttributes.map((attr) => {
+            const assignment = byAttributeId.get(attr.id);
+            const selected = !!assignment;
+            const thisBusy = pending && busyId === attr.id;
+            return (
+              <li
+                key={attr.id}
+                className={cn(
+                  "rounded-xl border p-3 transition-colors",
+                  selected
+                    ? "border-teal-700 bg-teal-50"
+                    : "border-slate-200 bg-white hover:border-slate-300",
+                )}
+              >
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => toggleAssign(attr)}
+                  className={cn(
+                    "flex w-full items-start justify-between gap-2 rounded-lg text-left",
+                    pending && !thisBusy ? "opacity-60" : "",
+                  )}
+                  aria-pressed={selected}
+                >
+                  <span>
+                    <span
+                      className={cn(
+                        "block text-sm font-medium",
+                        selected ? "text-teal-950" : "text-slate-800",
+                      )}
+                    >
+                      {attr.name}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">
+                      {attr.inputType}
+                      {thisBusy ? " · saving…" : ""}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold",
+                      selected
+                        ? "border-teal-800 bg-teal-800 text-white"
+                        : "border-slate-300 bg-white text-slate-400",
+                    )}
+                    aria-hidden
+                  >
+                    {selected ? "✓" : ""}
+                  </span>
+                </button>
+
+                {assignment ? (
+                  <div className="mt-3 flex flex-wrap gap-1 border-t border-teal-100 pt-2">
+                    {(
+                      [
+                        ["isRequired", "Required", assignment.isRequired],
+                        ["isFilterable", "Filterable", assignment.isFilterable],
+                        [
+                          "isVariantDefining",
+                          "Variant",
+                          assignment.isVariantDefining,
+                        ],
+                      ] as const
+                    ).map(([key, label, on]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          setFlag(assignment, {
+                            [key]: !on,
+                          })
+                        }
+                        className={cn(
+                          "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                          on
+                            ? "bg-teal-800 text-white"
+                            : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
+                        )}
+                        aria-pressed={on}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       )}
+
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>
   );
