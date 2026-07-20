@@ -209,6 +209,12 @@ export async function commitMaterialsImport(
 
   // Re-parse — never trust a client-echoed plan.
   const preview = await buildPreview(formData);
+  if (!preview.plan.layoutOk) {
+    throw new Error(
+      preview.plan.layoutMessage ??
+        "This file doesn't look like a materials catalog export.",
+    );
+  }
   const { divisionId, segment, plan } = preview;
 
   const applied = await prisma.$transaction(async (tx) => {

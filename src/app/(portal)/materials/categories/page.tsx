@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
+import { requireArea } from "@/lib/session";
 import { listCategories } from "@/features/materials/actions";
+import { CategoryDeleteCell } from "@/features/materials/components/category-delete-cell";
 import { Button } from "@/components/ui/button";
 
 export default async function CategoriesPage() {
   await requireDesktopSurface("/materials/categories");
+  const user = await requireArea("materials");
   const categories = await listCategories();
+  const isAdmin = user.role === "admin";
 
   return (
     <div className="space-y-4">
@@ -32,12 +36,13 @@ export default async function CategoriesPage() {
               <th className="px-4 py-3">Tax</th>
               <th className="px-4 py-3">Items</th>
               <th className="px-4 py-3">Attrs</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {categories.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   No categories yet.
                 </td>
               </tr>
@@ -66,6 +71,18 @@ export default async function CategoriesPage() {
                   </td>
                   <td className="px-4 py-3">{c._count.items}</td>
                   <td className="px-4 py-3">{c._count.assignments}</td>
+                  <td className="px-4 py-3">
+                    {isAdmin ? (
+                      <CategoryDeleteCell
+                        id={c.id}
+                        name={c.name}
+                        itemCount={c._count.items}
+                        isAdmin={isAdmin}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}

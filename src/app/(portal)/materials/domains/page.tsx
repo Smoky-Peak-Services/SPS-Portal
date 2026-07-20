@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
+import { requireArea } from "@/lib/session";
 import { listDomains } from "@/features/materials/actions";
+import { DomainDeleteCell } from "@/features/materials/components/domain-delete-cell";
 import { Button } from "@/components/ui/button";
 
 export default async function DomainsPage() {
   await requireDesktopSurface("/materials/domains");
+  const user = await requireArea("materials");
   const domains = await listDomains();
+  const isAdmin = user.role === "admin";
 
   return (
     <div className="space-y-4">
@@ -32,12 +36,13 @@ export default async function DomainsPage() {
               <th className="px-4 py-3">Segment</th>
               <th className="px-4 py-3">Categories</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {domains.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   No domains yet.
                 </td>
               </tr>
@@ -57,6 +62,18 @@ export default async function DomainsPage() {
                   <td className="px-4 py-3">{d._count.categories}</td>
                   <td className="px-4 py-3">
                     {d.isActive ? "Active" : "Inactive"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isAdmin ? (
+                      <DomainDeleteCell
+                        id={d.id}
+                        name={d.name}
+                        categoryCount={d._count.categories}
+                        isAdmin={isAdmin}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))

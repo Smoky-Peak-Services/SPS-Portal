@@ -51,7 +51,19 @@ export type ParsedDomain = {
 export type ParsedWorkbook = {
   domains: ParsedDomain[];
   warnings: RowWarning[];
+  /** Named worksheets considered for catalog layout (non-blank names). */
+  sheetsTotal: number;
+  /** Sheets that produced at least one category block. */
+  sheetsMatched: number;
+  /** True when at least one sheet matched catalog layout. */
+  layoutOk: boolean;
+  /** Set when layoutOk is false. */
+  layoutMessage: string | null;
 };
+
+export function unmatchedCatalogMessage(sheetsTotal: number): string {
+  return `This file doesn't look like a materials catalog export — 0 of ${sheetsTotal} sheets matched the expected layout.`;
+}
 
 export type ExistingUnit = { id: string; code: string };
 
@@ -133,6 +145,10 @@ export type ImportPlan = {
   itemUpdates: PlannedItemUpdate[];
   unchangedItemCount: number;
   warnings: RowWarning[];
+  sheetsTotal: number;
+  sheetsMatched: number;
+  layoutOk: boolean;
+  layoutMessage: string | null;
 };
 
 export type ExportItem = {
@@ -379,10 +395,13 @@ export function parseWorkbookAoa(
   const domains: ParsedDomain[] = [];
   const warnings: RowWarning[] = [];
   const seenDomainKeys = new Map<string, string>();
+  let sheetsTotal = 0;
+  let sheetsMatched = 0;
 
   for (const { name, aoa } of sheets) {
     const domainName = normalizeName(name);
     if (!domainName) continue;
+    sheetsTotal += 1;
     const key = nameMatchKey(domainName);
     if (seenDomainKeys.has(key)) {
       warnings.push({
@@ -398,7 +417,6 @@ export function parseWorkbookAoa(
       domainName,
       aoa,
     );
-    warnings.push(...sheetWarnings);
 
     // Dedupe categories within sheet by match key (keep first).
     const catSeen = new Map<string, ParsedCategory>();
@@ -419,6 +437,18 @@ export function parseWorkbookAoa(
       deduped.push(cat);
     }
 
+    // No category title→header match → not a catalog sheet (do not create a domain).
+    if (deduped.length === 0) {
+      warnings.push({
+        sheet: domainName,
+        row: 0,
+        message: `Sheet '${domainName}' doesn't match the catalog layout (no category header row found) — entire sheet skipped`,
+      });
+      continue;
+    }
+
+    sheetsMatched += 1;
+    warnings.push(...sheetWarnings);
     domains.push({
       name: domainName,
       sheet: domainName,
@@ -426,7 +456,15 @@ export function parseWorkbookAoa(
     });
   }
 
-  return { domains, warnings };
+  const layoutOk = sheetsMatched > 0;
+  return {
+    domains,
+    warnings,
+    sheetsTotal,
+    sheetsMatched,
+    layoutOk,
+    layoutMessage: layoutOk ? null : unmatchedCatalogMessage(sheetsTotal),
+  };
 }
 
 /** ExcelJS cell → string/number for AOA. */
@@ -487,6 +525,23 @@ export function planImport(
   const itemUpdates: PlannedItemUpdate[] = [];
   let unchangedItemCount = 0;
   const warnings = [...parsed.warnings];
+
+  if (!parsed.layoutOk) {
+    return {
+      domainCreates: [],
+      categoryCreates: [],
+      unitCreates: [],
+      itemCreates: [],
+      itemUpdates: [],
+      unchangedItemCount: 0,
+      warnings,
+      sheetsTotal: parsed.sheetsTotal,
+      sheetsMatched: parsed.sheetsMatched,
+      layoutOk: false,
+      layoutMessage:
+        parsed.layoutMessage ?? unmatchedCatalogMessage(parsed.sheetsTotal),
+    };
+  }
 
   const domainByKey = new Map(
     existing.domains.map((d) => [nameMatchKey(d.name), d]),
@@ -639,6 +694,10 @@ export function planImport(
     itemUpdates,
     unchangedItemCount,
     warnings,
+    sheetsTotal: parsed.sheetsTotal,
+    sheetsMatched: parsed.sheetsMatched,
+    layoutOk: true,
+    layoutMessage: null,
   };
 }
 
@@ -651,6 +710,10 @@ export function summarizePlan(plan: ImportPlan) {
     itemsUpdated: plan.itemUpdates.length,
     itemsUnchanged: plan.unchangedItemCount,
     warningCount: plan.warnings.length,
+    sheetsTotal: plan.sheetsTotal,
+    sheetsMatched: plan.sheetsMatched,
+    layoutOk: plan.layoutOk,
+    layoutMessage: plan.layoutMessage,
   };
 }
 

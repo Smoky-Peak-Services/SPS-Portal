@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
+import { requireArea } from "@/lib/session";
 import { listItems } from "@/features/materials/actions";
+import { ItemDeleteCell } from "@/features/materials/components/item-delete-cell";
 import { Button } from "@/components/ui/button";
 import { resolveItemTaxClassification } from "@/features/materials/tax";
 
 export default async function ItemsPage() {
   await requireDesktopSurface("/materials/items");
+  await requireArea("materials");
   const items = await listItems();
 
   return (
@@ -32,12 +35,13 @@ export default async function ItemsPage() {
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Unit</th>
               <th className="px-4 py-3">Tax (resolved)</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
                   No items yet.
                 </td>
               </tr>
@@ -67,6 +71,9 @@ export default async function ItemsPage() {
                           (category)
                         </span>
                       ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ItemDeleteCell id={item.id} />
                     </td>
                   </tr>
                 );

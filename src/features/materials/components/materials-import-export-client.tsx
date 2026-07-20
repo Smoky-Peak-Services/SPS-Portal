@@ -191,7 +191,7 @@ export function MaterialsImportExportClient({
               type="button"
               variant="default"
               onClick={runCommit}
-              disabled={!file || !preview || pending}
+              disabled={!file || !preview || !preview.plan.layoutOk || pending}
             >
               Commit import
             </Button>
@@ -242,6 +242,23 @@ export function MaterialsImportExportClient({
             />
           </div>
 
+          {!preview.plan.layoutOk ? (
+            <div
+              className="rounded border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-900"
+              role="alert"
+            >
+              <p className="font-medium">Wrong file type</p>
+              <p className="mt-1">
+                {preview.plan.layoutMessage ??
+                  "This file doesn't look like a materials catalog export."}
+              </p>
+              <p className="mt-1 text-red-800">
+                Matched {preview.plan.sheetsMatched} of{" "}
+                {preview.plan.sheetsTotal} sheets. Commit is blocked.
+              </p>
+            </div>
+          ) : null}
+
           {preview.plan.itemUpdates.length > 0 ? (
             <div>
               <h3 className="mb-2 font-medium">Item updates</h3>
@@ -266,20 +283,42 @@ export function MaterialsImportExportClient({
             </div>
           ) : null}
 
-          {preview.plan.warnings.length > 0 ? (
-            <div>
-              <h3 className="mb-2 font-medium">
-                Warnings ({preview.plan.warnings.length})
-              </h3>
-              <ul className="max-h-48 space-y-1 overflow-auto text-sm text-amber-900">
-                {preview.plan.warnings.map((w, i) => (
-                  <li key={`${w.sheet}-${w.row}-${i}`}>
-                    [{w.sheet}:{w.row}] {w.message}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+          {(() => {
+            const sheetWarnings = preview.plan.warnings.filter((w) => w.row === 0);
+            const rowWarnings = preview.plan.warnings.filter((w) => w.row !== 0);
+            return (
+              <>
+                {sheetWarnings.length > 0 ? (
+                  <div>
+                    <h3 className="mb-2 font-medium">
+                      Sheet warnings ({sheetWarnings.length})
+                    </h3>
+                    <ul className="max-h-48 space-y-1 overflow-auto text-sm text-amber-950">
+                      {sheetWarnings.map((w, i) => (
+                        <li key={`sheet-${w.sheet}-${i}`}>
+                          [{w.sheet}] {w.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {rowWarnings.length > 0 ? (
+                  <div>
+                    <h3 className="mb-2 font-medium">
+                      Row warnings ({rowWarnings.length})
+                    </h3>
+                    <ul className="max-h-48 space-y-1 overflow-auto text-sm text-amber-900">
+                      {rowWarnings.map((w, i) => (
+                        <li key={`${w.sheet}-${w.row}-${i}`}>
+                          [{w.sheet}:{w.row}] {w.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </>
+            );
+          })()}
         </section>
       ) : null}
     </div>

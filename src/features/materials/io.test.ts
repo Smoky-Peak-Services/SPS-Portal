@@ -112,6 +112,7 @@ describe("parseWorkbookBuffer + planImport", () => {
     };
     const plan = planImport(empty, parsed);
     const summary = summarizePlan(plan);
+    assert.equal(parsed.layoutOk, true);
     assert.equal(summary.domainsCreated, 2);
     assert.equal(summary.categoriesCreated, 3);
     assert.equal(summary.unitsCreated, 1);
@@ -172,7 +173,54 @@ describe("parseWorkbookBuffer + planImport", () => {
     assert.equal(summary.itemsCreated, 0);
     assert.equal(summary.itemsUpdated, 0);
   });
+
+  it("rejects attribute-lists-shaped workbook (no catalog headers)", async () => {
+    const parsed = await parseWorkbookBuffer(
+      await attributeListsShapedWorkbookBuffer(),
+    );
+    assert.equal(parsed.layoutOk, false);
+    assert.equal(parsed.domains.length, 0);
+    assert.equal(parsed.sheetsMatched, 0);
+    assert.ok(parsed.sheetsTotal >= 2);
+    assert.match(
+      parsed.layoutMessage ?? "",
+      /doesn't look like a materials catalog export/,
+    );
+    assert.ok(
+      parsed.warnings.some((w) =>
+        /doesn't match the catalog layout/.test(w.message),
+      ),
+    );
+
+    const plan = planImport(
+      { units: [], domains: [], categories: [], items: [] },
+      parsed,
+    );
+    assert.equal(plan.layoutOk, false);
+    assert.equal(plan.domainCreates.length, 0);
+    assert.equal(plan.categoryCreates.length, 0);
+    assert.equal(plan.itemCreates.length, 0);
+  });
 });
+
+async function attributeListsShapedWorkbookBuffer(): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const index = wb.addWorksheet("Attribute Lists");
+  index.addRow(["list_key", "list_name", "filter_mode"]);
+  index.addRow(["color", "Color", "FACET"]);
+  index.addRow(["vendor", "Vendor", "DOMAIN"]);
+
+  const color = wb.addWorksheet("color");
+  color.addRow(["label", "sort_order", "tags", "rfq_contact", "rfq_email"]);
+  color.addRow(["Black", 2, "jacket_color", "", ""]);
+
+  const vendor = wb.addWorksheet("vendor");
+  vendor.addRow(["label", "sort_order", "tags", "rfq_contact", "rfq_email"]);
+  vendor.addRow(["Acme", 1, "", "", ""]);
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
 
 function snapshotFromParsed(parsed: ParsedWorkbook): ExistingSnapshot {
   const units = new Map<string, { id: string; code: string }>();

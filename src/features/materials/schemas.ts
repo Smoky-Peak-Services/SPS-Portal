@@ -78,6 +78,15 @@ export const deleteAssignmentSchema = z.object({
   id: z.string().min(1),
 });
 
+export const deleteByIdSchema = z.object({
+  id: z.string().min(1),
+});
+
+export const forceDeleteSchema = z.object({
+  id: z.string().min(1),
+  confirmName: z.string().min(1),
+});
+
 export const attributeValueSchema = z.object({
   attributeId: z.string().min(1),
   optionId: z.string().optional().nullable(),

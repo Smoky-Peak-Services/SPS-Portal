@@ -134,8 +134,30 @@ Round-trip Excel for a **Division + Segment** scope via `/materials/import-expor
 - Scope code (e.g. `IS_COM`) is derived from `company.divisions[].code` + segment abbrev; filename `catalog_{SCOPE}_{YYYY-MM-DD}.xlsx` only pre-fills a guess.
 - Matching uses whitespace-normalized names (`normalizeName` / slugify). Item uniqueness is `@@unique([categoryId, name])`.
 - Upsert only: create missing domains/categories/units/items; update item when unit/laborUnits/laborUnitNotes differ; **never delete** rows absent from the file.
+- **Layout gate:** a sheet with no category title→`description` header match is skipped (sheet-level warning) and does **not** create a domain. If zero sheets match, preview/commit report a clear “doesn't look like a materials catalog export” result (blocks commit). This prevents attribute-list workbooks from creating garbage domains.
 - Flow: `previewMaterialsImport` (admin/staff, no writes) → `commitMaterialsImport` (**admin only**, re-parses file, single `$transaction`).
-- Fixture for ground-truth counts (5 domains / 115 categories / 102 items): `claude/prompts/samples/catalog_IS_COM_2026-07-08.xlsx` — drop the file there when available; unit tests use a synthetic workbook until then (`npm run test:materials-io`).
+- Fixture for ground-truth counts (5 domains / 115 categories / 102 items): `claude/prompts/samples/catalog_IS_COM_2026-07-08.xlsx` — drop the file there when available; unit tests use a synthetic workbook until then (`npm run test:materials-io`). Wrong-file regression uses a synthetic attribute-lists shape (same idea as `attribute-lists-2026-06-24.xlsx`).
+
+### Attribute list import / export (Excel)
+
+Same page (`/materials/import-export`, second section) and `GET /api/materials/attributes/export`. Pure logic in `attribute-io.ts` / `attribute-io-actions.ts` (not overloaded into catalog `io.ts`).
+
+- Workbook: index sheet `Attribute Lists` (`list_key | list_name | filter_mode`) + one sheet per `list_key` (`label | sort_order | tags | rfq_contact | rfq_email`).
+- Mapping: `list_key`→`MaterialAttribute.slug`, `list_name`→`name`, `inputType=SELECT`; option `label`→label, `value=slugify(label)`, `sort_order`→`sortOrder`.
+- **Ignored columns (intentional):** `filter_mode` (filtering is per-assignment `isFilterable`, not on the attribute); `rfq_contact` / `rfq_email` (vendor/RFQ out of catalog scope); **`tags`** (legacy option↔category visibility tags — **no model yet**; do not invent a schema as a side effect of import — decide later if worth a join/tag design).
+- Upsert by attribute `slug` and option `(attributeId, value)`; never delete missing rows. Layout gate rejects files without a valid index / list_key rows (blocks catalog workbooks from creating fake attributes).
+- Flow: `previewAttributeListsImport` → `commitAttributeListsImport` (**admin only**, re-parse, `$transaction`).
+- Fixture ground truth: `claude/prompts/samples/attribute-lists-2026-06-24.xlsx` → 6 attributes / 134 options (`npm run test:materials-attribute-io`).
+
+### Delete
+
+Hard delete (not soft/`isActive`) lives in `src/features/materials/delete-actions.ts`, wired on list pages:
+
+- **Safe delete** (default): refuse with a clear error if children exist (domain→categories, category→items, unit→items). Empty rows delete cleanly.
+- **Force delete** (domains/categories, admin only): cascade after typing the entity name to confirm.
+- Items: any materials-area user may delete. Domains/categories/units: admin only.
+
+Import upsert and UI delete are separate: missing Excel rows are never removed by import.
 
 ---
 

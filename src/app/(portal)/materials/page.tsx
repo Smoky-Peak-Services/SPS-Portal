@@ -48,7 +48,7 @@ export default async function MaterialsHubPage() {
           href="/materials/import-export"
           className="text-sm font-medium text-teal-800 hover:underline"
         >
-          Import / export Excel catalog →
+          Import / export Excel (catalog + attribute lists) →
         </Link>
       </div>
     </div>
