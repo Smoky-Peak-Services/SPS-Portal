@@ -1,0 +1,15 @@
+---
+description: Auth, sessions, and role-based access
+globs: src/lib/session.ts,src/lib/auth.ts,src/config/permissions.ts,src/features/**/actions.ts,src/app/**/*.tsx
+alwaysApply: false
+---
+
+# Auth & permissions
+
+Better Auth (`src/lib/auth.ts`) handles sign-in. Roles are `admin | staff | sales | field` (`src/config/permissions.ts`). Access to areas (`dashboard`, `customers`, `jobs`, `tickets`, `schedule`, `myDay`, `settings`) is gated by `AREA_ROLES` + `canAccess()` — add or change area access there, don't hardcode a role check inline in a page or action.
+
+Every Server Action must call `requireUser()` or `requireArea(area)` from `src/lib/session.ts` as its first line. This both enforces access and returns the acting user, which feeds audit fields like `createdById` / `byId`. Client-side role checks (hiding nav items, disabling buttons) are UX only — the server action is the real gate and must re-check even when the UI already hid the option, since a user can call the action directly.
+
+`src/proxy.ts` is the outermost gate: it only checks for a session cookie's presence and redirects to `/sign-in` if absent. It does not check roles or areas — that's `requireArea`'s job. Don't move permission logic into `proxy.ts`.
+
+Desktop-only pages call `requireDesktopSurface(pathname)` (`src/lib/require-desktop.ts`) to bounce mobile sessions to `MOBILE_FALLBACK_ROUTE`. Check the desktop-only path list in `src/lib/device-surface.ts` before adding a new desktop-only route, and add it there if needed.

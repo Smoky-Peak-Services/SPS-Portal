@@ -1,0 +1,24 @@
+---
+description: Core project context and non-negotiable guardrails for the Smoky Peak ERP portal
+globs:
+alwaysApply: true
+---
+
+# Smoky Peak ERP Portal — read this first
+
+**Read `AGENTS.md` at the repo root first.** It is the full engineering handbook (reasoning, current phase, ops/PII split in depth, env vars, commands) — this file and its siblings are the fast-recall summary of it. Full background also lives in `claude/project-context.md` (what/why, stack, reference platforms, build order) and `claude/ARCHITECTURE.md` (target layering, worked traces — describes where the code is *going*, not where it is; see `AGENTS.md` §2 and §4 for the current-phase reality).
+
+This is a solo build (one founder, no team, no QA pass) carrying real customer data and real operational risk. These rules substitute for the team that isn't there — treat them as load-bearing.
+
+**Company**: Smoky Peak Services LLC, a multi-division contractor and short-term-rental service company. Divisions currently modeled in `src/config/company.ts` — that file is the single source of truth for company/division/branding data, edit only it for those changes. Today it defines Integrated Systems (low-voltage, access control, security) and Cabin Services (STR maintenance, quick-turn support). Trash Valet (can-to-curb, junk removal) and the STR Magic marketplace integration are roadmap items described in `claude/project-context.md`, not yet reflected in code — don't assume they exist.
+
+**Non-negotiable guardrails** (full rationale in `claude/project-context.md` §5 and §11, current-phase caveats in `AGENTS.md` §2):
+
+- Billing/tax (Stripe as source of truth, QuickBooks downstream-only, per-line tax classification) is the target architecture but is **not built yet** — this is Phase 1, buildable base + Field Ops shell only. Don't build tax/Stripe/QBO logic speculatively; when it is built, never compute tax in application code — classify line items and let Stripe's tax engine calculate liability, and keep QBO one-direction, event-triggered, never written back into operational state.
+- STR Magic is a separate company and codebase. Never share a database, auth boundary, or secrets with it. Any integration is arms-length, via webhook/API, treating inbound data as untrusted.
+- No secrets in code or committed env files — runtime secret loading only.
+- No em dashes in generated copy, docs, commit messages, or customer-facing text. House style.
+- AI (Bedrock, or any LLM-driven feature) drafts and extracts only. Nothing it produces bills, sends, or commits without human approval.
+- Before touching `prisma/schema.prisma`, `prisma/pii/schema.prisma`, or any customer/lead data path, read `20-pii-boundary.mdc` — the ops/PII database split is the rule most likely to be violated by accident in this codebase.
+
+Other rule files: `10-current-architecture.mdc` (folder layout), `20-pii-boundary.mdc` (ops/PII split), `30-auth-permissions.mdc` (auth + roles), `40-conventions.mdc` (feature code conventions).
