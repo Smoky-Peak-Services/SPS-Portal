@@ -11,6 +11,8 @@ import {
   canWriteCatalog,
   canWriteFinancials,
 } from "@/features/materials/authz";
+import { isCoreCategoryAttributeSlug } from "./attribute-list-defs";
+import { ensureCoreAssignmentsForCategory } from "./ensure-core-assignments";
 import { slugify } from "./slug";
 import { assertItemAttributeValues } from "./validation";
 import {
@@ -312,6 +314,11 @@ export async function createCategory(raw: unknown) {
           }),
     },
   });
+  await ensureCoreAssignmentsForCategory(
+    prisma,
+    category.id,
+    category.requiresManualPartNumber,
+  );
   revalidateMaterials();
   return category;
 }
@@ -353,6 +360,13 @@ export async function updateCategory(raw: unknown) {
         : {}),
     },
   });
+  if (writeCatalog) {
+    await ensureCoreAssignmentsForCategory(
+      prisma,
+      category.id,
+      category.requiresManualPartNumber,
+    );
+  }
   revalidateMaterials();
   return category;
 }
@@ -448,6 +462,33 @@ export async function upsertAssignment(raw: unknown) {
   const user = await requireMaterialsAccess();
   assertAttributesWrite(user);
   const data = upsertAssignmentSchema.parse(raw);
+
+  const attribute = await prisma.materialAttribute.findUnique({
+    where: { id: data.attributeId },
+    select: { slug: true },
+  });
+  if (!attribute) {
+    throw new Error("Attribute not found");
+  }
+
+  let isRequired = data.isRequired ?? false;
+  let isVariantDefining = data.isVariantDefining ?? false;
+  if (isCoreCategoryAttributeSlug(attribute.slug)) {
+    isVariantDefining = false;
+    if (attribute.slug === "manufacturer") {
+      isRequired = true;
+    } else {
+      const category = await prisma.materialCategory.findUnique({
+        where: { id: data.categoryId },
+        select: { requiresManualPartNumber: true },
+      });
+      if (!category) {
+        throw new Error("Category not found");
+      }
+      isRequired = category.requiresManualPartNumber;
+    }
+  }
+
   const assignment = await prisma.materialAttributeAssignment.upsert({
     where: {
       categoryId_attributeId: {
@@ -458,16 +499,16 @@ export async function upsertAssignment(raw: unknown) {
     create: {
       categoryId: data.categoryId,
       attributeId: data.attributeId,
-      isRequired: data.isRequired ?? false,
+      isRequired,
       isFilterable: data.isFilterable ?? true,
-      isVariantDefining: data.isVariantDefining ?? false,
+      isVariantDefining,
       defaultOptionId: emptyToNull(data.defaultOptionId),
       sortOrder: data.sortOrder ?? 0,
     },
     update: {
-      isRequired: data.isRequired ?? false,
+      isRequired,
       isFilterable: data.isFilterable ?? true,
-      isVariantDefining: data.isVariantDefining ?? false,
+      isVariantDefining,
       defaultOptionId: emptyToNull(data.defaultOptionId),
       sortOrder: data.sortOrder ?? 0,
     },
@@ -480,6 +521,18 @@ export async function deleteAssignment(raw: unknown) {
   const user = await requireMaterialsAccess();
   assertAttributesWrite(user);
   const data = deleteAssignmentSchema.parse(raw);
+  const existing = await prisma.materialAttributeAssignment.findUnique({
+    where: { id: data.id },
+    include: { attribute: { select: { slug: true, name: true } } },
+  });
+  if (!existing) {
+    throw new Error("Assignment not found");
+  }
+  if (isCoreCategoryAttributeSlug(existing.attribute.slug)) {
+    throw new Error(
+      `${existing.attribute.name} is required on every category and cannot be unassigned`,
+    );
+  }
   await prisma.materialAttributeAssignment.delete({ where: { id: data.id } });
   revalidateMaterials();
 }

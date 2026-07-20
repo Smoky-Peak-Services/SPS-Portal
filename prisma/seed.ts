@@ -7,6 +7,7 @@ import { prismaPii } from "../src/lib/prisma-pii";
 import { seedStripeTaxCodes } from "../scripts/seed-stripe-tax-codes";
 import { syncAttributeLists } from "../scripts/sync-attribute-lists";
 import { seedCapabilities } from "../src/config/capabilities";
+import { ensureCoreAssignmentsForAllCategories } from "../src/features/materials/ensure-core-assignments";
 
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -171,6 +172,12 @@ async function main() {
       (attrSync.attributesDeactivated.length
         ? `; deactivated ${attrSync.attributesDeactivated.join(", ")}`
         : ""),
+  );
+
+  console.log("Ensuring core category attribute assignments…");
+  const coreAssign = await ensureCoreAssignmentsForAllCategories(prisma);
+  console.log(
+    `  ✓ manufacturer + part_number on ${coreAssign.categoriesUpdated} categories`,
   );
 
   console.log("Seeding role capabilities…");

@@ -80,21 +80,26 @@ export async function syncAttributeLists(
   }
 
   for (const def of CANONICAL_ATTRIBUTE_LISTS) {
+    const inputType = def.inputType ?? "SELECT";
     const attr = await prisma.materialAttribute.upsert({
       where: { slug: def.slug },
       create: {
         slug: def.slug,
         name: def.name,
-        inputType: "SELECT",
+        inputType,
         isActive: true,
       },
       update: {
         name: def.name,
-        inputType: "SELECT",
+        inputType,
         isActive: true,
       },
     });
     result.attributesUpserted += 1;
+
+    if (inputType !== "SELECT" && inputType !== "MULTISELECT") {
+      continue;
+    }
 
     const canonicalValues = new Set(def.options.map((o) => o.value));
 

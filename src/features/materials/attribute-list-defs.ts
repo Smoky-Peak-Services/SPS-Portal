@@ -1,8 +1,9 @@
 /**
- * Canonical material attribute SELECT lists (ERP picklists).
+ * Canonical material attributes (SELECT picklists + core TEXT attrs).
  * Synced to ops DB via `scripts/sync-attribute-lists.ts`.
  * Excel import remains additive; this file is the source of truth for full sync.
  */
+import type { MaterialAttributeInputType } from "@prisma/client";
 import { slugify } from "./slug";
 
 export type AttributeOptionDef = {
@@ -14,8 +15,25 @@ export type AttributeOptionDef = {
 export type AttributeListDef = {
   slug: string;
   name: string;
+  /** Defaults to SELECT when omitted. */
+  inputType?: MaterialAttributeInputType;
   options: AttributeOptionDef[];
 };
+
+/** Always assigned on every category; cannot be unassigned in the UI. */
+export const CORE_CATEGORY_ATTRIBUTE_SLUGS = [
+  "manufacturer",
+  "part_number",
+] as const;
+
+export type CoreCategoryAttributeSlug =
+  (typeof CORE_CATEGORY_ATTRIBUTE_SLUGS)[number];
+
+export function isCoreCategoryAttributeSlug(
+  slug: string,
+): slug is CoreCategoryAttributeSlug {
+  return (CORE_CATEGORY_ATTRIBUTE_SLUGS as readonly string[]).includes(slug);
+}
 
 function fromLabels(labels: string[]): AttributeOptionDef[] {
   return labels.map((label, i) => ({
@@ -322,10 +340,17 @@ export const CANONICAL_ATTRIBUTE_LISTS: AttributeListDef[] = [
   {
     slug: "manufacturer",
     name: "Manufacturer",
+    inputType: "SELECT",
     options: fromLabels([
       ...MANUFACTURER_EXISTING,
       ...MANUFACTURER_APPEND,
     ]),
+  },
+  {
+    slug: "part_number",
+    name: "Part Number",
+    inputType: "TEXT",
+    options: [],
   },
 ];
 

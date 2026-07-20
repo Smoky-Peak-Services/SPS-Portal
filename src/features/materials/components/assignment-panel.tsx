@@ -6,6 +6,7 @@ import {
   deleteAssignment,
   upsertAssignment,
 } from "@/features/materials/actions";
+import { isCoreCategoryAttributeSlug } from "@/features/materials/attribute-list-defs";
 import { cn } from "@/lib/utils";
 
 type AttributeOption = {
@@ -63,6 +64,9 @@ export function AssignmentPanel({
   }
 
   function toggleAssign(attr: AttributeOption) {
+    if (isCoreCategoryAttributeSlug(attr.slug)) {
+      return;
+    }
     const existing = byAttributeId.get(attr.id);
     if (existing) {
       run(attr.id, async () => {
@@ -116,8 +120,9 @@ export function AssignmentPanel({
         </p>
       </div>
       <p className="text-xs text-slate-500">
-        Tap a bubble to assign or remove. Assigned attributes can be marked
-        required, filterable, or variant-defining.
+        Tap a bubble to assign or remove. Manufacturer and Part Number are
+        always assigned. Part Number required-ness follows the category
+        checkbox above.
       </p>
 
       {availableAttributes.length === 0 ? (
@@ -128,7 +133,8 @@ export function AssignmentPanel({
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {availableAttributes.map((attr) => {
             const assignment = byAttributeId.get(attr.id);
-            const selected = !!assignment;
+            const locked = isCoreCategoryAttributeSlug(attr.slug);
+            const selected = locked || !!assignment;
             const thisBusy = pending && busyId === attr.id;
             return (
               <li
@@ -142,13 +148,19 @@ export function AssignmentPanel({
               >
                 <button
                   type="button"
-                  disabled={pending}
+                  disabled={pending || locked}
                   onClick={() => toggleAssign(attr)}
                   className={cn(
                     "flex w-full items-start justify-between gap-2 rounded-lg text-left",
+                    locked ? "cursor-default" : "",
                     pending && !thisBusy ? "opacity-60" : "",
                   )}
                   aria-pressed={selected}
+                  title={
+                    locked
+                      ? "Always assigned on every category"
+                      : undefined
+                  }
                 >
                   <span>
                     <span
@@ -161,6 +173,7 @@ export function AssignmentPanel({
                     </span>
                     <span className="mt-0.5 block text-[11px] text-slate-500">
                       {attr.inputType}
+                      {locked ? " · always assigned" : ""}
                       {thisBusy ? " · saving…" : ""}
                     </span>
                   </span>
@@ -177,39 +190,77 @@ export function AssignmentPanel({
                   </span>
                 </button>
 
-                {assignment ? (
+                {assignment || locked ? (
                   <div className="mt-3 flex flex-wrap gap-1 border-t border-teal-100 pt-2">
-                    {(
-                      [
-                        ["isRequired", "Required", assignment.isRequired],
-                        ["isFilterable", "Filterable", assignment.isFilterable],
-                        [
-                          "isVariantDefining",
-                          "Variant",
-                          assignment.isVariantDefining,
-                        ],
-                      ] as const
-                    ).map(([key, label, on]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        disabled={pending}
-                        onClick={() =>
-                          setFlag(assignment, {
-                            [key]: !on,
-                          })
-                        }
-                        className={cn(
-                          "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
-                          on
-                            ? "bg-teal-800 text-white"
-                            : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
+                    {locked ? (
+                      <>
+                        {attr.slug === "part_number" ? (
+                          <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] text-slate-500 ring-1 ring-slate-200">
+                            Required controlled by category checkbox above
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-teal-800 px-2.5 py-0.5 text-[11px] font-medium text-white">
+                            Required
+                          </span>
                         )}
-                        aria-pressed={on}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                        {assignment ? (
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() =>
+                              setFlag(assignment, {
+                                isFilterable: !assignment.isFilterable,
+                              })
+                            }
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                              assignment.isFilterable
+                                ? "bg-teal-800 text-white"
+                                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
+                            )}
+                            aria-pressed={assignment.isFilterable}
+                          >
+                            Filterable
+                          </button>
+                        ) : null}
+                      </>
+                    ) : assignment ? (
+                      (
+                        [
+                          ["isRequired", "Required", assignment.isRequired],
+                          [
+                            "isFilterable",
+                            "Filterable",
+                            assignment.isFilterable,
+                          ],
+                          [
+                            "isVariantDefining",
+                            "Variant",
+                            assignment.isVariantDefining,
+                          ],
+                        ] as const
+                      ).map(([key, label, on]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          disabled={pending}
+                          onClick={() =>
+                            setFlag(assignment, {
+                              [key]: !on,
+                            })
+                          }
+                          className={cn(
+                            "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                            on
+                              ? "bg-teal-800 text-white"
+                              : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
+                          )}
+                          aria-pressed={on}
+                        >
+                          {label}
+                        </button>
+                      ))
+                    ) : null}
                   </div>
                 ) : null}
               </li>

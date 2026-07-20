@@ -16,14 +16,18 @@ export async function writeCanonicalAttributeFixture(
     outPath ?? join(process.cwd(), CANONICAL_ATTRIBUTE_FIXTURE_REL);
   mkdirSync(dirname(target), { recursive: true });
 
+  const selectLists = CANONICAL_ATTRIBUTE_LISTS.filter(
+    (d) => (d.inputType ?? "SELECT") === "SELECT",
+  );
+
   const wb = new ExcelJS.Workbook();
   const index = wb.addWorksheet("Attribute Lists");
   index.addRow(["list_key", "list_name", "filter_mode"]);
-  for (const def of CANONICAL_ATTRIBUTE_LISTS) {
+  for (const def of selectLists) {
     index.addRow([def.slug, def.name, ""]);
   }
 
-  for (const def of CANONICAL_ATTRIBUTE_LISTS) {
+  for (const def of selectLists) {
     const sheet = wb.addWorksheet(def.slug.slice(0, 31));
     sheet.addRow(["label", "sort_order", "tags", "rfq_contact", "rfq_email"]);
     for (const opt of def.options) {
@@ -37,12 +41,12 @@ export async function writeCanonicalAttributeFixture(
 
 async function main() {
   const path = await writeCanonicalAttributeFixture();
-  const totalOpts = CANONICAL_ATTRIBUTE_LISTS.reduce(
-    (n, a) => n + a.options.length,
-    0,
+  const selectLists = CANONICAL_ATTRIBUTE_LISTS.filter(
+    (d) => (d.inputType ?? "SELECT") === "SELECT",
   );
+  const totalOpts = selectLists.reduce((n, a) => n + a.options.length, 0);
   console.log(
-    `Wrote ${path} (${CANONICAL_ATTRIBUTE_LISTS.length} attributes, ${totalOpts} options)`,
+    `Wrote ${path} (${selectLists.length} attributes, ${totalOpts} options)`,
   );
 }
 
