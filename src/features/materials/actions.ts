@@ -278,6 +278,8 @@ export async function createCategory(raw: unknown) {
       requiresManualPartNumber: data.requiresManualPartNumber ?? false,
       taxProfile: data.taxProfile ?? "REAL_PROPERTY",
       stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+      laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
+      laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
       taxReviewed: data.taxReviewed ?? false,
     },
   });
@@ -301,6 +303,8 @@ export async function updateCategory(raw: unknown) {
       requiresManualPartNumber: data.requiresManualPartNumber ?? false,
       taxProfile: data.taxProfile ?? "REAL_PROPERTY",
       stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+      laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
+      laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
       ...(data.taxReviewed !== undefined
         ? { taxReviewed: data.taxReviewed }
         : {}),
@@ -495,6 +499,8 @@ export async function createItem(raw: unknown) {
       isActive: data.isActive ?? true,
       taxProfile: data.taxProfile ?? null,
       stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+      laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
+      laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
     },
   });
 
@@ -525,6 +531,8 @@ export async function updateItem(raw: unknown) {
       isActive: data.isActive ?? true,
       taxProfile: data.taxProfile ?? null,
       stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+      laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
+      laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
     },
   });
 

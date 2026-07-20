@@ -86,6 +86,11 @@ export default async function CategoriesPage({
                         part #
                       </span>
                     ) : null}
+                    {c.laborInstallTaxCodeId || c.laborServiceTaxCodeId ? (
+                      <span className="ml-2 text-xs text-slate-500">
+                        labor override
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     {c.domain.division.name} / {c.domain.name}

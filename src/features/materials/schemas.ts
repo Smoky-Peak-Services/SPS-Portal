@@ -34,6 +34,8 @@ export const createCategorySchema = z.object({
   requiresManualPartNumber: z.boolean().optional(),
   taxProfile: taxProfileSchema.optional(),
   stripeTaxCodeId: z.string().max(64).optional().or(z.literal("")),
+  laborInstallTaxCodeId: z.string().max(64).optional().or(z.literal("")),
+  laborServiceTaxCodeId: z.string().max(64).optional().or(z.literal("")),
   taxReviewed: z.boolean().optional(),
 });
 
@@ -111,6 +113,8 @@ export const createItemSchema = z.object({
   isActive: z.boolean().optional(),
   taxProfile: taxProfileSchema.optional().nullable(),
   stripeTaxCodeId: z.string().max(64).optional().or(z.literal("")),
+  laborInstallTaxCodeId: z.string().max(64).optional().or(z.literal("")),
+  laborServiceTaxCodeId: z.string().max(64).optional().or(z.literal("")),
   attributeValues: z.array(attributeValueSchema).optional(),
 });
 

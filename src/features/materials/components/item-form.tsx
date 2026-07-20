@@ -63,6 +63,8 @@ type Props = {
     isActive: boolean;
     taxProfile: MaterialTaxProfile | null;
     stripeTaxCodeId: string | null;
+    laborInstallTaxCodeId: string | null;
+    laborServiceTaxCodeId: string | null;
     values: ExistingValue[];
   };
 };
@@ -164,6 +166,8 @@ export function ItemForm({
               ? null
               : (taxRaw as MaterialTaxProfile),
           stripeTaxCodeId: String(fd.get("stripeTaxCodeId") || ""),
+          laborInstallTaxCodeId: String(fd.get("laborInstallTaxCodeId") || ""),
+          laborServiceTaxCodeId: String(fd.get("laborServiceTaxCodeId") || ""),
           attributeValues,
         };
 
@@ -308,6 +312,24 @@ export function ItemForm({
         codes={taxCodes}
         defaultValue={initial?.stripeTaxCodeId}
       />
+      <StripeTaxCodeCombobox
+        name="laborInstallTaxCodeId"
+        label="Labor tax code override — install"
+        codes={taxCodes}
+        defaultValue={initial?.laborInstallTaxCodeId}
+      />
+      <StripeTaxCodeCombobox
+        name="laborServiceTaxCodeId"
+        label="Labor tax code override — service"
+        codes={taxCodes}
+        defaultValue={initial?.laborServiceTaxCodeId}
+      />
+      <p className="text-xs text-slate-500">
+        Leave blank to use the default derived from tax profile + install/service
+        context. Set both to the same code only if this item&apos;s labor is
+        always one type of work regardless of which job or ticket it&apos;s
+        billed on (e.g. running cable is always installation labor).
+      </p>
       <div className="space-y-2">
         <Label htmlFor="supplier">Supplier</Label>
         <Input

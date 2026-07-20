@@ -57,6 +57,12 @@ export default async function ItemsPage() {
                       >
                         {item.name}
                       </Link>
+                      {item.laborInstallTaxCodeId ||
+                      item.laborServiceTaxCodeId ? (
+                        <span className="ml-2 text-xs text-slate-500">
+                          labor override
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       {item.category.domain.division.name} /{" "}

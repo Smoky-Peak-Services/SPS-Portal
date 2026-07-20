@@ -77,6 +77,8 @@ export default async function EditItemPage({
           isActive: item.isActive,
           taxProfile: item.taxProfile,
           stripeTaxCodeId: item.stripeTaxCodeId,
+          laborInstallTaxCodeId: item.laborInstallTaxCodeId,
+          laborServiceTaxCodeId: item.laborServiceTaxCodeId,
           values: item.values,
         }}
       />

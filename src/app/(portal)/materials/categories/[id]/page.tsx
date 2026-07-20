@@ -64,6 +64,8 @@ export default async function CategoryDetailPage({
           requiresManualPartNumber: category.requiresManualPartNumber,
           taxProfile: category.taxProfile,
           stripeTaxCodeId: category.stripeTaxCodeId,
+          laborInstallTaxCodeId: category.laborInstallTaxCodeId,
+          laborServiceTaxCodeId: category.laborServiceTaxCodeId,
           taxReviewed: category.taxReviewed,
         }}
       />

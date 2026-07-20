@@ -36,6 +36,8 @@ type Props = {
     requiresManualPartNumber: boolean;
     taxProfile: MaterialTaxProfile;
     stripeTaxCodeId: string | null;
+    laborInstallTaxCodeId: string | null;
+    laborServiceTaxCodeId: string | null;
     taxReviewed: boolean;
   };
 };
@@ -63,6 +65,8 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
             fd.get("taxProfile") || "REAL_PROPERTY",
           ) as MaterialTaxProfile,
           stripeTaxCodeId: String(fd.get("stripeTaxCodeId") || ""),
+          laborInstallTaxCodeId: String(fd.get("laborInstallTaxCodeId") || ""),
+          laborServiceTaxCodeId: String(fd.get("laborServiceTaxCodeId") || ""),
           taxReviewed: fd.get("taxReviewed") === "on",
         };
         if (initial) await updateCategory({ id: initial.id, ...base });
@@ -134,6 +138,24 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
         codes={taxCodes}
         defaultValue={initial?.stripeTaxCodeId}
       />
+      <StripeTaxCodeCombobox
+        name="laborInstallTaxCodeId"
+        label="Labor tax code override — install"
+        codes={taxCodes}
+        defaultValue={initial?.laborInstallTaxCodeId}
+      />
+      <StripeTaxCodeCombobox
+        name="laborServiceTaxCodeId"
+        label="Labor tax code override — service"
+        codes={taxCodes}
+        defaultValue={initial?.laborServiceTaxCodeId}
+      />
+      <p className="text-xs text-slate-500">
+        Leave blank to use the default derived from tax profile + install/service
+        context. Set both to the same code only if this category&apos;s labor is
+        always one type of work regardless of which job or ticket it&apos;s
+        billed on (e.g. running cable is always installation labor).
+      </p>
       <div className="flex flex-wrap gap-4 text-sm">
         <label className="flex items-center gap-2">
           <input

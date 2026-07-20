@@ -86,4 +86,37 @@ describe("resolveLaborTaxCode 4-cell matrix", () => {
     assert.equal(r.stripeTaxCodeId, "txcd_20080010");
     assert.equal(r.inheritedFrom, "item");
   });
+
+  it("category laborService override applies to SERVICE (e.g. cabling always install)", () => {
+    const installCode = "txcd_20020010";
+    const item = { taxProfile: null, stripeTaxCodeId: null };
+    const category = {
+      taxProfile: "REAL_PROPERTY" as const,
+      stripeTaxCodeId: null,
+      laborServiceTaxCodeId: installCode,
+    };
+    assert.equal(
+      resolveLaborTaxCode(item, category, "INSTALL", defaults).stripeTaxCodeId,
+      installCode,
+    );
+    const service = resolveLaborTaxCode(item, category, "SERVICE", defaults);
+    assert.equal(service.stripeTaxCodeId, installCode);
+    assert.equal(service.inheritedFrom, "category");
+  });
+
+  it("category with no labor override still uses defaults", () => {
+    const item = { taxProfile: null, stripeTaxCodeId: null };
+    const category = {
+      taxProfile: "REAL_PROPERTY" as const,
+      stripeTaxCodeId: null,
+    };
+    assert.equal(
+      resolveLaborTaxCode(item, category, "INSTALL", defaults).inheritedFrom,
+      "default",
+    );
+    assert.equal(
+      resolveLaborTaxCode(item, category, "SERVICE", defaults).stripeTaxCodeId,
+      "txcd_20080007",
+    );
+  });
 });
