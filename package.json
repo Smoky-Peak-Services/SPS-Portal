@@ -20,7 +20,8 @@
     "db:push": "node --env-file=.env.local ./node_modules/prisma/build/index.js db push",
     "db:push:pii": "node --env-file=.env.local ./node_modules/prisma/build/index.js db push --schema=prisma/pii/schema.prisma --config=prisma/pii/prisma.config.ts",
     "sync:divisions-pii": "tsx --env-file=.env.local scripts/sync-divisions-to-pii.ts",
-    "db:seed": "tsx --env-file=.env.local prisma/seed.ts"
+    "db:seed": "tsx --env-file=.env.local prisma/seed.ts",
+    "db:admin-doctor": "tsx --env-file=.env.local prisma/admin-doctor.ts"
   },
   "prisma": {
     "seed": "tsx --env-file=.env.local prisma/seed.ts"

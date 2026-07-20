@@ -1,6 +1,8 @@
 /**
  * PII-tier database client.
- * Dev/local: PII_DATABASE_URL or OPS_DATABASE_URL (monolith fallback).
+ * Local: requires PII_DATABASE_URL.
+ * Vercel: CLIENT_DB_SECRET_ARN (Secrets Manager) is planned but not wired yet —
+ * until then, callers must gate on isPiiConfigured() and degrade gracefully.
  */
 import { PrismaClient } from "../../prisma/generated/pii";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -12,16 +14,27 @@ function normalizeSsl(url: string) {
   return url.replace(/sslmode=(prefer|require|verify-ca)\b/i, "sslmode=verify-full");
 }
 
+/** True when a dedicated PII database URL is present and can be used. */
+export function isPiiConfigured(): boolean {
+  return !!(process.env.PII_DATABASE_URL ?? "").trim();
+}
+
+/** @deprecated Prefer isPiiConfigured(). */
+export function isPiiDatabaseSplit(): boolean {
+  return isPiiConfigured();
+}
+
 async function resolvePiiUrl(): Promise<string> {
   const direct = (process.env.PII_DATABASE_URL ?? "").trim();
   if (direct) {
     return direct;
   }
 
-  const fallback = (process.env.OPS_DATABASE_URL ?? "").trim();
-  if (!fallback) throw new Error("Set PII_DATABASE_URL (dev) or OPS_DATABASE_URL (monolith fallback)");
-  console.warn("[pii] falling back to OPS_DATABASE_URL");
-  return fallback;
+  // Do NOT fall back to OPS_DATABASE_URL — that silently queries the wrong DB
+  // (no customer/lead tables) and produces P2021 500s on Vercel.
+  throw new Error(
+    "PII database is not configured. Set PII_DATABASE_URL (local) or wire CLIENT_DB_SECRET_ARN (Vercel).",
+  );
 }
 
 async function createClient(): Promise<PrismaClient> {
@@ -63,9 +76,5 @@ export const prismaPii = new Proxy({} as PrismaClient, {
     );
   },
 });
-
-export function isPiiDatabaseSplit(): boolean {
-  return !!(process.env.PII_DATABASE_URL ?? "").trim();
-}
 
 export type { CustomerType, LeadStatus, LeadSource, ActivityType } from "../../prisma/generated/pii";

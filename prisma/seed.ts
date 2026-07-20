@@ -16,6 +16,44 @@ function hashIngestKey(raw: string) {
   return createHash("sha256").update(raw).digest("hex");
 }
 
+async function setCredentialPassword(userId: string, password: string) {
+  const ctx = (await seedAuth.$context) as unknown as {
+    password: { hash: (p: string) => Promise<string> };
+  };
+  const hash = await ctx.password.hash(password);
+  const existing = await prisma.account.findFirst({
+    where: { userId, providerId: "credential" },
+    select: { id: true },
+  });
+  if (existing) {
+    await prisma.account.update({
+      where: { id: existing.id },
+      data: { password: hash },
+    });
+  } else {
+    await prisma.account.create({
+      data: {
+        accountId: userId,
+        providerId: "credential",
+        userId,
+        password: hash,
+      },
+    });
+  }
+}
+
+async function ensureAdminMemberships(userId: string) {
+  const divisions = await prisma.division.findMany();
+  for (const div of divisions) {
+    await prisma.divisionMembership.upsert({
+      where: { userId_divisionId: { userId, divisionId: div.id } },
+      create: { userId, divisionId: div.id },
+      update: {},
+    });
+  }
+  return divisions;
+}
+
 async function main() {
   console.log("Seeding divisions…");
   for (const d of company.divisions) {
@@ -53,46 +91,51 @@ async function main() {
 
   const email = process.env.SEED_ADMIN_EMAIL ?? company.rootAdminEmail;
   const name = process.env.SEED_ADMIN_NAME ?? "Root Admin";
-  const password = process.env.SEED_ADMIN_PASSWORD;
+  const password = process.env.SEED_ADMIN_PASSWORD?.trim();
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    await prisma.user.update({ where: { id: existing.id }, data: { role: "admin" } });
-    for (const div of divisions) {
-      await prisma.divisionMembership.upsert({
-        where: { userId_divisionId: { userId: existing.id, divisionId: div.id } },
-        create: { userId: existing.id, divisionId: div.id },
-        update: {},
-      });
+  if (password) {
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      await seedAuth.api.signUpEmail({ body: { email, password, name } });
+      console.log(`admin created: ${email}`);
+    } else {
+      await setCredentialPassword(user.id, password);
+      console.log(`admin credential reset: ${email}`);
     }
-    console.log(`admin already exists — elevated: ${email}`);
-  } else if (password) {
-    await seedAuth.api.signUpEmail({ body: { email, password, name } });
-    const user = await prisma.user.update({
+
+    user = await prisma.user.update({
       where: { email },
       data: { role: "admin", emailVerified: true },
     });
-    for (const div of divisions) {
-      await prisma.divisionMembership.upsert({
-        where: { userId_divisionId: { userId: user.id, divisionId: div.id } },
-        create: { userId: user.id, divisionId: div.id },
-        update: {},
-      });
-    }
-    console.log(`admin created: ${email}`);
+    await ensureAdminMemberships(user.id);
+    await prisma.invitation.deleteMany({ where: { email } });
   } else {
-    const token = randomBytes(24).toString("hex");
-    await prisma.invitation.create({
-      data: {
-        email,
-        role: "admin",
-        token,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14),
-        divisionIds: divisions.map((d) => d.id),
-      },
-    });
-    const base = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-    console.log(`No SEED_ADMIN_PASSWORD — invite: ${base}/accept-invite?token=${token}`);
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { role: "admin" },
+      });
+      await ensureAdminMemberships(existing.id);
+      console.log(
+        `admin already exists — elevated: ${email} (no SEED_ADMIN_PASSWORD; password unchanged)`,
+      );
+    } else {
+      const token = randomBytes(24).toString("hex");
+      await prisma.invitation.create({
+        data: {
+          email,
+          role: "admin",
+          token,
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14),
+          divisionIds: divisions.map((d) => d.id),
+        },
+      });
+      const base = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+      console.log(
+        `No SEED_ADMIN_PASSWORD — invite (accept-invite is stub): ${base}/accept-invite?token=${token}`,
+      );
+    }
   }
 
   console.log("Seed complete.");

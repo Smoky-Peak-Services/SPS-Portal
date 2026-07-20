@@ -1,13 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prismaPii } from "@/lib/prisma-pii";
+import { isPiiConfigured, prismaPii } from "@/lib/prisma-pii";
 import { requireArea, requireUser } from "@/lib/session";
 import { canAccess } from "@/config/permissions";
 import { createCustomerSchema, createLocationSchema } from "./schemas";
 
+const PII_UNCONFIGURED =
+  "Client (PII) database is not configured on this deployment yet.";
+
 export async function listCustomers(opts?: { q?: string }) {
   await requireArea("customers");
+  if (!isPiiConfigured()) return [];
+
   const q = opts?.q?.trim();
   return prismaPii.customer.findMany({
     where: {
@@ -40,6 +45,8 @@ export async function listCustomerOptions() {
   ) {
     return [];
   }
+  if (!isPiiConfigured()) return [];
+
   return prismaPii.customer.findMany({
     where: { archivedAt: null },
     orderBy: { displayName: "asc" },
@@ -50,6 +57,8 @@ export async function listCustomerOptions() {
 
 export async function listLocationsForCustomer(customerId: string) {
   await requireArea("customers");
+  if (!isPiiConfigured()) return [];
+
   return prismaPii.serviceLocation.findMany({
     where: { customerId },
     orderBy: { createdAt: "desc" },
@@ -58,6 +67,10 @@ export async function listLocationsForCustomer(customerId: string) {
 
 export async function createCustomer(raw: unknown) {
   const user = await requireArea("customers");
+  if (!isPiiConfigured()) {
+    throw new Error(PII_UNCONFIGURED);
+  }
+
   const data = createCustomerSchema.parse(raw);
   const customer = await prismaPii.customer.create({
     data: {
@@ -80,6 +93,10 @@ export async function createCustomer(raw: unknown) {
 
 export async function createLocation(raw: unknown) {
   await requireArea("customers");
+  if (!isPiiConfigured()) {
+    throw new Error(PII_UNCONFIGURED);
+  }
+
   const data = createLocationSchema.parse(raw);
   const location = await prismaPii.serviceLocation.create({
     data: {
@@ -101,6 +118,8 @@ export async function createLocation(raw: unknown) {
 
 export async function getCustomer(id: string) {
   await requireArea("customers");
+  if (!isPiiConfigured()) return null;
+
   return prismaPii.customer.findUnique({
     where: { id },
     include: {

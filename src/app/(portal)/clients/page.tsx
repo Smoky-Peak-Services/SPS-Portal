@@ -3,9 +3,26 @@ import { listCustomers } from "@/features/crm/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireDesktopSurface } from "@/lib/require-desktop";
+import { isPiiConfigured } from "@/lib/prisma-pii";
+import { PiiUnavailableNotice } from "@/components/pii-unavailable-notice";
 
 export default async function ClientsPage() {
   await requireDesktopSurface("/clients");
+
+  if (!isPiiConfigured()) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Clients</h1>
+          <p className="text-sm text-slate-500">
+            PII database · identity for jobs &amp; tickets
+          </p>
+        </div>
+        <PiiUnavailableNotice />
+      </div>
+    );
+  }
+
   const customers = await listCustomers();
 
   return (

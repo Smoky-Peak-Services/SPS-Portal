@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { prismaPii } from "@/lib/prisma-pii";
+import { isPiiConfigured, prismaPii } from "@/lib/prisma-pii";
 import { company } from "@/config/company";
 
 const leadBodySchema = z.object({
@@ -20,7 +20,7 @@ function hashKey(raw: string) {
 
 export type LeadIngestResult =
   | { ok: true; leadId: string }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; reason?: "pii_unconfigured" };
 
 /**
  * Public-site lead ingest. Auth via per-division IngestKey header `x-ingest-key`
@@ -30,6 +30,15 @@ export async function handleLeadIngest(
   body: unknown,
   headers: { ingestKey?: string | null; ingestSecret?: string | null },
 ): Promise<LeadIngestResult> {
+  if (!isPiiConfigured()) {
+    return {
+      ok: false,
+      status: 503,
+      error: "Client (PII) database is not configured on this deployment yet.",
+      reason: "pii_unconfigured",
+    };
+  }
+
   const parsed = leadBodySchema.safeParse(body);
   if (!parsed.success) {
     return { ok: false, status: 400, error: "Invalid payload" };

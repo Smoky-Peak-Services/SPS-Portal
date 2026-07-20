@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCustomer } from "@/features/crm/actions";
 import { LocationCreateForm } from "@/features/crm/components/location-create-form";
 import { Badge } from "@/components/ui/badge";
 import { requireDesktopSurface } from "@/lib/require-desktop";
+import { isPiiConfigured } from "@/lib/prisma-pii";
 
 export default async function ClientDetailPage({
   params,
@@ -12,6 +13,11 @@ export default async function ClientDetailPage({
 }) {
   const { id } = await params;
   await requireDesktopSurface(`/clients/${id}`);
+
+  if (!isPiiConfigured()) {
+    redirect("/clients");
+  }
+
   const customer = await getCustomer(id);
   if (!customer) notFound();
 

@@ -1,4 +1,4 @@
-import { prismaPii } from "@/lib/prisma-pii";
+import { isPiiConfigured, prismaPii } from "@/lib/prisma-pii";
 
 export type CustomerSummary = {
   id: string;
@@ -22,6 +22,10 @@ export type LocationSummary = {
 export async function attachCustomers<T extends { customerId?: string | null }>(
   rows: T[],
 ): Promise<(T & { customer: CustomerSummary | null })[]> {
+  if (!isPiiConfigured()) {
+    return rows.map((r) => ({ ...r, customer: null }));
+  }
+
   const ids = [
     ...new Set(rows.map((r) => r.customerId).filter(Boolean)),
   ] as string[];
@@ -51,6 +55,10 @@ export async function attachCustomers<T extends { customerId?: string | null }>(
 export async function attachLocations<T extends { propertyId?: string | null }>(
   rows: T[],
 ): Promise<(T & { property: LocationSummary | null })[]> {
+  if (!isPiiConfigured()) {
+    return rows.map((r) => ({ ...r, property: null }));
+  }
+
   const ids = [
     ...new Set(rows.map((r) => r.propertyId).filter(Boolean)),
   ] as string[];
