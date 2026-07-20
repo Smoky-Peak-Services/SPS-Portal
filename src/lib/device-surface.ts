@@ -8,13 +8,13 @@ export function surfaceFromViewportWidth(width: number): DeviceSurface {
   return width < MOBILE_MAX_WIDTH ? "mobile" : "desktop";
 }
 
-/** Routes that require a desktop surface (mobile redirects away). */
-export function isDesktopOnlyPath(pathname: string): boolean {
-  if (pathname === "/") return true;
-  if (pathname === "/jobs/new" || pathname.startsWith("/jobs/new/")) return true;
-  if (pathname === "/tickets/new" || pathname.startsWith("/tickets/new/")) return true;
-  if (pathname === "/clients" || pathname.startsWith("/clients/")) return true;
+/**
+ * Routes that require a desktop surface (mobile redirects away).
+ * Empty for now — the dashboard-only shell works on any surface. Add
+ * desktop-only routes back here as features that need them are rebuilt.
+ */
+export function isDesktopOnlyPath(_pathname: string): boolean {
   return false;
 }
 
-export const MOBILE_FALLBACK_ROUTE = "/field/today";
+export const MOBILE_FALLBACK_ROUTE = "/";

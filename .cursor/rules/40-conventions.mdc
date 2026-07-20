@@ -8,7 +8,7 @@ alwaysApply: false
 
 - New domain logic goes in `src/features/<domain>/`, following the `actions.ts` + `schemas.ts` + `components/` shape described in `10-current-architecture.mdc`. Don't call Prisma directly from a page component.
 - Validate every Server Action input with the matching Zod schema from `schemas.ts` (`schema.parse(raw)`) before touching the database. Never trust a client payload as already-valid.
-- Dates and times: use Luxon, localized to `company.timezone` (`src/config/company.ts`, currently `America/New_York`). See `nextJobNumber` / `createJob` in `src/features/jobs/actions.ts` for the pattern.
-- After a mutating action, `revalidatePath(...)` every route that shows the changed data — typically the list view, the detail view, and `/field/today` for anything field-visible. Check sibling actions in the same file for the full set of paths they revalidate.
+- Dates and times: use Luxon, localized to `company.timezone` (`src/config/company.ts`, currently `America/New_York`).
+- After a mutating action, `revalidatePath(...)` every route that shows the changed data — typically the list view, the detail view, and any mobile/field-visible surface for that domain. Check sibling actions in the same file for the full set of paths they revalidate.
 - Formatting is Prettier + `prettier-plugin-tailwindcss`; Tailwind class order is auto-sorted, don't hand-order classes. Run `npm run format`. Run `npm run typecheck` and `npm run lint` before considering a change done.
 - No em dashes in generated text, comments intended as customer-facing copy, or docs — house style (see `00-context-and-guardrails.mdc`).

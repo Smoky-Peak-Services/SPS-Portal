@@ -8,8 +8,8 @@ alwaysApply: true
 
 `claude/ARCHITECTURE.md` describes a target layering: tRPC `server/routers`, a `services/` business-logic layer, and `functions/` Lambda consumers. **That layer does not exist in this codebase yet.** Do not create `server/` or `services/` folders or introduce tRPC unless the user explicitly asks for that migration. Build against the pattern actually in `src/` today:
 
-- `src/app/(portal)/<area>/` — pages (Next.js App Router, server components). Keep thin: call feature functions, render the result.
-- `src/features/<domain>/` — where real logic lives today, one folder per domain (`jobs`, `tickets`, `crm`, `schedule`, `accounting`, `ingress`, `cron`). Each domain generally holds:
+- `src/app/(portal)/<area>/` — pages (Next.js App Router, server components). Keep thin: call feature functions, render the result. **Currently just `account` and the dashboard** — a full jobs/tickets/schedule/CRM buildout was reverted on 2026-07-19 (see `AGENTS.md` §2a and checkpoint commit `a2caa11`) because it repeated a two-entity "ticket, then attach a job" mistake from a prior build. Rebuild is piece by piece, starting with quoting/estimating, targeting one unified work-order entity — don't recreate the old `jobs`/`tickets` split.
+- `src/features/<domain>/` — where real logic lives, one folder per domain. Today that's just `accounting` (schema-guard test), `auth`, `cron`, and `ingress` — see `AGENTS.md` §2a for what was removed and why. Each new domain generally holds:
   - `actions.ts` — `"use server"` Server Actions. Pattern: auth/permission check first (`requireUser`/`requireArea` from `src/lib/session.ts`), then `schema.parse(raw)`, then the Prisma call, then `revalidatePath(...)` for every affected route.
   - `schemas.ts` — Zod schemas (Zod 4) for input validation, shared between the action and any client form (`react-hook-form` + `@hookform/resolvers`).
   - `components/` — feature-specific UI.

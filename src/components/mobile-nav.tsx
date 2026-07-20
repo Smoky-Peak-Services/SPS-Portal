@@ -35,7 +35,7 @@ export function MobileNav({
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>
-      <Link href="/field/today" className="min-w-0 flex-1">
+      <Link href="/" className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-[var(--brand-primary)]">
           {company.shortName}
         </div>

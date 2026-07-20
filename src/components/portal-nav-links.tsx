@@ -1,16 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Calendar,
-  CircleUser,
-  ClipboardList,
-  LayoutDashboard,
-  LifeBuoy,
-  Users,
-  Wrench,
-} from "lucide-react";
-import { isFeatureEnabled } from "@/config/company";
+import { CircleUser, LayoutDashboard } from "lucide-react";
 import {
   filterFooterForRole,
   filterNavForRole,
@@ -22,11 +13,6 @@ import type { DeviceSurface } from "@/lib/device-surface";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
-  ClipboardList,
-  Calendar,
-  Wrench,
-  LifeBuoy,
-  Users,
   CircleUser,
 };
 
@@ -43,15 +29,7 @@ export function PortalNavLinks({
   onNavigate?: () => void;
   showFooter?: boolean;
 }) {
-  const sections = filterNavForRole(role, navSections, surface)
-    .map((s) => ({
-      ...s,
-      items: s.items.filter(
-        (item) => !item.feature || isFeatureEnabled(item.feature),
-      ),
-    }))
-    .filter((s) => s.items.length > 0);
-
+  const sections = filterNavForRole(role, navSections, surface);
   const footer = showFooter ? filterFooterForRole(role, surface) : [];
 
   return (

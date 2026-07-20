@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Auth & permissions
 
-Better Auth (`src/lib/auth.ts`) handles sign-in. Roles are `admin | staff | sales | field` (`src/config/permissions.ts`). Access to areas (`dashboard`, `customers`, `jobs`, `tickets`, `schedule`, `myDay`, `settings`) is gated by `AREA_ROLES` + `canAccess()` — add or change area access there, don't hardcode a role check inline in a page or action.
+Better Auth (`src/lib/auth.ts`) handles sign-in. Roles are `admin | staff | sales | field` (`src/config/permissions.ts`). Access to areas is gated by `AREA_ROLES` + `canAccess()` — add or change area access there, don't hardcode a role check inline in a page or action. Post-reset (`AGENTS.md` §2a), `AREA_ROLES` only has `dashboard` and `settings`; add a new key per feature as it's rebuilt.
 
 Every Server Action must call `requireUser()` or `requireArea(area)` from `src/lib/session.ts` as its first line. This both enforces access and returns the acting user, which feeds audit fields like `createdById` / `byId`. Client-side role checks (hiding nav items, disabling buttons) are UX only — the server action is the real gate and must re-check even when the UI already hid the option, since a user can call the action directly.
 

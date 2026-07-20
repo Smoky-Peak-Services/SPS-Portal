@@ -14,7 +14,9 @@ This is being built by one person (Ryan) with a real services company's operatio
 
 ## 1. What this is
 
-Smoky Peak Services LLC is a multi-division contractor and short-term-rental service company. This portal is its internal ERP: staff/admin operations, field jobs and tickets, scheduling, and (eventually) estimating, billing, and job costing.
+Smoky Peak Services LLC is a multi-division contractor and short-term-rental service company. This portal is its internal ERP: staff/admin operations, field jobs, scheduling, and (eventually) estimating, billing, and job costing.
+
+**Current state (2026-07-19): the app is a dashboard-only shell.** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume any feature area beyond sign-in, the dashboard, and account exists until it's rebuilt.
 
 Divisions as currently modeled in `src/config/company.ts` (the single source of truth for company/division/branding — edit only that file for those changes):
 
@@ -37,6 +39,16 @@ The eventual contract (once this phase lands) is: **Stripe Tax is the single cal
 
 ---
 
+## 2a. The reset: why Job and Ticket got ripped out
+
+A first pass built `Job` and `Ticket` as two separate top-level entities (a `Ticket` could optionally attach to a `Job`, `Ticket.jobId String?`). That repeated a mistake from a previous, unrelated build: a service ticket got created first and a job attached to it later, when the ticket should have been the job from the start. That two-step "ticket, then attach a job" shape is explicitly what to avoid this time.
+
+On 2026-07-19 the jobs/tickets/schedule/CRM buildout was reverted back to a dashboard-only shell (checkpoint commit `a2caa11`, message "Checkpoint: full field-ops build (jobs/tickets/schedule/CRM) before reset to dashboard-only shell" — the old code is fully recoverable from git history if any of it is worth salvaging, but treat it as reference only, not a base to build on). What survived the reset: auth, sessions, permissions scaffolding, company config, device-surface (mobile/desktop) plumbing, the ops/PII database split and its client libraries, the public lead-ingest endpoint, and the erasure-purge stub.
+
+**The rebuild plan going forward is piece by piece, tested at each step, in this order:** quoting/estimating first, because it drives almost everything else (it's the entry point that should create the operational work item directly, ServiceM8/ServiceTitan-style — one work-order entity, no separate ticket-to-job conversion step). `prisma/schema.prisma` still contains the old `Job`/`Ticket` models and related enums (they're unused by any app code right now, not deleted, since redesigning the schema is part of the quoting/estimating rebuild, not a bare cleanup task) — expect that schema to be redesigned, not just re-wired, when that work starts. Don't resurrect the old two-entity shape when building the new work-order model unless the user asks for it back.
+
+---
+
 ## 3. Stack
 
 - **Runtime**: Node 24 (see `.nvmrc` / `package.json` `engines`) — don't assume Node 20/22 behavior.
@@ -53,11 +65,11 @@ The eventual contract (once this phase lands) is: **Stripe Tax is the single cal
 
 `claude/ARCHITECTURE.md` describes a target layering: `app/` (thin UI) → `server/` (tRPC routers) → `services/` (all business logic) → `lib/` (infra clients), plus `functions/` for Lambda event consumers. **None of `server/`, `services/`, or `functions/` exist in this repo, and there is no tRPC.** Do not create them or introduce tRPC unless the user explicitly asks for that migration — it's a real plan for later, not a mistake to silently "fix" now.
 
-What's actually here, in `src/`:
+What's actually here, in `src/`, post-reset (§2a):
 
-- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account`, `clients`, `field`, `jobs`, `schedule`, `tickets`.
-- **`features/<domain>/`** — where the real logic lives, one folder per domain (`jobs`, `tickets`, `crm`, `schedule`, `accounting`, `ingress`, `cron`). The shape, once a domain has enough logic to need it:
-  - `actions.ts` — `"use server"` Server Actions. Every exported action follows the same order: `requireUser()`/`requireArea(area)` first, then `schema.parse(raw)`, then the Prisma call(s), then `revalidatePath(...)` for every route that shows the changed data. See `src/features/jobs/actions.ts` as the reference implementation of this pattern.
+- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account` and the dashboard (`page.tsx`) only. Add a new folder per area as it's rebuilt.
+- **`features/<domain>/`** — where the real logic lives, one folder per domain. Today that's just `accounting` (schema-guard test only), `auth` (sign-in form), `cron` (purge stub), and `ingress` (public lead intake) — the domains with real business logic (jobs/tickets/schedule/crm) were removed in the reset and will return one at a time, starting with quoting/estimating. The shape to build new domains in, once a domain has enough logic to need it:
+  - `actions.ts` — `"use server"` Server Actions. Every exported action follows the same order: `requireUser()`/`requireArea(area)` first, then `schema.parse(raw)`, then the Prisma call(s), then `revalidatePath(...)` for every route that shows the changed data. (The pre-reset `src/features/jobs/actions.ts` was the reference implementation of this pattern — it's gone from the working tree but recoverable from checkpoint commit `a2caa11` if you want to see it.)
   - `schemas.ts` — Zod schemas shared between the server action and the client form.
   - `components/` — feature-specific UI.
 - **`lib/`** — infra clients and cross-cutting helpers, no business rules:
@@ -88,6 +100,8 @@ This is the single most important — and most fragile — architectural decisio
 | Generate | `npm run db:generate` | `npm run db:generate:pii` |
 | Migrate | `npm run db:migrate` | `npm run db:migrate:pii` |
 
+`Job` and `Ticket` (and their status/assignment/time-entry tables) still exist in `prisma/schema.prisma` but are currently unused by any app code — see §2a. Expect them to be redesigned into a single work-order entity when quoting/estimating is rebuilt, not just re-wired to new pages.
+
 `Job` and `Ticket` in the ops schema hold `customerId` / `propertyId` as **plain strings, not Prisma relations** — there is no cross-database foreign key. `Division` is replicated into the PII database (same `id`, no FK) so PII rows can reference a division without crossing the boundary; run `npm run sync:divisions-pii` after any ops migration that touches `Division` rows.
 
 **The rule: never add a PII-identity column (name, email, phone, street address) to the ops schema.** This is mechanically enforced by `src/features/accounting/ops-pii-schema-guard.test.ts` (`npm run test:schema-guard`), which greps both schema files for forbidden field names and asserts `Job`/`Ticket` keep `customerId?`/`propertyId?` as their only PII pointers. Run it after touching either schema. If a task seems to need customer data joined onto an ops row, the answer is `attachCustomers()` / `attachLocations()` in `src/lib/pii-join.ts`, which batch-fetch from `prismaPii` and merge in memory — follow that pattern, don't add a relation.
@@ -102,7 +116,7 @@ This is the single most important — and most fragile — architectural decisio
 
 ## 6. Auth & permissions
 
-Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public sign-up, 1-hour session with a 5-minute update window. Roles: `admin | staff | sales | field` (`src/config/permissions.ts`, mirrored in the ops `Role` enum). Area access (`dashboard`, `customers`, `jobs`, `tickets`, `schedule`, `myDay`, `settings`) is governed by `AREA_ROLES` + `canAccess()` — change access there, never with an inline role check in a page or action.
+Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public sign-up, 1-hour session with a 5-minute update window. Roles: `admin | staff | sales | field` (`src/config/permissions.ts`, mirrored in the ops `Role` enum). Area access is governed by `AREA_ROLES` + `canAccess()` — change access there, never with an inline role check in a page or action. Post-reset (§2a), `AREA_ROLES` is trimmed to just `dashboard` and `settings`; add an area key per feature as it's rebuilt rather than reusing `dashboard` for everything.
 
 Every Server Action's first line is `requireUser()` or `requireArea(area)` from `src/lib/session.ts`. This does two jobs at once: it's the actual permission gate, and it returns the acting `SessionUser` used for audit fields (`createdById`, `byId` on status-change events). Client-side role checks — hiding a nav item, disabling a button — are UX convenience only. A user can always call a Server Action directly, so the server-side check is the one that matters and must be present even when the UI already hid the option.
 
@@ -114,7 +128,7 @@ Every Server Action's first line is `requireUser()` or `requireArea(area)` from 
 
 ## 7. Mobile vs. desktop surfaces
 
-One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` (currently: `/`, `/jobs/new*`, `/tickets/new*`, `/clients*`) and `MOBILE_FALLBACK_ROUTE` (`/field/today`). Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
+One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. Post-reset (§2a), `isDesktopOnlyPath()` always returns `false` and `MOBILE_FALLBACK_ROUTE` is `/` — the dashboard shell works on any surface. Re-populate the desktop-only path list and pick a real mobile fallback route as features that need that split (e.g. a desktop-only client/quote builder, a mobile-first field surface) come back. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
 
 Navigation visibility is driven by `src/config/nav.ts` (`navSections`, each `NavItem` carries `roles` and `surface: "mobile" | "desktop" | "both"`), filtered by `filterNavForRole()`. If you add a new desktop-only or mobile-only route, register it in both `device-surface.ts` (for the redirect) and `nav.ts` (for visibility) — they are not derived from each other.
 
@@ -124,8 +138,8 @@ Navigation visibility is driven by `src/config/nav.ts` (`navSections`, each `Nav
 
 - New domain logic goes in `src/features/<domain>/`, in the `actions.ts` + `schemas.ts` + `components/` shape (§4). Don't call Prisma directly from a page component.
 - Validate every Server Action input with its Zod schema (`schema.parse(raw)`) before touching the database. Never treat a client payload as pre-validated, even from your own form.
-- All dates/times go through Luxon, localized to `company.timezone` (currently `America/New_York`). See `nextJobNumber()` / `createJob()` in `src/features/jobs/actions.ts`.
-- After a mutating action, `revalidatePath(...)` every route that displays the changed data — list view, detail view, and `/field/today` for anything field-visible. Check sibling actions in the same file for the full revalidation set before assuming you've covered it.
+- All dates/times go through Luxon, localized to `company.timezone` (currently `America/New_York`).
+- After a mutating action, `revalidatePath(...)` every route that displays the changed data — list view, detail view, and any mobile/field-visible surface for that domain. Check sibling actions in the same file for the full revalidation set before assuming you've covered it.
 - Formatting: Prettier + `prettier-plugin-tailwindcss` auto-sorts Tailwind class order — don't hand-order classes. Run `npm run format`, `npm run typecheck`, and `npm run lint` before considering a change done.
 - No em dashes in generated copy, docs, commit messages, or anything customer-facing. House style, no exceptions.
 
@@ -177,6 +191,7 @@ npm run sync:divisions-pii   # re-sync Division rows ops -> pii after an ops mig
 - No secrets in code or committed env files (§9).
 - No em dashes in generated copy, docs, or customer-facing text.
 - AI-driven features (if/when added) draft and extract only — nothing bills, sends, or commits without human approval.
+- Don't rebuild Job and Ticket as two separate top-level entities with a ticket-to-job attach step (§2a). The target shape is one work-order entity, created directly by quoting/estimating.
 - When `claude/ARCHITECTURE.md` or `claude/project-context.md` describes something that isn't in the code yet, treat it as the plan, not the present — build against what's actually here, and say so if a request assumes the target state already exists.
 
 ---

@@ -11,13 +11,10 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   field: "Field Tech",
 };
 
+// Trimmed to the dashboard-only shell. Add areas back (customers, jobs,
+// tickets, schedule, myDay, ...) as each feature is rebuilt.
 export const AREA_ROLES = {
-  dashboard: ["admin", "staff", "sales"],
-  customers: ["admin", "staff", "sales"],
-  jobs: ["admin", "staff", "sales", "field"],
-  tickets: ["admin", "staff", "sales", "field"],
-  schedule: ["admin", "staff", "field"],
-  myDay: ["admin", "staff", "field"],
+  dashboard: ["admin", "staff", "sales", "field"],
   settings: ["admin"],
 } satisfies Record<string, AppRole[]>;
 
@@ -52,15 +49,9 @@ export function canManageUsers(role: AppRole): boolean {
   return INVITABLE_ROLES[role].length > 0;
 }
 
-export function defaultRouteForRole(role: AppRole): string {
-  switch (role) {
-    case "field":
-      return "/field/today";
-    case "sales":
-      return "/clients";
-    default:
-      return "/";
-  }
+export function defaultRouteForRole(_role: AppRole): string {
+  // Every role lands on the dashboard until per-role landing pages exist again.
+  return "/";
 }
 
 export function isRootAdmin(email?: string | null): boolean {
