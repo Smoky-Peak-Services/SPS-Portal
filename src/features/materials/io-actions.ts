@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import type { Segment } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireArea } from "@/lib/session";
+import {
+  assertImportExport,
+  requireMaterialsAccess,
+} from "@/features/materials/authz";
+import { userCan } from "@/config/permissions";
 import { divisionCode } from "@/config/company";
 import {
   parseWorkbookBuffer,
@@ -150,8 +154,8 @@ export type MaterialsImportPreview = {
 async function buildPreview(
   formData: FormData,
 ): Promise<MaterialsImportPreview> {
-  const user = await requireArea("materials");
-  void user;
+  const user = await requireMaterialsAccess();
+  assertImportExport(user);
   const { divisionId, segment } = scopeFromForm(formData);
   const { buffer, filename } = await readFileBuffer(formData);
 
@@ -202,9 +206,11 @@ export type MaterialsImportCommitResult = {
 export async function commitMaterialsImport(
   formData: FormData,
 ): Promise<MaterialsImportCommitResult> {
-  const user = await requireArea("materials");
-  if (user.role !== "admin") {
-    throw new Error("Only admins can commit materials imports");
+  const user = await requireMaterialsAccess();
+  assertImportExport(user);
+  // Commit is admin-grade: require force_delete-level trust (catalog structure)
+  if (!userCan(user, "materials.force_delete")) {
+    throw new Error("Only users with force-delete permission can commit materials imports");
   }
 
   // Re-parse — never trust a client-echoed plan.
@@ -396,7 +402,8 @@ function divisionAllowsSegment(
 }
 
 export async function listImportExportScopes() {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertImportExport(user);
   const divisions = await prisma.division.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true, segments: true },

@@ -3,15 +3,14 @@
 import { usePathname } from "next/navigation";
 import { PortalSidebar } from "@/components/portal-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
-import type { AppRole } from "@/config/permissions";
 import { useDeviceSurface } from "@/hooks/use-device-surface";
 
 export function PortalShell({
-  role,
+  capabilities,
   userName,
   children,
 }: {
-  role: AppRole;
+  capabilities: string[];
   userName: string;
   children: React.ReactNode;
 }) {
@@ -21,13 +20,13 @@ export function PortalShell({
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <MobileNav
-        role={role}
+        capabilities={capabilities}
         userName={userName}
         pathname={pathname}
         surface={surface}
       />
       <PortalSidebar
-        role={role}
+        capabilities={capabilities}
         userName={userName}
         pathname={pathname}
         surface={surface}

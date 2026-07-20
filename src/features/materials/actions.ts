@@ -2,7 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireArea } from "@/lib/session";
+import { requireMaterialsAccess } from "@/features/materials/authz";
+import {
+  assertAttributesWrite,
+  assertCatalogWrite,
+  assertFinancialsWrite,
+  assertTaxReview,
+  canWriteCatalog,
+  canWriteFinancials,
+} from "@/features/materials/authz";
 import { slugify } from "./slug";
 import { assertItemAttributeValues } from "./validation";
 import {
@@ -41,7 +49,7 @@ function emptyToNull(v: string | null | undefined) {
 // ---------- Reads ----------
 
 export async function listMaterialCounts() {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   const [domains, categories, attributes, items, units] = await Promise.all([
     prisma.materialDomain.count(),
     prisma.materialCategory.count(),
@@ -53,7 +61,7 @@ export async function listMaterialCounts() {
 }
 
 export async function listDivisionsForMaterials() {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.division.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true, segments: true },
@@ -61,7 +69,7 @@ export async function listDivisionsForMaterials() {
 }
 
 export async function listDomains() {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialDomain.findMany({
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     include: {
@@ -72,7 +80,7 @@ export async function listDomains() {
 }
 
 export async function getDomain(id: string) {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialDomain.findUnique({
     where: { id },
     include: { division: true },
@@ -83,7 +91,7 @@ export async function listCategories(
   domainId?: string,
   opts?: { needsTaxReview?: boolean },
 ) {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialCategory.findMany({
     where: {
       ...(domainId ? { domainId } : {}),
@@ -101,7 +109,7 @@ export async function listCategories(
 }
 
 export async function listStripeTaxCodes() {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.stripeTaxCode.findMany({
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
@@ -114,7 +122,7 @@ export async function listStripeTaxCodes() {
 }
 
 export async function getCategory(id: string) {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialCategory.findUnique({
     where: { id },
     include: {
@@ -138,7 +146,7 @@ export async function getCategory(id: string) {
 }
 
 export async function listAttributes() {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialAttribute.findMany({
     orderBy: { name: "asc" },
     include: {
@@ -149,11 +157,16 @@ export async function listAttributes() {
 }
 
 export async function getAttribute(id: string) {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialAttribute.findUnique({
     where: { id },
     include: {
-      options: { orderBy: { sortOrder: "asc" } },
+      options: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          _count: { select: { itemValues: true, defaultFor: true } },
+        },
+      },
       assignments: {
         include: {
           category: {
@@ -166,7 +179,7 @@ export async function getAttribute(id: string) {
 }
 
 export async function listUnits() {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialUnit.findMany({
     where: { isActive: true },
     orderBy: { code: "asc" },
@@ -174,7 +187,7 @@ export async function listUnits() {
 }
 
 export async function listItems(categoryId?: string) {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialItem.findMany({
     where: categoryId ? { categoryId } : undefined,
     orderBy: { name: "asc" },
@@ -192,7 +205,7 @@ export async function listItems(categoryId?: string) {
 }
 
 export async function getItem(id: string) {
-  await requireArea("materials");
+  await requireMaterialsAccess();
   return prisma.materialItem.findUnique({
     where: { id },
     include: {
@@ -223,7 +236,8 @@ export async function getItem(id: string) {
 // ---------- Domain writes ----------
 
 export async function createDomain(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertCatalogWrite(user);
   const data = createDomainSchema.parse(raw);
   const slug = data.slug?.trim() || slugify(data.name);
   const domain = await prisma.materialDomain.create({
@@ -242,7 +256,8 @@ export async function createDomain(raw: unknown) {
 }
 
 export async function updateDomain(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertCatalogWrite(user);
   const data = updateDomainSchema.parse(raw);
   const slug = data.slug?.trim() || slugify(data.name);
   const domain = await prisma.materialDomain.update({
@@ -264,8 +279,15 @@ export async function updateDomain(raw: unknown) {
 // ---------- Category writes ----------
 
 export async function createCategory(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
   const data = createCategorySchema.parse(raw);
+  const writeCatalog = canWriteCatalog(user);
+  const writeFin = canWriteFinancials(user);
+  if (!writeCatalog && !writeFin) {
+    throw new Error("You do not have permission for this action");
+  }
+  if (writeCatalog) assertCatalogWrite(user);
+
   const slug = data.slug?.trim() || slugify(data.name);
   const category = await prisma.materialCategory.create({
     data: {
@@ -276,11 +298,17 @@ export async function createCategory(raw: unknown) {
       sortOrder: data.sortOrder ?? 0,
       isActive: data.isActive ?? true,
       requiresManualPartNumber: data.requiresManualPartNumber ?? false,
-      taxProfile: data.taxProfile ?? "REAL_PROPERTY",
-      stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
-      laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
-      laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
-      taxReviewed: data.taxReviewed ?? false,
+      ...(writeFin
+        ? {
+            taxProfile: data.taxProfile ?? "REAL_PROPERTY",
+            stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+            laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
+            laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
+            taxReviewed: data.taxReviewed ?? false,
+          }
+        : {
+            taxProfile: "REAL_PROPERTY" as const,
+          }),
     },
   });
   revalidateMaterials();
@@ -288,25 +316,39 @@ export async function createCategory(raw: unknown) {
 }
 
 export async function updateCategory(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
   const data = updateCategorySchema.parse(raw);
+  const writeCatalog = canWriteCatalog(user);
+  const writeFin = canWriteFinancials(user);
+  if (!writeCatalog && !writeFin) {
+    throw new Error("You do not have permission for this action");
+  }
+
   const slug = data.slug?.trim() || slugify(data.name);
   const category = await prisma.materialCategory.update({
     where: { id: data.id },
     data: {
-      domainId: data.domainId,
-      name: data.name.trim(),
-      slug,
-      description: emptyToNull(data.description),
-      sortOrder: data.sortOrder ?? 0,
-      isActive: data.isActive ?? true,
-      requiresManualPartNumber: data.requiresManualPartNumber ?? false,
-      taxProfile: data.taxProfile ?? "REAL_PROPERTY",
-      stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
-      laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
-      laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
-      ...(data.taxReviewed !== undefined
-        ? { taxReviewed: data.taxReviewed }
+      ...(writeCatalog
+        ? {
+            domainId: data.domainId,
+            name: data.name.trim(),
+            slug,
+            description: emptyToNull(data.description),
+            sortOrder: data.sortOrder ?? 0,
+            isActive: data.isActive ?? true,
+            requiresManualPartNumber: data.requiresManualPartNumber ?? false,
+          }
+        : {}),
+      ...(writeFin
+        ? {
+            taxProfile: data.taxProfile ?? "REAL_PROPERTY",
+            stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+            laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
+            laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
+            ...(data.taxReviewed !== undefined
+              ? { taxReviewed: data.taxReviewed }
+              : {}),
+          }
         : {}),
     },
   });
@@ -315,7 +357,8 @@ export async function updateCategory(raw: unknown) {
 }
 
 export async function markCategoryTaxReviewed(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertTaxReview(user);
   const data = markCategoryTaxReviewedSchema.parse(raw);
   const category = await prisma.materialCategory.update({
     where: { id: data.id },
@@ -328,7 +371,8 @@ export async function markCategoryTaxReviewed(raw: unknown) {
 // ---------- Attribute + options ----------
 
 export async function createAttribute(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertAttributesWrite(user);
   const data = createAttributeSchema.parse(raw);
   const slug = data.slug?.trim() || slugify(data.name);
   const attribute = await prisma.materialAttribute.create({
@@ -345,7 +389,8 @@ export async function createAttribute(raw: unknown) {
 }
 
 export async function updateAttribute(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertAttributesWrite(user);
   const data = updateAttributeSchema.parse(raw);
   const slug = data.slug?.trim() || slugify(data.name);
   const attribute = await prisma.materialAttribute.update({
@@ -363,7 +408,8 @@ export async function updateAttribute(raw: unknown) {
 }
 
 export async function createOption(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertAttributesWrite(user);
   const data = createOptionSchema.parse(raw);
   const option = await prisma.materialAttributeOption.create({
     data: {
@@ -379,7 +425,8 @@ export async function createOption(raw: unknown) {
 }
 
 export async function updateOption(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertAttributesWrite(user);
   const data = updateOptionSchema.parse(raw);
   const option = await prisma.materialAttributeOption.update({
     where: { id: data.id },
@@ -397,7 +444,8 @@ export async function updateOption(raw: unknown) {
 // ---------- Assignments ----------
 
 export async function upsertAssignment(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertAttributesWrite(user);
   const data = upsertAssignmentSchema.parse(raw);
   const assignment = await prisma.materialAttributeAssignment.upsert({
     where: {
@@ -428,7 +476,8 @@ export async function upsertAssignment(raw: unknown) {
 }
 
 export async function deleteAssignment(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertAttributesWrite(user);
   const data = deleteAssignmentSchema.parse(raw);
   await prisma.materialAttributeAssignment.delete({ where: { id: data.id } });
   revalidateMaterials();
@@ -479,9 +528,17 @@ async function writeItemValues(
 }
 
 export async function createItem(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
   const data = createItemSchema.parse(raw);
-  const values = data.attributeValues ?? [];
+  const writeCatalog = canWriteCatalog(user);
+  const writeFin = canWriteFinancials(user);
+  if (!writeCatalog && !writeFin) {
+    throw new Error("You do not have permission for this action");
+  }
+  if (writeCatalog) assertCatalogWrite(user);
+  else assertFinancialsWrite(user);
+
+  const values = writeCatalog ? (data.attributeValues ?? []) : [];
 
   const item = await prisma.materialItem.create({
     data: {
@@ -491,52 +548,78 @@ export async function createItem(raw: unknown) {
       laborUnits: data.laborUnits ?? 0,
       laborUnitNotes: emptyToNull(data.laborUnitNotes),
       isConsumable: data.isConsumable ?? false,
-      baseCost: data.isConsumable ? (data.baseCost ?? null) : null,
-      markupPct: data.isConsumable ? (data.markupPct ?? null) : null,
-      wasteFactorPct: data.isConsumable ? (data.wasteFactorPct ?? null) : null,
       supplier: emptyToNull(data.supplier),
       notes: emptyToNull(data.notes),
       isActive: data.isActive ?? true,
-      taxProfile: data.taxProfile ?? null,
-      stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
-      laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
-      laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
+      ...(writeFin
+        ? {
+            baseCost: data.isConsumable ? (data.baseCost ?? null) : null,
+            markupPct: data.isConsumable ? (data.markupPct ?? null) : null,
+            wasteFactorPct: data.isConsumable
+              ? (data.wasteFactorPct ?? null)
+              : null,
+            taxProfile: data.taxProfile ?? null,
+            stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+            laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
+            laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
+          }
+        : {}),
     },
   });
 
-  await writeItemValues(item.id, data.categoryId, values);
+  if (writeCatalog) {
+    await writeItemValues(item.id, data.categoryId, values);
+  }
   revalidateMaterials();
   return item;
 }
 
 export async function updateItem(raw: unknown) {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
   const data = updateItemSchema.parse(raw);
+  const writeCatalog = canWriteCatalog(user);
+  const writeFin = canWriteFinancials(user);
+  if (!writeCatalog && !writeFin) {
+    throw new Error("You do not have permission for this action");
+  }
+
   const values = data.attributeValues ?? [];
 
   const item = await prisma.materialItem.update({
     where: { id: data.id },
     data: {
-      categoryId: data.categoryId,
-      unitId: data.unitId,
-      name: data.name.trim(),
-      laborUnits: data.laborUnits ?? 0,
-      laborUnitNotes: emptyToNull(data.laborUnitNotes),
-      isConsumable: data.isConsumable ?? false,
-      baseCost: data.isConsumable ? (data.baseCost ?? null) : null,
-      markupPct: data.isConsumable ? (data.markupPct ?? null) : null,
-      wasteFactorPct: data.isConsumable ? (data.wasteFactorPct ?? null) : null,
-      supplier: emptyToNull(data.supplier),
-      notes: emptyToNull(data.notes),
-      isActive: data.isActive ?? true,
-      taxProfile: data.taxProfile ?? null,
-      stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
-      laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
-      laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
+      ...(writeCatalog
+        ? {
+            categoryId: data.categoryId,
+            unitId: data.unitId,
+            name: data.name.trim(),
+            laborUnits: data.laborUnits ?? 0,
+            laborUnitNotes: emptyToNull(data.laborUnitNotes),
+            isConsumable: data.isConsumable ?? false,
+            supplier: emptyToNull(data.supplier),
+            notes: emptyToNull(data.notes),
+            isActive: data.isActive ?? true,
+          }
+        : {}),
+      ...(writeFin
+        ? {
+            baseCost: data.isConsumable ? (data.baseCost ?? null) : null,
+            markupPct: data.isConsumable ? (data.markupPct ?? null) : null,
+            wasteFactorPct: data.isConsumable
+              ? (data.wasteFactorPct ?? null)
+              : null,
+            taxProfile: data.taxProfile ?? null,
+            stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
+            laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
+            laborServiceTaxCodeId: emptyToNull(data.laborServiceTaxCodeId),
+          }
+        : {}),
     },
   });
 
-  await writeItemValues(item.id, data.categoryId, values);
+  if (writeCatalog) {
+    await writeItemValues(item.id, data.categoryId, values);
+  }
   revalidateMaterials();
   return item;
 }

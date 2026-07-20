@@ -3,13 +3,16 @@ import type { NextRequest } from "next/server";
 import type { Segment } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canAccess } from "@/config/permissions";
 import { divisionCode } from "@/config/company";
 import {
   buildExportWorkbookBuffer,
   type ExportDomain,
 } from "@/features/materials/io";
 import { exportFileName, scopeCodeFor } from "@/features/materials/scope-code";
+import {
+  loadPermissionSubject,
+  subjectCan,
+} from "@/lib/permission-subject";
 
 const SEGMENTS = new Set(["COMMERCIAL", "RESIDENTIAL", "STR"]);
 
@@ -19,11 +22,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!user || !canAccess(user.role, "materials")) {
+  const subject = await loadPermissionSubject(session.user.id);
+  if (!subject || !subjectCan(subject, "materials.import_export")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

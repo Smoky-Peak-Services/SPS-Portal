@@ -1,16 +1,15 @@
 import { company } from "@/config/company";
-import type { AppRole } from "@/config/permissions";
 import { PortalNavLinks } from "@/components/portal-nav-links";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { DeviceSurface } from "@/lib/device-surface";
 
 export function PortalSidebar({
-  role,
+  capabilities,
   userName,
   pathname,
   surface,
 }: {
-  role: AppRole;
+  capabilities: string[];
   userName: string;
   pathname: string;
   surface: DeviceSurface;
@@ -24,7 +23,11 @@ export function PortalSidebar({
         <div className="truncate text-xs text-slate-500">{userName}</div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <PortalNavLinks role={role} pathname={pathname} surface={surface} />
+        <PortalNavLinks
+          capabilities={capabilities}
+          pathname={pathname}
+          surface={surface}
+        />
       </nav>
       <div className="border-t border-slate-200 px-3 py-3">
         <SignOutButton />

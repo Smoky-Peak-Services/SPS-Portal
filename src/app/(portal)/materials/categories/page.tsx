@@ -5,6 +5,7 @@ import { CategoryDeleteCell } from "@/features/materials/components/category-del
 import { MarkTaxReviewedButton } from "@/features/materials/components/mark-tax-reviewed-button";
 import { Button } from "@/components/ui/button";
 import { requireArea } from "@/lib/session";
+import { canForceDelete } from "@/features/materials/authz";
 
 export default async function CategoriesPage({
   searchParams,
@@ -16,7 +17,7 @@ export default async function CategoriesPage({
   const { taxReview } = await searchParams;
   const needsTaxReview = taxReview === "1";
   const categories = await listCategories(undefined, { needsTaxReview });
-  const isAdmin = user.role === "admin";
+  const isAdmin = canForceDelete(user);
 
   return (
     <div className="space-y-4">

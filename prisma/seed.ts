@@ -6,6 +6,7 @@ import { prisma } from "../src/lib/prisma";
 import { prismaPii } from "../src/lib/prisma-pii";
 import { seedStripeTaxCodes } from "../scripts/seed-stripe-tax-codes";
 import { syncAttributeLists } from "../scripts/sync-attribute-lists";
+import { seedCapabilities } from "../src/config/capabilities";
 
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -171,6 +172,10 @@ async function main() {
         ? `; deactivated ${attrSync.attributesDeactivated.join(", ")}`
         : ""),
   );
+
+  console.log("Seeding role capabilities…");
+  await seedCapabilities(prisma);
+  console.log("  ✓ Capability catalog + role matrix");
 
   console.log("Seed complete.");
 }

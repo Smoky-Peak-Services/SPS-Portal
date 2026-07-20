@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canAccess } from "@/config/permissions";
 import {
   attributeListsExportFileName,
   buildAttributeExportWorkbookBuffer,
   type ExportAttribute,
 } from "@/features/materials/attribute-io";
+import {
+  loadPermissionSubject,
+  subjectCan,
+} from "@/lib/permission-subject";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -15,11 +18,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!user || !canAccess(user.role, "materials")) {
+  const subject = await loadPermissionSubject(session.user.id);
+  if (!subject || !subjectCan(subject, "materials.import_export")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

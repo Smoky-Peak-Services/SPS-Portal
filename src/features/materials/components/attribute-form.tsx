@@ -11,6 +11,7 @@ import {
   updateAttribute,
 } from "@/features/materials/actions";
 import type { MaterialAttributeInputType } from "@prisma/client";
+import { AttributeOptionRow } from "./attribute-option-row";
 
 type Option = {
   id: string;
@@ -18,9 +19,11 @@ type Option = {
   label: string;
   sortOrder: number;
   isActive: boolean;
+  _count?: { itemValues: number; defaultFor: number };
 };
 
 type Props = {
+  canForceDelete?: boolean;
   initial?: {
     id: string;
     name: string;
@@ -32,7 +35,7 @@ type Props = {
   };
 };
 
-export function AttributeForm({ initial }: Props) {
+export function AttributeForm({ initial, canForceDelete = false }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [optPending, startOpt] = useTransition();
@@ -47,7 +50,9 @@ export function AttributeForm({ initial }: Props) {
         const base = {
           name: String(fd.get("name") || ""),
           slug: String(fd.get("slug") || "") || undefined,
-          inputType: String(fd.get("inputType") || "TEXT") as MaterialAttributeInputType,
+          inputType: String(
+            fd.get("inputType") || "TEXT",
+          ) as MaterialAttributeInputType,
           unit: String(fd.get("unit") || ""),
           isActive: fd.get("isActive") === "on",
         };
@@ -132,31 +137,31 @@ export function AttributeForm({ initial }: Props) {
         </label>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : initial ? "Update attribute" : "Create attribute"}
+          {pending
+            ? "Saving…"
+            : initial
+              ? "Update attribute"
+              : "Create attribute"}
         </Button>
       </form>
 
       {initial &&
       (initial.inputType === "SELECT" ||
         initial.inputType === "MULTISELECT") ? (
-        <div className="max-w-xl space-y-3 rounded-lg border border-slate-200 bg-white p-6">
+        <div className="max-w-2xl space-y-3 rounded-lg border border-slate-200 bg-white p-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
             Options
           </h2>
-          <ul className="divide-y text-sm">
+          <ul>
             {initial.options.map((o) => (
-              <li key={o.id} className="flex justify-between py-2">
-                <span>
-                  {o.label}{" "}
-                  <span className="text-slate-400">({o.value})</span>
-                </span>
-                <span className="text-slate-400">
-                  {o.isActive ? "active" : "inactive"}
-                </span>
-              </li>
+              <AttributeOptionRow
+                key={o.id}
+                option={o}
+                canForceDelete={canForceDelete}
+              />
             ))}
             {initial.options.length === 0 ? (
-              <li className="py-2 text-slate-500">No options yet.</li>
+              <li className="py-2 text-sm text-slate-500">No options yet.</li>
             ) : null}
           </ul>
           <form onSubmit={onAddOption} className="grid gap-3 border-t pt-4">
@@ -169,6 +174,15 @@ export function AttributeForm({ initial }: Props) {
                 <Label htmlFor="label">Label</Label>
                 <Input id="label" name="label" required placeholder="Wiegand" />
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sortOrder">Sort order</Label>
+              <Input
+                id="sortOrder"
+                name="sortOrder"
+                type="number"
+                defaultValue={initial.options.length}
+              />
             </div>
             <Button type="submit" size="sm" disabled={optPending}>
               {optPending ? "Adding…" : "Add option"}

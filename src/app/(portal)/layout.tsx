@@ -8,7 +8,10 @@ export default async function PortalLayout({
 }) {
   const user = await requireUser();
   return (
-    <PortalShell role={user.role} userName={user.name}>
+    <PortalShell
+      capabilities={[...user.capabilities]}
+      userName={user.name}
+    >
       {children}
     </PortalShell>
   );

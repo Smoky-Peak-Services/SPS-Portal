@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
+import { requireArea } from "@/lib/session";
+import { canForceDelete } from "@/features/materials/authz";
 import { listAttributes } from "@/features/materials/actions";
+import { AttributeDeleteCell } from "@/features/materials/components/attribute-delete-cell";
 import { Button } from "@/components/ui/button";
 
 export default async function AttributesPage() {
   await requireDesktopSurface("/materials/attributes");
+  const user = await requireArea("materials");
   const attributes = await listAttributes();
+  const isAdmin = canForceDelete(user);
 
   return (
     <div className="space-y-4">
@@ -35,12 +40,13 @@ export default async function AttributesPage() {
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Options</th>
               <th className="px-4 py-3">Assignments</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {attributes.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   No attributes yet.
                 </td>
               </tr>
@@ -54,11 +60,24 @@ export default async function AttributesPage() {
                     >
                       {a.name}
                     </Link>
+                    {!a.isActive ? (
+                      <span className="ml-2 text-xs text-slate-400">
+                        inactive
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{a.slug}</td>
                   <td className="px-4 py-3">{a.inputType}</td>
                   <td className="px-4 py-3">{a._count.options}</td>
                   <td className="px-4 py-3">{a._count.assignments}</td>
+                  <td className="px-4 py-3">
+                    <AttributeDeleteCell
+                      id={a.id}
+                      name={a.name}
+                      usageCount={a._count.assignments}
+                      isAdmin={isAdmin}
+                    />
+                  </td>
                 </tr>
               ))
             )}

@@ -11,9 +11,16 @@ datasource db {
 
 enum Role {
   admin
-  staff
-  field
+  power_user
   sales
+  accounting
+  field_supervisor
+  field_tech
+}
+
+enum CapabilityEffect {
+  ALLOW
+  DENY
 }
 
 enum Segment {
@@ -49,13 +56,14 @@ model User {
   emailVerified Boolean  @default(false)
   image         String?
   phone         String?
-  role          Role     @default(staff)
+  role          Role     @default(power_user)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions    Session[]
-  accounts    Account[]
-  memberships DivisionMembership[]
+  sessions             Session[]
+  accounts             Account[]
+  memberships          DivisionMembership[]
+  capabilityOverrides  UserCapabilityOverride[]
 
   @@map("user")
 }
@@ -135,7 +143,7 @@ model DivisionMembership {
 model Invitation {
   id          String    @id @default(cuid())
   email       String
-  role        Role      @default(field)
+  role        Role      @default(field_tech)
   divisionIds String[]  @default([])
   token       String    @unique
   invitedById String?
@@ -145,6 +153,51 @@ model Invitation {
 
   @@index([email])
   @@map("invitation")
+}
+
+// ---------- Capabilities (RBAC matrix) ----------
+
+model Capability {
+  id          String   @id
+  label       String
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roleCapabilities RoleCapability[]
+  userOverrides    UserCapabilityOverride[]
+
+  @@map("capability")
+}
+
+model RoleCapability {
+  id           String     @id @default(cuid())
+  role         Role
+  capabilityId String
+  capability   Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  allowed      Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([role, capabilityId])
+  @@index([capabilityId])
+  @@map("role_capability")
+}
+
+model UserCapabilityOverride {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capabilityId String
+  capability   Capability       @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  effect       CapabilityEffect
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([userId, capabilityId])
+  @@index([capabilityId])
+  @@map("user_capability_override")
 }
 
 // ---------- Materials catalog (EAV) ----------

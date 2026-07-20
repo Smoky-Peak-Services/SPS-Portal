@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { CircleUser, LayoutDashboard, Package } from "lucide-react";
 import {
-  filterFooterForRole,
-  filterNavForRole,
+  filterFooterForCapabilities,
+  filterNavForCapabilities,
   navSections,
 } from "@/config/nav";
-import type { AppRole } from "@/config/permissions";
 import { cn } from "@/lib/utils";
 import type { DeviceSurface } from "@/lib/device-surface";
 
@@ -18,20 +17,23 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export function PortalNavLinks({
-  role,
+  capabilities,
   pathname,
   surface,
   onNavigate,
   showFooter = true,
 }: {
-  role: AppRole;
+  capabilities: string[];
   pathname: string;
   surface: DeviceSurface;
   onNavigate?: () => void;
   showFooter?: boolean;
 }) {
-  const sections = filterNavForRole(role, navSections, surface);
-  const footer = showFooter ? filterFooterForRole(role, surface) : [];
+  const capSet = new Set(capabilities);
+  const sections = filterNavForCapabilities(capSet, navSections, surface);
+  const footer = showFooter
+    ? filterFooterForCapabilities(capSet, surface)
+    : [];
 
   return (
     <>

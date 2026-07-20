@@ -5,11 +5,16 @@ import { prisma } from "@/lib/prisma";
 import type { AppRole } from "@/config/permissions";
 import {
   canAccess,
+  defaultCapabilitiesForRole,
   defaultRouteForRole,
+  resolveCapabilities,
+  userCan,
   type Area,
+  type PermissionSubject,
 } from "@/config/permissions";
+import type { CapabilityId } from "@/config/capabilities";
 
-export type SessionUser = {
+export type SessionUser = PermissionSubject & {
   id: string;
   name: string;
   email: string;
@@ -19,6 +24,35 @@ export type SessionUser = {
 
 export async function getSession() {
   return auth.api.getSession({ headers: await headers() });
+}
+
+async function loadCapabilities(
+  userId: string,
+  role: AppRole,
+  email: string,
+): Promise<Set<string>> {
+  const [roleRows, overrides] = await Promise.all([
+    prisma.roleCapability.findMany({
+      where: { role, allowed: true },
+      select: { capabilityId: true },
+    }),
+    prisma.userCapabilityOverride.findMany({
+      where: { userId },
+      select: { capabilityId: true, effect: true },
+    }),
+  ]);
+
+  const roleAllows =
+    roleRows.length > 0
+      ? roleRows.map((r) => r.capabilityId)
+      : [...defaultCapabilitiesForRole(role)];
+
+  return resolveCapabilities({
+    email,
+    role,
+    roleAllows,
+    overrides,
+  });
 }
 
 export async function requireUser(): Promise<SessionUser> {
@@ -36,19 +70,43 @@ export async function requireUser(): Promise<SessionUser> {
     redirect("/sign-in");
   }
 
+  const role = user.role as AppRole;
+  const capabilities = await loadCapabilities(user.id, role, user.email);
+
   return {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role as AppRole,
+    role,
     phone: user.phone,
+    capabilities,
   };
 }
 
 export async function requireArea(area: Area): Promise<SessionUser> {
   const user = await requireUser();
-  if (!canAccess(user.role, area)) {
+  if (!canAccess(user, area)) {
     redirect(defaultRouteForRole(user.role));
   }
   return user;
+}
+
+export async function requireCapability(
+  capability: CapabilityId | string,
+): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!userCan(user, capability)) {
+    throw new Error("You do not have permission for this action");
+  }
+  return user;
+}
+
+/** Soft check after requireUser — throws instead of redirect. */
+export function assertCapability(
+  user: SessionUser,
+  capability: CapabilityId | string,
+): void {
+  if (!userCan(user, capability)) {
+    throw new Error("You do not have permission for this action");
+  }
 }

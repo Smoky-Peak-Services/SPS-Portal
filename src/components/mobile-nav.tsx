@@ -4,19 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { company } from "@/config/company";
-import type { AppRole } from "@/config/permissions";
 import { PortalNavLinks } from "@/components/portal-nav-links";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
 import type { DeviceSurface } from "@/lib/device-surface";
 
 export function MobileNav({
-  role,
+  capabilities,
   userName,
   pathname,
   surface,
 }: {
-  role: AppRole;
+  capabilities: string[];
   userName: string;
   pathname: string;
   surface: DeviceSurface;
@@ -43,14 +42,17 @@ export function MobileNav({
       </Link>
 
       {open ? (
-        <div className="fixed inset-0 top-[52px] z-40 bg-black/40" onClick={() => setOpen(false)}>
+        <div
+          className="fixed inset-0 top-[52px] z-40 bg-black/40"
+          onClick={() => setOpen(false)}
+        >
           <nav
             className="flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex-1 overflow-y-auto px-3 py-4">
               <PortalNavLinks
-                role={role}
+                capabilities={capabilities}
                 pathname={pathname}
                 surface={surface}
                 onNavigate={() => setOpen(false)}

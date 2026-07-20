@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireArea } from "@/lib/session";
+import {
+  assertImportExport,
+  requireMaterialsAccess,
+} from "@/features/materials/authz";
+import { userCan } from "@/config/permissions";
 import {
   parseAttributeWorkbookBuffer,
   planAttributeImport,
@@ -66,7 +70,8 @@ export type AttributeListsImportPreview = {
 async function buildPreview(
   formData: FormData,
 ): Promise<AttributeListsImportPreview> {
-  await requireArea("materials");
+  const user = await requireMaterialsAccess();
+  assertImportExport(user);
   const { buffer, filename } = await readFileBuffer(formData);
   const parsed = await parseAttributeWorkbookBuffer(buffer);
   const existing = await loadExistingAttributeSnapshot();
@@ -97,9 +102,12 @@ export type AttributeListsImportCommitResult = {
 export async function commitAttributeListsImport(
   formData: FormData,
 ): Promise<AttributeListsImportCommitResult> {
-  const user = await requireArea("materials");
-  if (user.role !== "admin") {
-    throw new Error("Only admins can commit attribute list imports");
+  const user = await requireMaterialsAccess();
+  assertImportExport(user);
+  if (!userCan(user, "materials.force_delete")) {
+    throw new Error(
+      "Only users with force-delete permission can commit attribute list imports",
+    );
   }
 
   const preview = await buildPreview(formData);

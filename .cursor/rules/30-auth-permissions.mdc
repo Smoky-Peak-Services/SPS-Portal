@@ -1,15 +1,21 @@
 ---
 description: Auth, sessions, and role-based access
-globs: src/lib/session.ts,src/lib/auth.ts,src/config/permissions.ts,src/features/**/actions.ts,src/app/**/*.tsx
+globs: src/lib/session.ts,src/lib/auth.ts,src/config/permissions.ts,src/config/capabilities.ts,src/features/**/actions.ts,src/app/**/*.tsx
 alwaysApply: false
 ---
 
 # Auth & permissions
 
-Better Auth (`src/lib/auth.ts`) handles sign-in. Roles are `admin | staff | sales | field` (`src/config/permissions.ts`). Access to areas is gated by `AREA_ROLES` + `canAccess()` — add or change area access there, don't hardcode a role check inline in a page or action. Post-reset (`AGENTS.md` §2a), `AREA_ROLES` only has `dashboard` and `settings`; add a new key per feature as it's rebuilt.
+Better Auth (`src/lib/auth.ts`) handles sign-in. Roles are `admin | power_user | sales | accounting | field_supervisor | field_tech` (`src/config/permissions.ts`).
 
-Every Server Action must call `requireUser()` or `requireArea(area)` from `src/lib/session.ts` as its first line. This both enforces access and returns the acting user, which feeds audit fields like `createdById` / `byId`. Client-side role checks (hiding nav items, disabling buttons) are UX only — the server action is the real gate and must re-check even when the UI already hid the option, since a user can call the action directly.
+**Capability-first gating:** effective permissions come from the DB matrix (`RoleCapability`) plus optional `UserCapabilityOverride` (DENY wins). Catalog of ids lives in `src/config/capabilities.ts` and is seeded via `seedCapabilities`. Admin edits the matrix at `/settings/permissions` and per-user overrides at `/settings/users`.
 
-`src/proxy.ts` is the outermost gate: it only checks for a session cookie's presence and redirects to `/sign-in` if absent. It does not check roles or areas — that's `requireArea`'s job. Don't move permission logic into `proxy.ts`.
+- `requireUser()` loads the user and resolves `capabilities: Set<string>`.
+- `requireArea(area)` checks `{area}.access` (settings area = either permissions or users manage).
+- `requireCapability(id)` / `assertCapability` for fine-grained Server Action gates.
+- Do **not** hardcode `user.role === "admin"` for authorization — use capabilities (`materials.force_delete`, etc.).
+- Client nav filters by capabilities (`src/config/nav.ts`); that is UX only — every Server Action must re-check.
 
-Desktop-only pages call `requireDesktopSurface(pathname)` (`src/lib/require-desktop.ts`) to bounce mobile sessions to `MOBILE_FALLBACK_ROUTE`. Check the desktop-only path list in `src/lib/device-surface.ts` before adding a new desktop-only route, and add it there if needed.
+`src/proxy.ts` only checks for a session cookie. Don't move permission logic into `proxy.ts`.
+
+Desktop-only pages call `requireDesktopSurface(pathname)`. Settings and materials are desktop-only (`src/lib/device-surface.ts`).

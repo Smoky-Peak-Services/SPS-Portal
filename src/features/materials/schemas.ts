@@ -63,8 +63,12 @@ export const createOptionSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export const updateOptionSchema = createOptionSchema.extend({
+export const updateOptionSchema = z.object({
   id: z.string().min(1),
+  value: z.string().min(1).max(120),
+  label: z.string().min(1).max(200),
+  sortOrder: z.coerce.number().int().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export const upsertAssignmentSchema = z.object({

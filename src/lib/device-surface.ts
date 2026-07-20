@@ -13,7 +13,12 @@ export function surfaceFromViewportWidth(width: number): DeviceSurface {
  * Materials admin is desktop-only; add more as features that need them rebuild.
  */
 export function isDesktopOnlyPath(pathname: string): boolean {
-  return pathname === "/materials" || pathname.startsWith("/materials/");
+  return (
+    pathname === "/materials" ||
+    pathname.startsWith("/materials/") ||
+    pathname === "/settings" ||
+    pathname.startsWith("/settings/")
+  );
 }
 
 export const MOBILE_FALLBACK_ROUTE = "/";

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
+import { canForceDelete } from "@/features/materials/authz";
 import { listDomains } from "@/features/materials/actions";
 import { DomainDeleteCell } from "@/features/materials/components/domain-delete-cell";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ export default async function DomainsPage() {
   await requireDesktopSurface("/materials/domains");
   const user = await requireArea("materials");
   const domains = await listDomains();
-  const isAdmin = user.role === "admin";
+  const isAdmin = canForceDelete(user);
 
   return (
     <div className="space-y-4">

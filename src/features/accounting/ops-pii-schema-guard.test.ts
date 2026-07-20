@@ -49,7 +49,14 @@ describe("ops-pii schema guard", () => {
     assert.match(schema, /model MaterialDomain \{/);
     assert.match(schema, /model StripeTaxCode \{/);
     assert.match(schema, /model LaborTaxCodeDefault \{/);
+    assert.match(schema, /model Capability \{/);
+    assert.match(schema, /model RoleCapability \{/);
+    assert.match(schema, /model UserCapabilityOverride \{/);
     assert.match(schema, /enum WorkContext \{/);
+    assert.match(schema, /power_user/);
+    assert.match(schema, /field_tech/);
+    assert.match(schema, /accounting/);
+    assert.match(schema, /field_supervisor/);
     assert.equal(schema.includes("model Job {"), false);
     assert.equal(schema.includes("model Ticket {"), false);
     assert.equal(schema.includes("model TimeEntry {"), false);

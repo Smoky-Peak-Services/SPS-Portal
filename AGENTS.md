@@ -170,21 +170,28 @@ Import upsert and UI delete are separate: missing Excel rows are never removed b
 
 ## 6. Auth & permissions
 
-Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public sign-up, 1-hour session with a 5-minute update window. Roles: `admin | staff | sales | field` (`src/config/permissions.ts`, mirrored in the ops `Role` enum). Area access is governed by `AREA_ROLES` + `canAccess()` — change access there, never with an inline role check in a page or action. Areas today: `dashboard`, `materials` (admin/staff), `settings`. Add an area key per feature as it's rebuilt.
+Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public sign-up, 1-hour session with a 5-minute update age. Roles: `admin | power_user | sales | accounting | field_supervisor | field_tech` (ops `Role` enum).
 
-Every Server Action's first line is `requireUser()` or `requireArea(area)` from `src/lib/session.ts`. This does two jobs at once: it's the actual permission gate, and it returns the acting `SessionUser` used for audit fields (`createdById`, `byId` on status-change events). Client-side role checks — hiding a nav item, disabling a button — are UX convenience only. A user can always call a Server Action directly, so the server-side check is the one that matters and must be present even when the UI already hid the option.
+**Capabilities (not hard-coded role lists)** gate access. Catalog: `src/config/capabilities.ts`. Persisted matrix: `RoleCapability` + optional `UserCapabilityOverride` (`ALLOW` / `DENY`; deny wins). Seed with `seedCapabilities` (also via `db:seed`). Admins edit `/settings/permissions` and `/settings/users`.
 
-`proxy.ts` is the outermost gate and is deliberately shallow: it checks for a session cookie's presence, nothing more, and redirects unauthenticated requests to `/sign-in`. Don't move role/area logic into it.
+- `requireUser()` resolves `SessionUser.capabilities`.
+- `requireArea(area)` / `canAccess(user, area)` check `{area}.access` (settings = permissions or users manage).
+- `requireCapability` / `assertCapability` for action-level gates (see `src/features/materials/authz.ts`).
+- Do not authorize with `user.role === "admin"` — use capabilities such as `materials.force_delete`.
 
-`Invitation` (ops schema) models the invite-only flow: `email`, target `role`, `divisionIds[]`, single-use `token`, `expiresAt`. `canInvite(actorRole, targetRole)` in `permissions.ts` governs who can invite whom — admins can invite anyone, staff can invite staff/field, sales can only invite sales, field can invite no one.
+Every Server Action must call `requireUser` / `requireArea` / `requireCapability` first. Client nav (`nav.ts` capability filters) is UX only.
+
+`proxy.ts` only checks session cookie presence.
+
+`Invitation` still models invite-only flow. `canInvite(actorRole, targetRole)` governs who can invite whom.
 
 ---
 
 ## 7. Mobile vs. desktop surfaces
 
-One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. `/materials` and children are desktop-only; `MOBILE_FALLBACK_ROUTE` is `/`. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
+One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. `/materials` and `/settings` (and children) are desktop-only; `MOBILE_FALLBACK_ROUTE` is `/`. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
 
-Navigation visibility is driven by `src/config/nav.ts` (`navSections`, each `NavItem` carries `roles` and `surface: "mobile" | "desktop" | "both"`), filtered by `filterNavForRole()`. If you add a new desktop-only or mobile-only route, register it in both `device-surface.ts` (for the redirect) and `nav.ts` (for visibility) — they are not derived from each other.
+Navigation visibility is driven by `src/config/nav.ts` (`capabilities` + `surface` on each item), filtered by `filterNavForCapabilities()`. Register new desktop-only routes in both `device-surface.ts` and `nav.ts`.
 
 ---
 
