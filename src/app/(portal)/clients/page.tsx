@@ -2,8 +2,10 @@ import Link from "next/link";
 import { listCustomers } from "@/features/crm/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { requireDesktopSurface } from "@/lib/require-desktop";
 
 export default async function ClientsPage() {
+  await requireDesktopSurface("/clients");
   const customers = await listCustomers();
 
   return (

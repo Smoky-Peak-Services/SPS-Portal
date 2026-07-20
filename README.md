@@ -49,6 +49,30 @@ npm run build
 npm run typecheck
 ```
 
+## Env: local vs Vercel
+
+| File | Purpose |
+|------|---------|
+| `.env.local` | Local secrets (gitignored). Includes `PII_*`, seed vars |
+| `.env.vercel` | Upload/sync to Vercel (gitignored). No raw PII URLs, no Stripe secret, no Upstash yet |
+| `.env.vercel.example` | Key-name template safe to commit |
+| `.env.example` | Documented key names |
+
+```powershell
+powershell -File scripts/sync-vercel-env.ps1 -EnvFile .env.vercel `
+  -Keys OPS_DATABASE_URL,OPS_DIRECT_URL,BETTER_AUTH_SECRET,BETTER_AUTH_URL,NEXT_PUBLIC_APP_URL
+```
+
+Until `CLIENT_DB_SECRET_ARN` is wired, CRM customer joins on Vercel need local/monolith PII or a temporary ops=pii setup.
+
+## PWA
+
+Installable standalone app (browser “Install” / Add to Home Screen). Service worker registers in production only.
+
+## Mobile vs desktop surfaces
+
+Same codebase. Mobile surfaces: My Day, Jobs, Tickets, Schedule, Account. Desktop-only: Dashboard, Clients, create job/ticket forms.
+
 ## Field Ops (phase 1)
 
 | Route | Purpose |
@@ -57,4 +81,4 @@ npm run typecheck
 | `/tickets` | Service tickets |
 | `/schedule` | Week list + assign tech |
 | `/field/today` | My Day |
-| `/clients` | Minimal CRM (PII) |
+| `/clients` | Minimal CRM (PII) — desktop |

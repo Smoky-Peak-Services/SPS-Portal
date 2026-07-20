@@ -9,18 +9,56 @@ export default async function TicketsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Service tickets</h1>
           <p className="text-sm text-slate-500">
             Intake, triage, and field dispatch
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="hidden shrink-0 md:inline-flex">
           <Link href="/tickets/new">New ticket</Link>
         </Button>
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+
+      <div className="space-y-3 md:hidden">
+        {tickets.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+            No tickets yet.
+          </p>
+        ) : (
+          tickets.map((t) => (
+            <Link
+              key={t.id}
+              href={`/tickets/${t.id}`}
+              className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-900">{t.title}</div>
+                  <div className="font-mono text-[10px] text-slate-500">
+                    {t.number}
+                  </div>
+                </div>
+                <Badge className="shrink-0 border-slate-200 bg-slate-50">
+                  {t.status}
+                </Badge>
+              </div>
+              <p className="mt-2 text-sm text-slate-600">
+                {t.customer?.displayName ?? "—"}
+              </p>
+              <p className="text-xs text-slate-500">
+                {formatLocation(t.property)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {t.assignedTo?.name ?? "Unassigned"}
+              </p>
+            </Link>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500">
             <tr>

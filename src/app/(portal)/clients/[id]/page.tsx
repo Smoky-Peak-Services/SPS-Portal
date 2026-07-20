@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getCustomer } from "@/features/crm/actions";
 import { LocationCreateForm } from "@/features/crm/components/location-create-form";
 import { Badge } from "@/components/ui/badge";
+import { requireDesktopSurface } from "@/lib/require-desktop";
 
 export default async function ClientDetailPage({
   params,
@@ -10,6 +11,7 @@ export default async function ClientDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  await requireDesktopSurface(`/clients/${id}`);
   const customer = await getCustomer(id);
   if (!customer) notFound();
 

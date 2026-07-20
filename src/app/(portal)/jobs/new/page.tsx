@@ -3,8 +3,10 @@ import { JobCreateForm } from "@/features/jobs/components/job-create-form";
 import { listFieldUsers } from "@/features/jobs/actions";
 import { listCustomerOptions } from "@/features/crm/actions";
 import { listDivisions } from "@/features/schedule/actions";
+import { requireDesktopSurface } from "@/lib/require-desktop";
 
 export default async function NewJobPage() {
+  await requireDesktopSurface("/jobs/new");
   const [divisions, customers, techs] = await Promise.all([
     listDivisions(),
     listCustomerOptions(),

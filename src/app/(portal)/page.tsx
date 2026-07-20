@@ -3,8 +3,10 @@ import { requireUser } from "@/lib/session";
 import { company } from "@/config/company";
 import { defaultRouteForRole } from "@/config/permissions";
 import { redirect } from "next/navigation";
+import { requireDesktopSurface } from "@/lib/require-desktop";
 
 export default async function DashboardPage() {
+  await requireDesktopSurface("/");
   const user = await requireUser();
   if (user.role === "field") {
     redirect(defaultRouteForRole(user.role));

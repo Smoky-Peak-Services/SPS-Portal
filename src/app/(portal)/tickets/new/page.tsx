@@ -3,8 +3,10 @@ import { TicketCreateForm } from "@/features/tickets/components/ticket-create-fo
 import { listFieldUsers } from "@/features/jobs/actions";
 import { listCustomerOptions } from "@/features/crm/actions";
 import { listDivisions } from "@/features/schedule/actions";
+import { requireDesktopSurface } from "@/lib/require-desktop";
 
 export default async function NewTicketPage() {
+  await requireDesktopSurface("/tickets/new");
   const [divisions, customers, techs] = await Promise.all([
     listDivisions(),
     listCustomerOptions(),

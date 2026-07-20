@@ -9,6 +9,8 @@ const PUBLIC_PREFIXES = [
   "/_next",
   "/favicon",
   "/brand/",
+  "/sw.js",
+  "/manifest.webmanifest",
 ];
 
 function isPublicPath(pathname: string): boolean {
