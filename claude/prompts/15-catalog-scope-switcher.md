@@ -1,5 +1,11 @@
 # Build prompt: active-scope catalog switcher + scope-filter every materials query
 
+## Framing (read first)
+
+The three catalogs (IS Commercial, IS Residential, Cabin Services) are **foundational scoped datasets** — they feed roughly 75% of everything downstream: service tickets, SMA contracts, estimates, and jobs. So this pass is about making the scoping **correct, consistent, and stable enough to be referenced by those future consumers** — not about changing the data model.
+
+**Optimize, do not rewrite.** Keep the existing schema as-is: the material EAV (domain → category → attribute → option → assignment → item → value), the per-scope labor/complexity/recurring/plan models, everything. Do not flatten the attribute system, do not collapse tables, do not "simplify" the model. The only problems being fixed here are (a) there's no catalog switcher and (b) the queries ignore scope. This is a UI + query-scoping + consistency pass.
+
 ## The problem, stated plainly
 
 The Materials catalog pages have **no way to switch which catalog you're viewing**, and the queries behind them ignore scope entirely. Verified in `src/features/materials/actions.ts`: `listMaterialCounts`, `listDomains`, `listCategories`, and `listItems` count/return **all rows globally** with no `divisionId`/`segment` filter (only `listAttributes` takes an optional scope). So the hub always shows the one populated catalog (IS-Commercial: 5 domains / 115 categories / 102 items) and there is no switcher anywhere on the browsing UI. That's the bug.
@@ -29,6 +35,8 @@ Introduce one active-scope context shared across the Catalog section (Materials,
 
 Add a small server helper `getActiveScope(searchParams)` (reads URL param → cookie → default) returning `{ divisionId, segment }`, and a client action to set the cookie + navigate on change. Reuse the existing `ScopeSelector`; don't build a second selector.
 
+**Make `getActiveScope` / the scope key the single canonical scope resolver for the whole app.** Service tickets, SMA contracts, estimates, and jobs will all need to resolve "which catalog/rate set applies" the same way. So this helper and the `{ divisionId, segment }` key must be the one reusable primitive they call later — not a materials-only thing. Put it somewhere shared (e.g. `src/lib/scope.ts` or `src/features/scope/`), not buried in materials. Don't build those consumers now; just make the seam clean so they plug in without reinventing scope resolution.
+
 ## Part 2: scope-filter every materials query (the actual fix)
 
 Thread the active scope into all materials reads so the pages show only the selected catalog. In `src/features/materials/actions.ts`:
@@ -45,6 +53,7 @@ IS-Residential and Cabin Services catalogs are currently empty. When the active 
 
 ## Non-goals
 
+- **No data-model changes.** Keep the EAV attribute system and all per-scope models exactly as they are — this is a switcher + query-scoping + UI-consistency pass, not a schema refactor. If a change seems to require touching the schema beyond reads, stop and flag it.
 - No new scope model — use prompt 14's three scopes as-is; Cabin stays a single scope.
 - Don't reintroduce Cabin STR/Residential split.
 - No cross-scope views or "all catalogs at once" merged list (that's what's broken now); a future "compare scopes" view is out of scope.
