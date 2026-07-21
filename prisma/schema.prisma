@@ -47,6 +47,13 @@ enum WorkContext {
   SERVICE
 }
 
+/// Billable rate column for labor engines (prompt 09).
+enum LaborRateType {
+  STANDARD
+  AFTER_HOURS
+  HOLIDAY
+}
+
 // ---------- Better-Auth core ----------
 
 model User {
@@ -122,8 +129,10 @@ model Division {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships     DivisionMembership[]
-  materialDomains MaterialDomain[]
+  memberships       DivisionMembership[]
+  materialDomains   MaterialDomain[]
+  laborRateConfigs  LaborRateConfig[]
+  laborPositions    LaborPosition[]
 
   @@map("division")
 }
@@ -411,4 +420,51 @@ model MaterialItemAttributeValue {
   @@index([itemId])
   @@index([attributeId])
   @@map("material_item_attribute_value")
+}
+
+// ---------- Pricing catalog (labor rates — prompt 09) ----------
+
+/// Global multipliers for a division+segment scope. Stored rates on LaborPosition
+/// are authoritative at runtime; these document derivation / recomputeRates.
+model LaborRateConfig {
+  id                           String   @id @default(cuid())
+  divisionId                   String
+  division                     Division @relation(fields: [divisionId], references: [id])
+  segment                      Segment
+  burdenMultiplier             Decimal  @db.Decimal(6, 4)
+  commercialBillingMultiplier  Decimal  @db.Decimal(6, 4)
+  afterHoursMultiplier         Decimal  @db.Decimal(6, 4)
+  holidayMultiplier            Decimal  @db.Decimal(6, 4)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  @@unique([divisionId, segment])
+  @@index([divisionId])
+  @@map("labor_rate_config")
+}
+
+/// Per-role sell/cost rates for a division+segment. context=INSTALL → quoted blend;
+/// context=SERVICE → service-ticket engine only (never in quoted distribution).
+model LaborPosition {
+  id                   String      @id @default(cuid())
+  divisionId           String
+  division             Division    @relation(fields: [divisionId], references: [id])
+  segment              Segment
+  title                String
+  sku                  String
+  baseHourlyRate       Decimal     @db.Decimal(12, 2)
+  actualCostOfLabor    Decimal     @db.Decimal(12, 2)
+  standardBillingRate  Decimal     @db.Decimal(12, 2)
+  afterHoursRate       Decimal     @db.Decimal(12, 2)
+  holidayRate          Decimal     @db.Decimal(12, 2)
+  quotedAllocationPct  Decimal     @db.Decimal(5, 2)
+  context              WorkContext
+  sortOrder            Int         @default(0)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@unique([divisionId, segment, sku])
+  @@index([divisionId])
+  @@index([divisionId, segment, context])
+  @@map("labor_position")
 }

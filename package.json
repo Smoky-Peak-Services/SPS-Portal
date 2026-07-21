@@ -17,6 +17,7 @@
     "test:materials-category-tax-io": "tsx --test src/features/materials/category-tax-io.test.ts",
     "test:materials-assignment-io": "tsx --test src/features/materials/attribute-assignment-io.test.ts",
     "test:materials-tax": "tsx --test src/features/materials/tax.test.ts",
+    "test:pricing-labor": "tsx --test src/features/pricing/labor.test.ts",
     "format": "prettier --write .",
     "db:generate": "prisma generate",
     "db:generate:pii": "prisma generate --schema=prisma/pii/schema.prisma --config=prisma/pii/prisma.config.ts",

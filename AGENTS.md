@@ -16,7 +16,7 @@ This is being built by one person (Ryan) with a real services company's operatio
 
 Smoky Peak Services LLC is a multi-division contractor and short-term-rental service company. This portal is its internal ERP: staff/admin operations, field jobs, scheduling, and (eventually) estimating, billing, and job costing.
 
-**Current state (2026-07-19): dashboard shell + materials catalog (CRUD + Excel import/export).** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume any feature area beyond sign-in, the dashboard, account, and materials exists until it's rebuilt.
+**Current state (2026-07-21): dashboard shell + materials catalog (CRUD + Excel import/export) + pricing labor rates (IS-Commercial seed + pure engines).** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume Quote/Job/ServiceTicket entities exist until they're rebuilt.
 
 Divisions as currently modeled in `src/config/company.ts` (the single source of truth for company/division/branding — edit only that file for those changes):
 
@@ -69,8 +69,8 @@ On 2026-07-19 the jobs/tickets/schedule/CRM buildout was reverted back to a dash
 
 What's actually here, in `src/`, post-reset (§2a) plus materials catalog:
 
-- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account`, dashboard (`page.tsx`), and `materials` (admin catalog CRUD).
-- **`features/<domain>/`** — where the real logic lives, one folder per domain. Today: `materials` (catalog EAV), `accounting` (schema-guard test), `auth`, `cron`, `ingress`. Jobs/tickets/schedule/crm were removed in the reset (§2a) and return later (quoting next). Domain shape:
+- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account`, dashboard (`page.tsx`), `materials` (admin catalog CRUD), `pricing` (labor rates).
+- **`features/<domain>/`** — where the real logic lives, one folder per domain. Today: `materials` (catalog EAV), `pricing` (labor rates + engines), `accounting` (schema-guard test), `auth`, `cron`, `ingress`. Jobs/tickets/schedule/crm were removed in the reset (§2a) and return later (quoting next). Domain shape:
   - `actions.ts` — `"use server"` Server Actions. Every exported action follows the same order: `requireUser()`/`requireArea(area)` first, then `schema.parse(raw)`, then the Prisma call(s), then `revalidatePath(...)` for every route that shows the changed data.
   - `schemas.ts` — Zod schemas shared between the server action and the client form.
   - `components/` — feature-specific UI.
@@ -99,7 +99,7 @@ This is the single most important — and most fragile — architectural decisio
 |---|---|---|
 | Schema | `prisma/schema.prisma` | `prisma/pii/schema.prisma` |
 | Client | `src/lib/prisma.ts` → `prisma` | `src/lib/prisma-pii.ts` → `prismaPii` |
-| Owns | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`) | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
+| Owns | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`), pricing labor (`LaborRateConfig`, `LaborPosition`) | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
 | Deferred | Field Ops / work-order models | CRM `Customer`, `Contact`, `ServiceLocation` |
 | Env vars | `OPS_DATABASE_URL`, `OPS_DIRECT_URL` | `PII_DATABASE_URL`, `PII_DIRECT_URL` |
 | Generate | `npm run db:generate` | `npm run db:generate:pii` |
@@ -188,6 +188,21 @@ Hard delete (not soft/`isActive`) lives in `src/features/materials/delete-action
 
 Import upsert and UI delete are separate: missing Excel rows are never removed by import.
 
+### Pricing — labor rates (prompt 09)
+
+Feature code: `src/features/pricing/`. Admin UI: `/pricing/labor-rates` (desktop-only, `requireArea("pricing")` → `pricing.access`; edits need `pricing.write`).
+
+- **`LaborRateConfig`**: one row per `(divisionId, Segment)` — multipliers (`burden` 1.85, `commercialBilling` 1.89, `afterHours` 1.45, `holiday` 1.75 for IS-COM). Transparency / `recomputeRates` only; **stored position rates are authoritative at runtime**.
+- **`LaborPosition`**: roles scoped by `(divisionId, Segment)` with SKU unique in scope. Money columns `Decimal(12,2)`; `quotedAllocationPct` `Decimal(5,2)`.
+- **`WorkContext`**: INSTALL = four blended quote roles; SERVICE = Service Technician only. Do **not** add a second JOB_QUOTE/SERVICE_TICKET enum.
+- **`LaborRateType`**: `STANDARD | AFTER_HOURS | HOLIDAY` — which billable column to use.
+- **Engines (pure, no Quote/Job entities):**
+  - `distributeQuotedLabor` — INSTALL positions only; hours × allocation %; Zod rejects SERVICE / `LAB-COM-SVC-SIS` and allocation ≠ 100%.
+  - `calculateServiceTicketLabor` — SERVICE tech only, flat hours × rate.
+  - Cost basis uses `actualCostOfLabor` for every `LaborRateType` (sheet has no AH/holiday cost) — off-hours margin looks inflated until the sheet gains cost multipliers.
+- Seed: `scripts/seed-labor-rates.ts` / `db:seed` upserts IS-Commercial only (`integrated-systems` + `COMMERCIAL`) from sheet literals in `is-com-rates.ts` (fixture CSV: `claude/prompts/samples/is-com-hourly-labor-rates.csv`).
+- Tests: `npm run test:pricing-labor`. No Excel IO for five rows.
+
 ---
 
 ## 6. Auth & permissions
@@ -199,8 +214,8 @@ Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public 
 **Capabilities (not hard-coded role lists)** gate access. Catalog: `src/config/capabilities.ts`. Persisted matrix: `RoleCapability` + optional `UserCapabilityOverride` (`ALLOW` / `DENY`; deny wins). Seed with `seedCapabilities` (also via `db:seed`). Admins edit `/settings/permissions` and `/settings/users`.
 
 - `requireUser()` resolves `SessionUser.capabilities`.
-- `requireArea(area)` / `canAccess(user, area)` check `{area}.access` (settings = permissions or users manage).
-- `requireCapability` / `assertCapability` for action-level gates (see `src/features/materials/authz.ts`).
+- `requireArea(area)` / `canAccess(user, area)` check `{area}.access` (settings = permissions or users manage). Areas include `dashboard`, `materials`, `pricing`, `settings`.
+- `requireCapability` / `assertCapability` for action-level gates (see `src/features/materials/authz.ts`; pricing write = `pricing.write`).
 - Do not authorize with `user.role === "admin"` — use capabilities such as `materials.force_delete`.
 
 Every Server Action must call `requireUser` / `requireArea` / `requireCapability` first. Client nav (`nav.ts` capability filters) is UX only.
@@ -213,7 +228,7 @@ Every Server Action must call `requireUser` / `requireArea` / `requireCapability
 
 ## 7. Mobile vs. desktop surfaces
 
-One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. `/materials` and `/settings` (and children) are desktop-only; `MOBILE_FALLBACK_ROUTE` is `/`. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
+One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. `/materials`, `/pricing`, and `/settings` (and children) are desktop-only; `MOBILE_FALLBACK_ROUTE` is `/`. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
 
 Navigation visibility is driven by `src/config/nav.ts` (`capabilities` + `surface` on each item), filtered by `filterNavForCapabilities()`. Register new desktop-only routes in both `device-surface.ts` and `nav.ts`.
 

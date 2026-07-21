@@ -37,7 +37,7 @@ describe("ops-pii schema guard", () => {
     }
   });
 
-  it("ops schema is auth + org + materials (no Field Ops Job/Ticket)", () => {
+  it("ops schema is auth + org + materials + pricing labor (no Field Ops Job/Ticket)", () => {
     const schema = readFileSync(
       join(process.cwd(), "prisma", "schema.prisma"),
       "utf8",
@@ -49,6 +49,9 @@ describe("ops-pii schema guard", () => {
     assert.match(schema, /model MaterialDomain \{/);
     assert.match(schema, /model StripeTaxCode \{/);
     assert.match(schema, /model LaborTaxCodeDefault \{/);
+    assert.match(schema, /model LaborRateConfig \{/);
+    assert.match(schema, /model LaborPosition \{/);
+    assert.match(schema, /enum LaborRateType \{/);
     assert.match(schema, /model Capability \{/);
     assert.match(schema, /model RoleCapability \{/);
     assert.match(schema, /model UserCapabilityOverride \{/);

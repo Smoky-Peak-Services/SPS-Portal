@@ -57,6 +57,18 @@ export const CAPABILITIES = [
     sortOrder: 90,
   },
   {
+    id: "pricing.access",
+    label: "Pricing — access",
+    description: "Open Pricing area and view labor rates / rate cards.",
+    sortOrder: 200,
+  },
+  {
+    id: "pricing.write",
+    label: "Pricing — write",
+    description: "Edit labor rate config and positions.",
+    sortOrder: 210,
+  },
+  {
     id: "settings.permissions.manage",
     label: "Settings — permissions",
     description: "Edit role capability matrix.",
@@ -96,11 +108,14 @@ export const DEFAULT_ROLE_CAPABILITIES: Record<
     "materials.import_export",
     "materials.delete",
     "materials.tax_review",
+    "pricing.access",
+    "pricing.write",
   ],
   sales: [
     "dashboard.access",
     "materials.access",
     "materials.financials.view",
+    "pricing.access",
   ],
   accounting: [
     "dashboard.access",
@@ -108,11 +123,14 @@ export const DEFAULT_ROLE_CAPABILITIES: Record<
     "materials.financials.view",
     "materials.financials.write",
     "materials.tax_review",
+    "pricing.access",
+    "pricing.write",
   ],
   field_supervisor: [
     "dashboard.access",
     "materials.access",
     "materials.financials.view",
+    "pricing.access",
   ],
   field_tech: ["dashboard.access"],
 };

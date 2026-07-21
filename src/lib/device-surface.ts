@@ -16,6 +16,8 @@ export function isDesktopOnlyPath(pathname: string): boolean {
   return (
     pathname === "/materials" ||
     pathname.startsWith("/materials/") ||
+    pathname === "/pricing" ||
+    pathname.startsWith("/pricing/") ||
     pathname === "/settings" ||
     pathname.startsWith("/settings/")
   );

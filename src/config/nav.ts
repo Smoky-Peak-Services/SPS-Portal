@@ -38,6 +38,13 @@ export const navSections: NavSection[] = [
         surface: "desktop",
       },
       {
+        label: "Labor rates",
+        href: "/pricing/labor-rates",
+        icon: "Package",
+        capabilities: ["pricing.access"],
+        surface: "desktop",
+      },
+      {
         label: "Catalog I/O",
         href: "/materials/import-export",
         icon: "Package",
