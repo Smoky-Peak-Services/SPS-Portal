@@ -1,0 +1,19 @@
+Labor Burden and Billing Rate Inputs,,,,,,,
+Burden,1.85,,,,,,
+Commercial Billing,1.89,,,,,,
+After Hours,1.45,,,,,,
+Holiday,1.75,,,,,,
+,,,,,,,
+Position Title,SKU,Base Hourly Rate,Actual Cost of Labor,Standard Billing Rate,After Hours and Emergency Rate,Holiday Rate,Labor Rate Percentage
+Tech 1 and 2,LAB-COM-T12-SIS,$18.00,$33.30,$62.94,$91.26,$110.14,50.0%
+Senior Technician,LAB-COM-SRT-SIS,$26.00,$48.10,$90.91,$131.82,$159.09,20.0%
+Programmer,LAB-COM-PRG-SIS,$32.00,$59.20,$111.89,$162.24,$195.80,15.0%
+Project Manager,LAB-COM-PMG-SIS,$43.00,$79.55,$150.35,$218.01,$263.11,15.0%
+Service Technician,LAB-COM-SVC-SIS,$22.00,$40.70,$76.92,$111.54,$134.62,0.0%
+Total Project Labor Percentage,,,,,,,100.0%
+,,,,,,,
+Notes Block,,,,,,,
+"1. Burden multiplier covers taxes, benefits, and overhead.",,,,,,,
+2. Commercial Billing multiplier is applied to the actual cost of labor.,,,,,,,
+3. After Hours and Holiday multipliers are applied to the standard billing rate.,,,,,,,
+4. Service Technician labor is billed separately and not included in standard project labor percentage.,,,,,,,
