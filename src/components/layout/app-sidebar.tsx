@@ -71,7 +71,7 @@ export function AppSidebar({
                       className={cn(
                         "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         active &&
-                          "bg-sidebar-accent font-medium text-sidebar-primary",
+                          "bg-sidebar-primary text-sidebar-primary-foreground",
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0 opacity-80" />
@@ -97,7 +97,8 @@ export function AppSidebar({
                       href={item.href}
                       className={cn(
                         "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent",
-                        active && "bg-sidebar-accent text-sidebar-primary",
+                        active &&
+                          "bg-sidebar-primary text-sidebar-primary-foreground",
                       )}
                     >
                       <Icon className="h-4 w-4 opacity-80" />
