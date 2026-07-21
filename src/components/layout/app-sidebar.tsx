@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CircleUser, Headset, LayoutDashboard, Package } from "lucide-react";
+import { CircleUser, Gauge, Headset, LayoutDashboard, Package } from "lucide-react";
 import {
   filterFooterForCapabilities,
   filterNavForCapabilities,
@@ -19,6 +19,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
   CircleUser,
   Package,
+  Gauge,
 };
 
 type Props = {

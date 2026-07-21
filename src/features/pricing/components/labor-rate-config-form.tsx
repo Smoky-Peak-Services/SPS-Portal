@@ -49,12 +49,7 @@ export function LaborRateConfigForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-border bg-card p-4">
-      <h2 className="text-sm font-medium">Rate multipliers</h2>
-      <p className="text-xs text-muted-foreground">
-        Document how stored position rates were derived. Runtime engines use the
-        position columns, not these multipliers.
-      </p>
+    <form onSubmit={onSubmit} className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {(
           [

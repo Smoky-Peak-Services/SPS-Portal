@@ -9,6 +9,9 @@ import { resolveItemTaxClassification } from "@/features/materials/tax";
 import { canForceDelete } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
 import { listImportExportScopes } from "@/features/materials/io-actions";
+import { PageHeader } from "@/components/patterns/page-header";
+import { DataTableShell } from "@/components/patterns/data-table-shell";
+import { Panel } from "@/components/patterns/panel";
 
 export default async function ItemsPage() {
   await requireDesktopSurface("/materials/items");
@@ -19,36 +22,28 @@ export default async function ItemsPage() {
   const divisions = canIo ? await listImportExportScopes() : [];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            href="/materials"
-            className="text-sm text-muted-foreground hover:underline"
-          >
-            ← Materials
-          </Link>
-          <h1 className="text-2xl font-semibold">Items</h1>
-        </div>
-        <Button asChild>
-          <Link href="/materials/items/new">New item</Link>
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Items"
+        description="Catalog line items within a category. Tax classification resolves item → category."
+        actions={
+          <Button asChild>
+            <Link href="/materials/items/new">New item</Link>
+          </Button>
+        }
+      />
       {canIo && divisions.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Catalog Excel includes tax override columns (
-            <code className="text-xs">stripeTaxCodeId</code>, labor install/service).
-            Blank tax cells clear overrides — re-export before import. Item taxProfile
-            stays inherited (not in the sheet).
-          </p>
+        <Panel
+          title="Catalog Excel"
+          description="Includes tax override columns (stripeTaxCodeId, labor install/service). Blank tax cells clear overrides — re-export before import. Item taxProfile stays inherited."
+        >
           <MaterialsImportExportClient
             divisions={divisions}
             isAdmin={isAdmin}
           />
-        </div>
+        </Panel>
       ) : null}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <DataTableShell>
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
@@ -62,7 +57,10 @@ export default async function ItemsPage() {
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={5}
+                  className="px-4 py-8 text-center text-muted-foreground"
+                >
                   No items yet.
                 </td>
               </tr>
@@ -108,7 +106,7 @@ export default async function ItemsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </DataTableShell>
     </div>
   );
 }

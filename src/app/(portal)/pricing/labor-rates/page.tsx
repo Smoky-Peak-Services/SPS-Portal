@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { userCan } from "@/config/permissions";
@@ -8,6 +7,11 @@ import {
 } from "@/features/pricing/actions";
 import { LaborRateConfigForm } from "@/features/pricing/components/labor-rate-config-form";
 import { LaborPositionsTable } from "@/features/pricing/components/labor-positions-table";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Panel } from "@/components/patterns/panel";
+import { DataTableShell } from "@/components/patterns/data-table-shell";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 export default async function LaborRatesPage({
   searchParams,
@@ -44,32 +48,24 @@ export default async function LaborRatesPage({
       ? scopedConfigs.map((c) => c.segment)
       : (["COMMERCIAL"] as const);
 
+  const selectClass =
+    "flex h-8 w-full min-w-[10rem] rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30";
+
   return (
-    <div className="space-y-4">
-      <div>
-        <Link
-          href="/"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Dashboard
-        </Link>
-        <h1 className="text-2xl font-semibold">Labor rates</h1>
-        <p className="text-sm text-muted-foreground">
-          Division + segment rate cards. Quoted blend uses INSTALL positions;
-          service tickets use the SERVICE technician. No Excel — edit inline.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Labor rates"
+        description="Division + segment rate cards. Quoted blend uses INSTALL positions; service tickets use the SERVICE technician. No Excel — edit inline."
+      />
 
       <form className="flex flex-wrap items-end gap-3" method="get">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground" htmlFor="divisionId">
-            Division
-          </label>
+        <div className="space-y-1.5">
+          <Label htmlFor="divisionId">Division</Label>
           <select
             id="divisionId"
             name="divisionId"
             defaultValue={defaultDivisionId}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+            className={selectClass}
           >
             {divisions.map((d) => (
               <option key={d.id} value={d.id}>
@@ -78,15 +74,13 @@ export default async function LaborRatesPage({
             ))}
           </select>
         </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground" htmlFor="segment">
-            Segment
-          </label>
+        <div className="space-y-1.5">
+          <Label htmlFor="segment">Segment</Label>
           <select
             id="segment"
             name="segment"
             defaultValue={segment}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+            className={selectClass}
           >
             {segmentOptions.map((s) => (
               <option key={s} value={s}>
@@ -95,12 +89,9 @@ export default async function LaborRatesPage({
             ))}
           </select>
         </div>
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center rounded-md border border-border bg-card px-3 text-sm hover:bg-muted"
-        >
+        <Button type="submit" variant="outline" size="sm">
           Load
-        </button>
+        </Button>
       </form>
 
       {!scope.config ? (
@@ -114,11 +105,18 @@ export default async function LaborRatesPage({
           <p className="text-sm text-muted-foreground">
             {scope.division?.name ?? "Division"} · {segment}
           </p>
-          <LaborRateConfigForm config={scope.config} canWrite={canWrite} />
-          <LaborPositionsTable
-            positions={scope.positions}
-            canWrite={canWrite}
-          />
+          <Panel title="Rate multipliers" description="Transparency / recompute only — stored position rates are authoritative at runtime.">
+            <LaborRateConfigForm config={scope.config} canWrite={canWrite} />
+          </Panel>
+          <DataTableShell
+            title="Positions"
+            description="INSTALL roles feed the quoted blend engine; SERVICE is service-ticket only (never in quote distribution)."
+          >
+            <LaborPositionsTable
+              positions={scope.positions}
+              canWrite={canWrite}
+            />
+          </DataTableShell>
         </>
       )}
     </div>

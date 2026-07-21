@@ -32,7 +32,11 @@ export function PortalShell({
         surface={surface}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1">
+          <div className="mx-auto w-full max-w-7xl px-4 py-4 md:px-6 md:py-6">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

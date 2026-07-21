@@ -29,38 +29,27 @@ export function LaborPositionsTable({
   canWrite: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="border-b border-border px-4 py-3">
-        <h2 className="text-sm font-medium">Positions</h2>
-        <p className="text-xs text-muted-foreground">
-          INSTALL roles feed the quoted blend engine; SERVICE is service-ticket
-          only (never in quote distribution).
-        </p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[960px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">Title / SKU</th>
-              <th className="px-3 py-2">Ctx</th>
-              <th className="px-3 py-2">Base</th>
-              <th className="px-3 py-2">Cost</th>
-              <th className="px-3 py-2">Std</th>
-              <th className="px-3 py-2">AH</th>
-              <th className="px-3 py-2">Hol</th>
-              <th className="px-3 py-2">Alloc %</th>
-              <th className="px-3 py-2">Sort</th>
-              {canWrite ? <th className="px-3 py-2" /> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {positions.map((p) => (
-              <PositionEditRow key={p.id} position={p} canWrite={canWrite} />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <table className="w-full text-left text-sm">
+      <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+        <tr>
+          <th className="px-3 py-2">Title / SKU</th>
+          <th className="px-3 py-2">Ctx</th>
+          <th className="px-3 py-2">Base</th>
+          <th className="px-3 py-2">Cost</th>
+          <th className="px-3 py-2">Std</th>
+          <th className="px-3 py-2">AH</th>
+          <th className="px-3 py-2">Hol</th>
+          <th className="px-3 py-2">Alloc %</th>
+          <th className="px-3 py-2">Sort</th>
+          {canWrite ? <th className="px-3 py-2" /> : null}
+        </tr>
+      </thead>
+      <tbody>
+        {positions.map((p) => (
+          <PositionEditRow key={p.id} position={p} canWrite={canWrite} />
+        ))}
+      </tbody>
+    </table>
   );
 }
 

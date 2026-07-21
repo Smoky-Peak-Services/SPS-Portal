@@ -69,7 +69,7 @@ On 2026-07-19 the jobs/tickets/schedule/CRM buildout was reverted back to a dash
 
 What's actually here, in `src/`, post-reset (§2a) plus materials catalog:
 
-- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account`, dashboard (`page.tsx`), `materials` (admin catalog CRUD), `pricing` (labor rates + complexity + recurring/SMA).
+- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account`, dashboard (`page.tsx`), `materials` (Catalog section: materials hub + recurring fees UI + import-export), `pricing` (Rates section: labor rates + complexity; `/pricing` redirects to labor-rates), `settings`.
 - **`features/<domain>/`** — where the real logic lives, one folder per domain. Today: `materials` (catalog EAV), `pricing` (labor rates + complexity + recurring fees/SMA engines), `accounting` (schema-guard test), `auth`, `cron`, `ingress`. Jobs/tickets/schedule/crm were removed in the reset (§2a) and return later (quoting next). Domain shape:
   - `actions.ts` — `"use server"` Server Actions. Every exported action follows the same order: `requireUser()`/`requireArea(area)` first, then `schema.parse(raw)`, then the Prisma call(s), then `revalidatePath(...)` for every route that shows the changed data.
   - `schemas.ts` — Zod schemas shared between the server action and the client form.
@@ -84,8 +84,10 @@ What's actually here, in `src/`, post-reset (§2a) plus materials catalog:
 - **`proxy.ts`** — the edge auth gate. This repo's equivalent of `middleware.ts` (Next 16 naming). Checks only for a session cookie's presence and redirects to `/sign-in`; it does not check roles. Update `PUBLIC_PREFIXES` here when adding a new unauthenticated route (e.g. a new public API endpoint).
 - **`components/ui/`** — shadcn primitives (`components.json`, dark tokens in `globals.css`). Prefer these over ad-hoc markup.
 - **`components/layout/`** — `AppLogo`, `AppSidebar`, `AppHeader` (portal chrome).
-- **`components/patterns/`** — reusable page building blocks: `PageHeader`, `Panel`, `MetricCard`, `DataTableShell`, `StatusBadge`, `EmptyState`. Use these before inventing new page chrome.
+- **`components/patterns/`** — reusable page building blocks: `PageHeader`, `Panel`, `MetricCard`, `DataTableShell`, `SectionTabs`, `StatusBadge`, `EmptyState`. Use these before inventing new page chrome. Portal `<main>` content is one `max-w-7xl` column via `PortalShell`.
 - **Theme:** dark-only (`html.dark`). Brand assets in `public/brand/` (mark, logo-dark, PWA icons). Colors: teal/cyan primary — not purple.
+
+**Nav (prompt 12):** Operations has three top-level items — Dashboard, **Catalog** (`/materials`), **Rates** (`/pricing`). Each of Catalog and Rates uses a single horizontal `SectionTabs` strip in the segment `layout.tsx` (no accordions, no third nesting level). Catalog tabs: Materials · Recurring Fees · Catalog I/O · Consumables (disabled placeholder — no route/model). Rates tabs: Labor Rates · Complexity Multipliers. Recurring fees live at `/materials/recurring` visually under Catalog but still gate with `requireArea("pricing")`.
 
 ---
 
@@ -212,7 +214,7 @@ Feature code: `src/features/pricing/`. Admin UI: `/pricing/labor-rates` (desktop
 
 ### Pricing — recurring fees + SMA (prompt 11)
 
-Admin UI: `/pricing/recurring` (desktop-only, same `pricing.access` / `pricing.write`).
+Admin UI: `/materials/recurring` (Catalog section tab; desktop-only). **Still** `requireArea("pricing")` / `pricing.write` — route path ≠ capability area. `/pricing/recurring` redirects here.
 
 - **`RecurringFeeItem`**: scoped by `(divisionId, Segment)`, unique SKU in scope. Enums: `BillingCycle`, `RecurringFeeUnit`, `RecurringFeeType` (`SMA_BASE_TIER | SMA_SVM | SMA_BANK_OF_HOURS | MONTHLY_SERVICE`), `RateValueType` (`CURRENCY | PERCENT`). Money/percent columns `Decimal(12,4)` so SVM percents fit (`0.1560`).
 - **Two CSV deviations (locked):** drop duplicate Monthly Monitoring `$18.99` (seed only `$39.99` / `$51.99` / `$46.79`); Bank of Hours sell rate is **live** `LAB-COM-T12-SIS.standardBillingRate × 0.90` — seed stores `0` placeholders; engine never reads BOH dollar columns.

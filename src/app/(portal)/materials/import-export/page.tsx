@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { canForceDelete } from "@/features/materials/authz";
 import { listImportExportScopes } from "@/features/materials/io-actions";
 import { MaterialsImportExportClient } from "@/features/materials/components/materials-import-export-client";
 import { MaterialsAttributeListsIoClient } from "@/features/materials/components/materials-attribute-lists-io-client";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Panel } from "@/components/patterns/panel";
 
 export default async function MaterialsImportExportPage() {
   await requireDesktopSurface("/materials/import-export");
@@ -13,24 +14,13 @@ export default async function MaterialsImportExportPage() {
   const isAdmin = canForceDelete(user);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <Link
-          href="/materials"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Materials
-        </Link>
-        <h1 className="text-2xl font-semibold">Import / export</h1>
-        <p className="text-sm text-muted-foreground">
-          Excel round-trip for the item catalog (by division + segment) and
-          global attribute picklists. Preview, then commit (admin). Missing rows
-          are never deleted.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Import / export"
+        description="Excel round-trip for the item catalog (by division + segment) and global attribute picklists. Preview, then commit (admin). Missing rows are never deleted."
+      />
 
-      <div className="space-y-2">
-        <h2 className="text-xl font-medium">Item catalog</h2>
+      <Panel title="Item catalog">
         {divisions.length === 0 ? (
           <p className="text-sm text-muted-foreground">No divisions configured.</p>
         ) : (
@@ -39,9 +29,11 @@ export default async function MaterialsImportExportPage() {
             isAdmin={isAdmin}
           />
         )}
-      </div>
+      </Panel>
 
-      <MaterialsAttributeListsIoClient isAdmin={isAdmin} />
+      <Panel title="Attribute lists">
+        <MaterialsAttributeListsIoClient isAdmin={isAdmin} />
+      </Panel>
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { userCan } from "@/config/permissions";
@@ -7,6 +6,10 @@ import {
   listComplexityScopes,
 } from "@/features/pricing/actions";
 import { ComplexityMultipliersTable } from "@/features/pricing/components/complexity-multipliers-table";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Panel } from "@/components/patterns/panel";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 export default async function ComplexityMultipliersPage({
   searchParams,
@@ -43,40 +46,24 @@ export default async function ComplexityMultipliersPage({
       ? scopedSegments.map((s) => s.segment)
       : (["COMMERCIAL"] as const);
 
+  const selectClass =
+    "flex h-8 w-full min-w-[10rem] rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30";
+
   return (
-    <div className="space-y-4">
-      <div>
-        <Link
-          href="/"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Dashboard
-        </Link>
-        <h1 className="text-2xl font-semibold">Complexity multipliers</h1>
-        <p className="text-sm text-muted-foreground">
-          Hours-only adders for quoted labor. Adjusted hours feed{" "}
-          <code className="text-xs">distributeQuotedLabor</code> later — never
-          multiply dollars. See also{" "}
-          <Link
-            href="/pricing/labor-rates"
-            className="text-primary hover:underline"
-          >
-            Labor rates
-          </Link>
-          .
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Complexity multipliers"
+        description="Hours-only adders for quoted labor. Adjusted hours feed distributeQuotedLabor later — never multiply dollars."
+      />
 
       <form className="flex flex-wrap items-end gap-3" method="get">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground" htmlFor="divisionId">
-            Division
-          </label>
+        <div className="space-y-1.5">
+          <Label htmlFor="divisionId">Division</Label>
           <select
             id="divisionId"
             name="divisionId"
             defaultValue={defaultDivisionId}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+            className={selectClass}
           >
             {divisions.map((d) => (
               <option key={d.id} value={d.id}>
@@ -85,15 +72,13 @@ export default async function ComplexityMultipliersPage({
             ))}
           </select>
         </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground" htmlFor="segment">
-            Segment
-          </label>
+        <div className="space-y-1.5">
+          <Label htmlFor="segment">Segment</Label>
           <select
             id="segment"
             name="segment"
             defaultValue={segment}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+            className={selectClass}
           >
             {segmentOptions.map((s) => (
               <option key={s} value={s}>
@@ -102,12 +87,9 @@ export default async function ComplexityMultipliersPage({
             ))}
           </select>
         </div>
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center rounded-md border border-border bg-card px-3 text-sm hover:bg-muted"
-        >
+        <Button type="submit" variant="outline" size="sm">
           Load
-        </button>
+        </Button>
       </form>
 
       {scope.multipliers.length === 0 ? (
@@ -117,16 +99,15 @@ export default async function ComplexityMultipliersPage({
           <code className="text-xs">scripts/run-seed-complexity-multipliers.ts</code>.
         </p>
       ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            {scope.division?.name ?? "Division"} · {segment} ·{" "}
-            {scope.multipliers.length} multipliers
-          </p>
+        <Panel
+          title={`${scope.division?.name ?? "Division"} · ${segment}`}
+          description={`${scope.multipliers.length} multipliers`}
+        >
           <ComplexityMultipliersTable
             multipliers={scope.multipliers}
             canWrite={canWrite}
           />
-        </>
+        </Panel>
       )}
     </div>
   );

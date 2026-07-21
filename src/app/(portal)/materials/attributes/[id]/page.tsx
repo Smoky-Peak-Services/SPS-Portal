@@ -6,6 +6,9 @@ import { canForceDelete } from "@/features/materials/authz";
 import { getAttribute } from "@/features/materials/actions";
 import { AttributeForm } from "@/features/materials/components/attribute-form";
 import { AttributeDeleteCell } from "@/features/materials/components/attribute-delete-cell";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Panel } from "@/components/patterns/panel";
+import { Button } from "@/components/ui/button";
 
 export default async function AttributeDetailPage({
   params,
@@ -27,36 +30,37 @@ export default async function AttributeDetailPage({
     );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Link
-            href="/materials/attributes"
-            className="text-sm text-muted-foreground hover:underline"
-          >
-            ← Attributes
-          </Link>
-          <h1 className="text-2xl font-semibold">{attribute.name}</h1>
-        </div>
-        <AttributeDeleteCell
-          id={attribute.id}
-          name={attribute.name}
-          usageCount={usageCount}
-          isAdmin={isAdmin}
-        />
-      </div>
-      <AttributeForm
-        canForceDelete={isAdmin}
-        initial={{
-          id: attribute.id,
-          name: attribute.name,
-          slug: attribute.slug,
-          inputType: attribute.inputType,
-          unit: attribute.unit,
-          isActive: attribute.isActive,
-          options: attribute.options,
-        }}
+    <div className="space-y-6">
+      <PageHeader
+        title={attribute.name}
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/materials/attributes">Attributes</Link>
+            </Button>
+            <AttributeDeleteCell
+              id={attribute.id}
+              name={attribute.name}
+              usageCount={usageCount}
+              isAdmin={isAdmin}
+            />
+          </>
+        }
       />
+      <Panel>
+        <AttributeForm
+          canForceDelete={isAdmin}
+          initial={{
+            id: attribute.id,
+            name: attribute.name,
+            slug: attribute.slug,
+            inputType: attribute.inputType,
+            unit: attribute.unit,
+            isActive: attribute.isActive,
+            options: attribute.options,
+          }}
+        />
+      </Panel>
     </div>
   );
 }

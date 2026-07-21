@@ -6,6 +6,9 @@ import {
   listDivisionsForMaterials,
 } from "@/features/materials/actions";
 import { DomainForm } from "@/features/materials/components/domain-form";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Panel } from "@/components/patterns/panel";
+import { Button } from "@/components/ui/button";
 
 export default async function EditDomainPage({
   params,
@@ -21,29 +24,30 @@ export default async function EditDomainPage({
   if (!domain) notFound();
 
   return (
-    <div className="space-y-4">
-      <div>
-        <Link
-          href="/materials/domains"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Domains
-        </Link>
-        <h1 className="text-2xl font-semibold">Edit domain</h1>
-      </div>
-      <DomainForm
-        divisions={divisions}
-        initial={{
-          id: domain.id,
-          divisionId: domain.divisionId,
-          segment: domain.segment,
-          name: domain.name,
-          slug: domain.slug,
-          description: domain.description,
-          sortOrder: domain.sortOrder,
-          isActive: domain.isActive,
-        }}
+    <div className="space-y-6">
+      <PageHeader
+        title="Edit domain"
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/materials/domains">Domains</Link>
+          </Button>
+        }
       />
+      <Panel>
+        <DomainForm
+          divisions={divisions}
+          initial={{
+            id: domain.id,
+            divisionId: domain.divisionId,
+            segment: domain.segment,
+            name: domain.name,
+            slug: domain.slug,
+            description: domain.description,
+            sortOrder: domain.sortOrder,
+            isActive: domain.isActive,
+          }}
+        />
+      </Panel>
     </div>
   );
 }

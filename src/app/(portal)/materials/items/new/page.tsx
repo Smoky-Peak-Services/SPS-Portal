@@ -7,6 +7,9 @@ import {
   listUnits,
 } from "@/features/materials/actions";
 import { ItemForm } from "@/features/materials/components/item-form";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Panel } from "@/components/patterns/panel";
+import { Button } from "@/components/ui/button";
 
 export default async function NewItemPage({
   searchParams,
@@ -25,40 +28,41 @@ export default async function NewItemPage({
   const assignments = category?.assignments ?? [];
 
   return (
-    <div className="space-y-4">
-      <div>
-        <Link
-          href="/materials/items"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Items
-        </Link>
-        <h1 className="text-2xl font-semibold">New item</h1>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="New item"
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/materials/items">Items</Link>
+          </Button>
+        }
+      />
       {categories.length === 0 || units.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Need at least one category and seeded units before creating items. Run{" "}
           <code className="text-xs">npm run db:seed</code> if units are missing.
         </p>
       ) : (
-        <ItemForm
-          categories={categories}
-          units={units}
-          taxCodes={taxCodes}
-          defaultCategoryId={categoryId}
-          assignments={assignments.map((a) => ({
-            attributeId: a.attributeId,
-            isRequired: a.isRequired,
-            attribute: {
-              id: a.attribute.id,
-              name: a.attribute.name,
-              slug: a.attribute.slug,
-              inputType: a.attribute.inputType,
-              unit: a.attribute.unit,
-              options: a.attribute.options,
-            },
-          }))}
-        />
+        <Panel>
+          <ItemForm
+            categories={categories}
+            units={units}
+            taxCodes={taxCodes}
+            defaultCategoryId={categoryId}
+            assignments={assignments.map((a) => ({
+              attributeId: a.attributeId,
+              isRequired: a.isRequired,
+              attribute: {
+                id: a.attribute.id,
+                name: a.attribute.name,
+                slug: a.attribute.slug,
+                inputType: a.attribute.inputType,
+                unit: a.attribute.unit,
+                options: a.attribute.options,
+              },
+            }))}
+          />
+        </Panel>
       )}
     </div>
   );

@@ -29,7 +29,7 @@ function revalidateComplexity() {
 }
 
 function revalidateRecurring() {
-  revalidatePath("/pricing/recurring");
+  revalidatePath("/materials/recurring");
 }
 
 export async function listLaborRateScopes() {

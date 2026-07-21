@@ -7,6 +7,8 @@ import { listDomains } from "@/features/materials/actions";
 import { DomainDeleteCell } from "@/features/materials/components/domain-delete-cell";
 import { DomainIoToolbar } from "@/features/materials/components/domain-io-toolbar";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/patterns/page-header";
+import { DataTableShell } from "@/components/patterns/data-table-shell";
 
 export default async function DomainsPage() {
   await requireDesktopSurface("/materials/domains");
@@ -16,23 +18,18 @@ export default async function DomainsPage() {
   const canIo = userCan(user, "materials.import_export");
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            href="/materials"
-            className="text-sm text-muted-foreground hover:underline"
-          >
-            ← Materials
-          </Link>
-          <h1 className="text-2xl font-semibold">Domains</h1>
-        </div>
-        <Button asChild>
-          <Link href="/materials/domains/new">New domain</Link>
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Domains"
+        description="Top-level material taxonomy scoped by division and segment."
+        actions={
+          <Button asChild>
+            <Link href="/materials/domains/new">New domain</Link>
+          </Button>
+        }
+      />
       {canIo ? <DomainIoToolbar isAdmin={isAdmin} /> : null}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <DataTableShell>
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
@@ -47,7 +44,10 @@ export default async function DomainsPage() {
           <tbody>
             {domains.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={6}
+                  className="px-4 py-8 text-center text-muted-foreground"
+                >
                   No domains yet.
                 </td>
               </tr>
@@ -85,7 +85,7 @@ export default async function DomainsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </DataTableShell>
     </div>
   );
 }

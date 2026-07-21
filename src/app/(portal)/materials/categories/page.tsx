@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { requireArea } from "@/lib/session";
 import { canForceDelete } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
+import { PageHeader } from "@/components/patterns/page-header";
+import { DataTableShell } from "@/components/patterns/data-table-shell";
 
 export default async function CategoriesPage({
   searchParams,
@@ -23,38 +25,35 @@ export default async function CategoriesPage({
   const canIo = userCan(user, "materials.import_export");
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            href="/materials"
-            className="text-sm text-muted-foreground hover:underline"
-          >
-            ← Materials
-          </Link>
-          <h1 className="text-2xl font-semibold">Categories</h1>
-          <p className="text-sm text-muted-foreground">
-            {needsTaxReview
-              ? "Showing categories that still need tax review."
-              : "All categories."}{" "}
-            <Link
-              href={
-                needsTaxReview
-                  ? "/materials/categories"
-                  : "/materials/categories?taxReview=1"
-              }
-              className="text-primary hover:underline"
-            >
-              {needsTaxReview ? "Show all" : "Needs tax review"}
-            </Link>
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/materials/categories/new">New category</Link>
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Categories"
+        description={
+          needsTaxReview
+            ? "Showing categories that still need tax review."
+            : "All categories."
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link
+                href={
+                  needsTaxReview
+                    ? "/materials/categories"
+                    : "/materials/categories?taxReview=1"
+                }
+              >
+                {needsTaxReview ? "Show all" : "Needs tax review"}
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/materials/categories/new">New category</Link>
+            </Button>
+          </div>
+        }
+      />
       {canIo ? <CategoryTaxIoToolbar isAdmin={isAdmin} /> : null}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <DataTableShell>
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
@@ -70,7 +69,10 @@ export default async function CategoriesPage({
           <tbody>
             {categories.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={7}
+                  className="px-4 py-8 text-center text-muted-foreground"
+                >
                   {needsTaxReview
                     ? "No categories awaiting tax review."
                     : "No categories yet."}
@@ -102,9 +104,7 @@ export default async function CategoriesPage({
                   </td>
                   <td className="px-4 py-3">
                     {c.taxProfile}
-                    {c.stripeTaxCode
-                      ? ` · ${c.stripeTaxCode.id}`
-                      : ""}
+                    {c.stripeTaxCode ? ` · ${c.stripeTaxCode.id}` : ""}
                     {!c.taxReviewed ? (
                       <span className="ml-1 text-xs text-amber-700">
                         unreviewed
@@ -136,7 +136,7 @@ export default async function CategoriesPage({
             )}
           </tbody>
         </table>
-      </div>
+      </DataTableShell>
     </div>
   );
 }

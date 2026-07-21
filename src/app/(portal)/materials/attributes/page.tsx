@@ -8,6 +8,9 @@ import { AttributeDeleteCell } from "@/features/materials/components/attribute-d
 import { AttributeAssignmentIoToolbar } from "@/features/materials/components/attribute-assignment-io-toolbar";
 import { MaterialsAttributeListsIoClient } from "@/features/materials/components/materials-attribute-lists-io-client";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/patterns/page-header";
+import { DataTableShell } from "@/components/patterns/data-table-shell";
+import { Panel } from "@/components/patterns/panel";
 
 export default async function AttributesPage() {
   await requireDesktopSurface("/materials/attributes");
@@ -17,31 +20,25 @@ export default async function AttributesPage() {
   const canIo = userCan(user, "materials.import_export");
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            href="/materials"
-            className="text-sm text-muted-foreground hover:underline"
-          >
-            ← Materials
-          </Link>
-          <h1 className="text-2xl font-semibold">Attributes</h1>
-          <p className="text-sm text-muted-foreground">
-            Global definitions — assign them to categories separately.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/materials/attributes/new">New attribute</Link>
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Attributes"
+        description="Global definitions — assign them to categories separately."
+        actions={
+          <Button asChild>
+            <Link href="/materials/attributes/new">New attribute</Link>
+          </Button>
+        }
+      />
       {canIo ? (
-        <div className="space-y-3">
-          <AttributeAssignmentIoToolbar isAdmin={isAdmin} />
-          <MaterialsAttributeListsIoClient isAdmin={isAdmin} />
-        </div>
+        <Panel title="Attribute Excel">
+          <div className="space-y-3">
+            <AttributeAssignmentIoToolbar isAdmin={isAdmin} />
+            <MaterialsAttributeListsIoClient isAdmin={isAdmin} />
+          </div>
+        </Panel>
       ) : null}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <DataTableShell>
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
@@ -56,7 +53,10 @@ export default async function AttributesPage() {
           <tbody>
             {attributes.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={6}
+                  className="px-4 py-8 text-center text-muted-foreground"
+                >
                   No attributes yet.
                 </td>
               </tr>
@@ -93,7 +93,7 @@ export default async function AttributesPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </DataTableShell>
     </div>
   );
 }
