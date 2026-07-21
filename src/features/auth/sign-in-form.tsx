@@ -65,7 +65,12 @@ export function SignInForm() {
     <Card className="mx-auto w-full max-w-sm border-border/80 bg-card/90 shadow-xl shadow-black/40">
       <CardHeader className="space-y-4 text-center">
         <div className="flex justify-center">
-          <AppLogo href={undefined} variant="mark" markClassName="h-14 w-14" priority />
+          <AppLogo
+            href={undefined}
+            variant="mark"
+            markClassName="h-14 w-14"
+            priority
+          />
         </div>
         <div>
           <CardTitle className="text-xl">{company.shortName}</CardTitle>

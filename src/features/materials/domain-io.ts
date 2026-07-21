@@ -70,7 +70,12 @@ export type DomainFlatImportPlan = {
   creates: PlannedDomainFlatCreate[];
   updates: PlannedDomainFlatUpdate[];
   unchangedCount: number;
-  unresolved: { division: string; segment: string; name: string; row: number }[];
+  unresolved: {
+    division: string;
+    segment: string;
+    name: string;
+    row: number;
+  }[];
   warnings: DomainRowWarning[];
   layoutOk: boolean;
   layoutMessage: string | null;
@@ -164,7 +169,8 @@ export function parseDomainFlatAoa(aoa: unknown[][]): ParsedDomainFlatWorkbook {
       warnings.push({
         sheet: DOMAINS_SHEET,
         row: r + 1,
-        message: "Row missing division/segment/name or invalid segment — skipped",
+        message:
+          "Row missing division/segment/name or invalid segment — skipped",
       });
       continue;
     }
@@ -225,7 +231,10 @@ export function planDomainFlatImport(
     };
   }
 
-  const divisionByKey = new Map<string, { id: string; name: string; slug: string }>();
+  const divisionByKey = new Map<
+    string,
+    { id: string; name: string; slug: string }
+  >();
   for (const d of existing.divisions) {
     divisionByKey.set(nameMatchKey(d.name), d);
     divisionByKey.set(d.slug.toLowerCase(), d);

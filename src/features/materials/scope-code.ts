@@ -7,7 +7,12 @@ import {
   toPrismaSegment,
 } from "./scope";
 
-export { scopeCodeFor, resolveStorageScope, toPrismaSegment, listCustomerScopes };
+export {
+  scopeCodeFor,
+  resolveStorageScope,
+  toPrismaSegment,
+  listCustomerScopes,
+};
 
 const ABBREV_TO_SEGMENT: Record<string, Segment> = {
   COM: "COMMERCIAL",
@@ -23,11 +28,9 @@ export function listScopeCodes(): {
   code: string;
   divisionSlug: string;
   divisionCode: string;
-  /** Customer-facing segment (picker / filename). */
   segment: Segment;
-  /** Prisma storage segment for reads/writes. */
+  /** Prisma storage segment for reads/writes (always equals segment). */
   storageSegment: Segment;
-  shared: boolean;
   label: string;
 }[] {
   return listCustomerScopes().map((s) => ({
@@ -36,7 +39,6 @@ export function listScopeCodes(): {
     divisionCode: s.divisionCode,
     segment: s.customerSegment,
     storageSegment: s.storageSegment,
-    shared: s.shared,
     label: s.label,
   }));
 }

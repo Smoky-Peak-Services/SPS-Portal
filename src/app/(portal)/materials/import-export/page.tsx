@@ -17,12 +17,14 @@ export default async function MaterialsImportExportPage() {
     <div className="space-y-6">
       <PageHeader
         title="Import / export"
-        description="Excel round-trip for the item catalog (by division + segment) and global attribute picklists. Preview, then commit (admin). Missing rows are never deleted."
+        description="Excel round-trip for the item catalog and attribute picklists, per scope (division + segment). Preview, then commit (admin). Missing rows are never deleted."
       />
 
       <Panel title="Item catalog">
         {divisions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No divisions configured.</p>
+          <p className="text-sm text-muted-foreground">
+            No divisions configured.
+          </p>
         ) : (
           <MaterialsImportExportClient
             divisions={divisions}
@@ -32,7 +34,10 @@ export default async function MaterialsImportExportPage() {
       </Panel>
 
       <Panel title="Attribute lists">
-        <MaterialsAttributeListsIoClient isAdmin={isAdmin} />
+        <MaterialsAttributeListsIoClient
+          isAdmin={isAdmin}
+          divisions={divisions}
+        />
       </Panel>
     </div>
   );

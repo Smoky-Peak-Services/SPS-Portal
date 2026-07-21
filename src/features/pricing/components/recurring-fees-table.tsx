@@ -142,8 +142,7 @@ function RecurringFeeEditCard({
           </span>
           {isTier ? (
             <span>
-              Value{" "}
-              {row.systemValueMin?.toString() ?? "—"}–
+              Value {row.systemValueMin?.toString() ?? "—"}–
               {row.systemValueMax?.toString() ?? "∞"}
             </span>
           ) : null}
@@ -166,7 +165,9 @@ function RecurringFeeEditCard({
           required
           className="min-w-[12rem] flex-1"
         />
-        <span className="font-mono text-xs text-muted-foreground">{row.sku}</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {row.sku}
+        </span>
         <span className="rounded border border-border px-2 py-0.5 text-xs">
           {row.feeType}
         </span>
@@ -285,7 +286,10 @@ function RecurringFeeEditCard({
           Active
         </label>
         <div className="flex items-center gap-2">
-          <label className="text-xs text-muted-foreground" htmlFor={`sort-${row.id}`}>
+          <label
+            className="text-xs text-muted-foreground"
+            htmlFor={`sort-${row.id}`}
+          >
             Sort
           </label>
           <Input
@@ -300,7 +304,9 @@ function RecurringFeeEditCard({
         <Button type="submit" disabled={pending} size="sm">
           {pending ? "Saving…" : "Save"}
         </Button>
-        {error ? <span className="text-sm text-destructive">{error}</span> : null}
+        {error ? (
+          <span className="text-sm text-destructive">{error}</span>
+        ) : null}
       </div>
     </form>
   );

@@ -17,7 +17,11 @@ import {
 } from "./domain-io";
 
 function revalidate() {
-  for (const p of ["/materials", "/materials/domains", "/materials/import-export"]) {
+  for (const p of [
+    "/materials",
+    "/materials/domains",
+    "/materials/import-export",
+  ]) {
     revalidatePath(p);
   }
 }
@@ -73,7 +77,9 @@ export type DomainFlatImportPreview = {
   plan: DomainFlatImportPlan;
 };
 
-async function buildPreview(formData: FormData): Promise<DomainFlatImportPreview> {
+async function buildPreview(
+  formData: FormData,
+): Promise<DomainFlatImportPreview> {
   const user = await requireMaterialsAccess();
   assertImportExport(user);
   const { buffer, filename } = await readFileBuffer(formData);
@@ -97,7 +103,8 @@ export async function commitDomainFlatImport(formData: FormData) {
   const preview = await buildPreview(formData);
   if (!preview.plan.layoutOk) {
     throw new Error(
-      preview.plan.layoutMessage ?? "This file doesn't look like a domains export.",
+      preview.plan.layoutMessage ??
+        "This file doesn't look like a domains export.",
     );
   }
   const { plan } = preview;

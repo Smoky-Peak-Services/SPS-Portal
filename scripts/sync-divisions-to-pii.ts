@@ -8,14 +8,20 @@ import { PrismaClient as PiiClient } from "../prisma/generated/pii";
 
 function normalizeSsl(url?: string) {
   if (!url) return url;
-  return url.replace(/sslmode=(prefer|require|verify-ca)\b/i, "sslmode=verify-full");
+  return url.replace(
+    /sslmode=(prefer|require|verify-ca)\b/i,
+    "sslmode=verify-full",
+  );
 }
 
 async function main() {
-  const opsPool = new Pool({ connectionString: normalizeSsl(process.env.OPS_DATABASE_URL) });
+  const opsPool = new Pool({
+    connectionString: normalizeSsl(process.env.OPS_DATABASE_URL),
+  });
   const ops = new OpsClient({ adapter: new PrismaPg(opsPool) });
 
-  const piiUrl = process.env.PII_DATABASE_URL?.trim() || process.env.OPS_DATABASE_URL;
+  const piiUrl =
+    process.env.PII_DATABASE_URL?.trim() || process.env.OPS_DATABASE_URL;
   const piiPool = new Pool({ connectionString: normalizeSsl(piiUrl) });
   const pii = new PiiClient({ adapter: new PrismaPg(piiPool) });
 

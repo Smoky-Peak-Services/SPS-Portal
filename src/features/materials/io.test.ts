@@ -16,11 +16,11 @@ import { parseScopeFromFilename, scopeCodeFor } from "./scope-code";
 describe("normalizeName", () => {
   it("trims and collapses whitespace", () => {
     assert.equal(normalizeName("Card  Reader"), "Card Reader");
-    assert.equal(normalizeName("Miscellaneous Materials "), "Miscellaneous Materials");
     assert.equal(
-      nameMatchKey("Card  Reader"),
-      nameMatchKey("card reader"),
+      normalizeName("Miscellaneous Materials "),
+      "Miscellaneous Materials",
     );
+    assert.equal(nameMatchKey("Card  Reader"), nameMatchKey("card reader"));
   });
 
   it("slugify uses cleaned name", () => {
@@ -216,11 +216,25 @@ describe("parseWorkbookBuffer + planImport", () => {
       "laborServiceTaxCodeId",
     ]);
     ac.addRow(["Reader A", "EACH", "0.25", "", "txcd_99999999", "", ""]);
-    ac.addRow(["Reader B", "EACH", "0.1", "", "txcd_bogus", "txcd_20020010", ""]);
+    ac.addRow([
+      "Reader B",
+      "EACH",
+      "0.1",
+      "",
+      "txcd_bogus",
+      "txcd_20020010",
+      "",
+    ]);
     const buffer = Buffer.from(await wb.xlsx.writeBuffer());
     const parsed = await parseWorkbookBuffer(buffer);
-    assert.equal(parsed.domains[0]!.categories[0]!.items[0]!.stripeTaxCodeId, "txcd_99999999");
-    assert.equal(parsed.domains[0]!.categories[0]!.items[0]!.laborInstallTaxCodeId, null);
+    assert.equal(
+      parsed.domains[0]!.categories[0]!.items[0]!.stripeTaxCodeId,
+      "txcd_99999999",
+    );
+    assert.equal(
+      parsed.domains[0]!.categories[0]!.items[0]!.laborInstallTaxCodeId,
+      null,
+    );
 
     const snapshot: ExistingSnapshot = {
       units: [{ id: "u1", code: "EACH" }],
@@ -279,7 +293,9 @@ describe("parseWorkbookBuffer + planImport", () => {
     assert.equal(a.laborInstallTaxCodeId, null); // blank clears
     const b = plan.itemUpdates.find((u) => u.name === "Reader B");
     // bogus stripe skipped; install set; may still update
-    assert.ok(plan.warnings.some((w) => /Unknown stripeTaxCodeId/.test(w.message)));
+    assert.ok(
+      plan.warnings.some((w) => /Unknown stripeTaxCodeId/.test(w.message)),
+    );
     assert.ok(b);
     assert.equal(b!.stripeTaxCodeId, undefined); // invalid not applied
     assert.equal(b!.laborInstallTaxCodeId, "txcd_20020010");

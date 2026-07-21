@@ -3,7 +3,11 @@ import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { canForceDelete } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
-import { listAttributes } from "@/features/materials/actions";
+import {
+  listAttributes,
+  listDivisionsForMaterials,
+} from "@/features/materials/actions";
+import { resolvePageScope } from "@/features/pricing/scope-page";
 import { AttributeDeleteCell } from "@/features/materials/components/attribute-delete-cell";
 import { AttributeAssignmentIoToolbar } from "@/features/materials/components/attribute-assignment-io-toolbar";
 import { MaterialsAttributeListsIoClient } from "@/features/materials/components/materials-attribute-lists-io-client";
@@ -11,30 +15,61 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
 import { Panel } from "@/components/patterns/panel";
+import { ScopeFilterBar } from "@/components/patterns/scope-filter-bar";
 
-export default async function AttributesPage() {
+export default async function AttributesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ divisionId?: string; segment?: string }>;
+}) {
   await requireDesktopSurface("/materials/attributes");
   const user = await requireArea("materials");
-  const attributes = await listAttributes();
+  const params = await searchParams;
+
+  const divisions = await listDivisionsForMaterials();
+  const { divisionId, segment } = resolvePageScope({
+    divisionId: params.divisionId,
+    segment: params.segment,
+    divisions,
+  });
+
+  const attributes = await listAttributes({ divisionId, segment });
   const isAdmin = canForceDelete(user);
   const canIo = userCan(user, "materials.import_export");
+
+  const scopeQuery = `divisionId=${encodeURIComponent(divisionId)}&segment=${encodeURIComponent(segment)}`;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Attributes"
-        description="Global definitions — assign them to categories separately."
+        description="Per-scope definitions — each attribute belongs to one division + segment and is assigned to that scope's categories."
         actions={
           <Button asChild>
-            <Link href="/materials/attributes/new">New attribute</Link>
+            <Link href={`/materials/attributes/new?${scopeQuery}`}>
+              New attribute
+            </Link>
           </Button>
         }
+      />
+      <ScopeFilterBar
+        divisions={divisions}
+        divisionId={divisionId}
+        segment={segment}
       />
       {canIo ? (
         <Panel title="Attribute Excel">
           <div className="space-y-3">
-            <AttributeAssignmentIoToolbar isAdmin={isAdmin} />
-            <MaterialsAttributeListsIoClient isAdmin={isAdmin} />
+            <AttributeAssignmentIoToolbar
+              isAdmin={isAdmin}
+              divisionId={divisionId}
+              segment={segment}
+            />
+            <MaterialsAttributeListsIoClient
+              isAdmin={isAdmin}
+              divisionId={divisionId}
+              segment={segment}
+            />
           </div>
         </Panel>
       ) : null}

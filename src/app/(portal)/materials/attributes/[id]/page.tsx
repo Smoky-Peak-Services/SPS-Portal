@@ -58,6 +58,8 @@ export default async function AttributeDetailPage({
             unit: attribute.unit,
             isActive: attribute.isActive,
             options: attribute.options,
+            divisionName: attribute.division.name,
+            segment: attribute.segment,
           }}
         />
       </Panel>

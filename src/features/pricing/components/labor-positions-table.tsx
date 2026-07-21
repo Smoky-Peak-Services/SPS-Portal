@@ -17,6 +17,7 @@ type PositionRow = {
   standardBillingRate: { toString(): string };
   afterHoursRate: { toString(): string };
   holidayRate: { toString(): string };
+  discountedRate: { toString(): string } | null;
   quotedAllocationPct: { toString(): string };
   sortOrder: number;
 };
@@ -28,6 +29,9 @@ export function LaborPositionsTable({
   positions: PositionRow[];
   canWrite: boolean;
 }) {
+  // Discounted rate is a Cabin Services sheet column — only show when present.
+  const hasDiscounted = positions.some((p) => p.discountedRate != null);
+
   return (
     <table className="w-full text-left text-sm">
       <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
@@ -39,6 +43,7 @@ export function LaborPositionsTable({
           <th className="px-3 py-2">Std</th>
           <th className="px-3 py-2">AH</th>
           <th className="px-3 py-2">Hol</th>
+          {hasDiscounted ? <th className="px-3 py-2">Disc</th> : null}
           <th className="px-3 py-2">Alloc %</th>
           <th className="px-3 py-2">Sort</th>
           {canWrite ? <th className="px-3 py-2" /> : null}
@@ -46,7 +51,12 @@ export function LaborPositionsTable({
       </thead>
       <tbody>
         {positions.map((p) => (
-          <PositionEditRow key={p.id} position={p} canWrite={canWrite} />
+          <PositionEditRow
+            key={p.id}
+            position={p}
+            canWrite={canWrite}
+            hasDiscounted={hasDiscounted}
+          />
         ))}
       </tbody>
     </table>
@@ -56,13 +66,17 @@ export function LaborPositionsTable({
 function PositionEditRow({
   position,
   canWrite,
+  hasDiscounted,
 }: {
   position: PositionRow;
   canWrite: boolean;
+  hasDiscounted: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const colCount = 9 + (hasDiscounted ? 1 : 0) + (canWrite ? 1 : 0);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -79,6 +93,9 @@ function PositionEditRow({
           standardBillingRate: fd.get("standardBillingRate"),
           afterHoursRate: fd.get("afterHoursRate"),
           holidayRate: fd.get("holidayRate"),
+          ...(hasDiscounted
+            ? { discountedRate: fd.get("discountedRate") }
+            : {}),
           quotedAllocationPct: fd.get("quotedAllocationPct"),
           sortOrder: fd.get("sortOrder"),
         });
@@ -104,18 +121,36 @@ function PositionEditRow({
         <td className="px-3 py-2">{position.standardBillingRate.toString()}</td>
         <td className="px-3 py-2">{position.afterHoursRate.toString()}</td>
         <td className="px-3 py-2">{position.holidayRate.toString()}</td>
+        {hasDiscounted ? (
+          <td className="px-3 py-2">
+            {position.discountedRate?.toString() ?? "—"}
+          </td>
+        ) : null}
         <td className="px-3 py-2">{position.quotedAllocationPct.toString()}</td>
         <td className="px-3 py-2">{position.sortOrder}</td>
       </tr>
     );
   }
 
+  const rateFields = [
+    ["baseHourlyRate", position.baseHourlyRate.toString()],
+    ["actualCostOfLabor", position.actualCostOfLabor.toString()],
+    ["standardBillingRate", position.standardBillingRate.toString()],
+    ["afterHoursRate", position.afterHoursRate.toString()],
+    ["holidayRate", position.holidayRate.toString()],
+  ] as const;
+
+  const rateColCount = 6 + (hasDiscounted ? 1 : 0);
+
   return (
     <tr className="border-b last:border-0 align-top">
-      <td className="px-3 py-2" colSpan={canWrite ? 10 : 9}>
+      <td className="px-3 py-2" colSpan={colCount}>
         <form
           onSubmit={onSubmit}
-          className="grid grid-cols-[minmax(10rem,1.4fr)_4.5rem_repeat(6,minmax(4.5rem,1fr))_4rem_auto] items-end gap-2"
+          className="grid items-end gap-2"
+          style={{
+            gridTemplateColumns: `minmax(10rem,1.4fr) 4.5rem repeat(${rateColCount}, minmax(4.5rem,1fr)) 4rem auto`,
+          }}
         >
           <div className="space-y-1">
             <Input
@@ -128,27 +163,38 @@ function PositionEditRow({
               {position.sku} · {position.context}
             </div>
           </div>
-          <div className="text-xs text-muted-foreground">{position.context}</div>
-          {(
-            [
-              ["baseHourlyRate", position.baseHourlyRate],
-              ["actualCostOfLabor", position.actualCostOfLabor],
-              ["standardBillingRate", position.standardBillingRate],
-              ["afterHoursRate", position.afterHoursRate],
-              ["holidayRate", position.holidayRate],
-              ["quotedAllocationPct", position.quotedAllocationPct],
-            ] as const
-          ).map(([name, value]) => (
+          <div className="text-xs text-muted-foreground">
+            {position.context}
+          </div>
+          {rateFields.map(([name, value]) => (
             <Input
               key={name}
               name={name}
               type="number"
               step="0.01"
-              defaultValue={value.toString()}
+              defaultValue={value}
               disabled={pending}
               required
             />
           ))}
+          {hasDiscounted ? (
+            <Input
+              name="discountedRate"
+              type="number"
+              step="0.01"
+              defaultValue={position.discountedRate?.toString() ?? ""}
+              disabled={pending}
+              placeholder="—"
+            />
+          ) : null}
+          <Input
+            name="quotedAllocationPct"
+            type="number"
+            step="0.01"
+            defaultValue={position.quotedAllocationPct.toString()}
+            disabled={pending}
+            required
+          />
           <Input
             name="sortOrder"
             type="number"

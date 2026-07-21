@@ -183,8 +183,11 @@ function parseSortOrder(
   return Math.trunc(n);
 }
 
-export function attributeListsExportFileName(date = new Date()): string {
-  return `attribute-lists_${date.toISOString().slice(0, 10)}.xlsx`;
+export function attributeListsExportFileName(
+  scopeCode: string,
+  date = new Date(),
+): string {
+  return `attribute-lists_${scopeCode}_${date.toISOString().slice(0, 10)}.xlsx`;
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +322,8 @@ export function parseAttributeWorkbookAoa(
   const sheetsTotal = sheets.filter((s) => normalizeName(s.name)).length;
 
   const indexSheet = sheets.find(
-    (s) => normalizeName(s.name).toLowerCase() === INDEX_SHEET_NAME.toLowerCase(),
+    (s) =>
+      normalizeName(s.name).toLowerCase() === INDEX_SHEET_NAME.toLowerCase(),
   );
 
   if (!indexSheet) {

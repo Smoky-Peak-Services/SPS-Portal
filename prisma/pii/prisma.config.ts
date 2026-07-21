@@ -5,7 +5,10 @@ import { defineConfig, env } from "prisma/config";
 config({ path: path.join(__dirname, "../../.env.local") });
 
 function normalize(url?: string) {
-  return url?.replace(/sslmode=(prefer|require|verify-ca)\b/i, "sslmode=verify-full");
+  return url?.replace(
+    /sslmode=(prefer|require|verify-ca)\b/i,
+    "sslmode=verify-full",
+  );
 }
 
 const directUrl =

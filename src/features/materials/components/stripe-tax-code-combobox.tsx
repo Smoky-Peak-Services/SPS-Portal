@@ -54,7 +54,9 @@ export function StripeTaxCodeCombobox({
       <input type="hidden" name={name} value={selected} />
       {selectedMeta ? (
         <div className="rounded border border-border bg-muted/40 px-3 py-2 text-sm">
-          <div className="font-mono text-xs text-muted-foreground">{selectedMeta.id}</div>
+          <div className="font-mono text-xs text-muted-foreground">
+            {selectedMeta.id}
+          </div>
           <div className="font-medium">{selectedMeta.name}</div>
           {allowClear ? (
             <button
@@ -102,7 +104,9 @@ export function StripeTaxCodeCombobox({
                     setOpen(false);
                   }}
                 >
-                  <div className="font-mono text-xs text-muted-foreground">{c.id}</div>
+                  <div className="font-mono text-xs text-muted-foreground">
+                    {c.id}
+                  </div>
                   <div className="font-medium">{c.name}</div>
                   <div className="line-clamp-1 text-xs text-muted-foreground">
                     {c.description}

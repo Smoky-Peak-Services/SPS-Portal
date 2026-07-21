@@ -1,97 +1,116 @@
 import type { PrismaClient } from "@prisma/client";
 import { Prisma } from "@prisma/client";
+import type { LaborScopeSeed } from "../src/features/pricing/labor-seed-types";
 import {
   IS_COM_LABOR_MULTIPLIERS,
   IS_COM_LABOR_POSITIONS,
 } from "../src/features/pricing/is-com-rates";
+import {
+  IS_RES_LABOR_MULTIPLIERS,
+  IS_RES_LABOR_POSITIONS,
+} from "../src/features/pricing/is-res-rates";
+import {
+  CABIN_LABOR_MULTIPLIERS,
+  CABIN_LABOR_POSITIONS,
+} from "../src/features/pricing/cabin-rates";
+
+const LABOR_SCOPE_SEEDS: LaborScopeSeed[] = [
+  {
+    divisionSlug: "integrated-systems",
+    segment: "COMMERCIAL",
+    multipliers: IS_COM_LABOR_MULTIPLIERS,
+    positions: IS_COM_LABOR_POSITIONS,
+  },
+  {
+    divisionSlug: "integrated-systems",
+    segment: "RESIDENTIAL",
+    multipliers: IS_RES_LABOR_MULTIPLIERS,
+    positions: IS_RES_LABOR_POSITIONS,
+  },
+  {
+    divisionSlug: "cabin-services",
+    segment: "STR",
+    multipliers: CABIN_LABOR_MULTIPLIERS,
+    positions: CABIN_LABOR_POSITIONS,
+  },
+];
+
+const toDecimal = (n: number) => new Prisma.Decimal(n);
+const toNullableDecimal = (n: number | null) =>
+  n == null ? null : new Prisma.Decimal(n);
 
 /**
- * Upsert IS-Commercial labor rate config + 5 positions.
- * Scope is resolved by division slug — not hardcoded into the schema.
+ * Upsert labor rate config + positions for all three scopes
+ * (IS-Commercial, IS-Residential, Cabin Services).
  */
 export async function seedLaborRates(prisma: PrismaClient): Promise<void> {
-  const division = await prisma.division.findUnique({
-    where: { slug: "integrated-systems" },
-    select: { id: true },
-  });
-  if (!division) {
-    throw new Error(
-      'Division "integrated-systems" not found — seed divisions first',
-    );
-  }
+  for (const scope of LABOR_SCOPE_SEEDS) {
+    const division = await prisma.division.findUnique({
+      where: { slug: scope.divisionSlug },
+      select: { id: true },
+    });
+    if (!division) {
+      throw new Error(
+        `Division "${scope.divisionSlug}" not found — seed divisions first`,
+      );
+    }
 
-  const segment = "COMMERCIAL" as const;
+    const configData = {
+      burdenMultiplier: toDecimal(scope.multipliers.burdenMultiplier),
+      standardBillingMultiplier: toDecimal(
+        scope.multipliers.standardBillingMultiplier,
+      ),
+      afterHoursMultiplier: toDecimal(scope.multipliers.afterHoursMultiplier),
+      holidayMultiplier: toDecimal(scope.multipliers.holidayMultiplier),
+      discountedMultiplier: toNullableDecimal(
+        scope.multipliers.discountedMultiplier,
+      ),
+    };
 
-  await prisma.laborRateConfig.upsert({
-    where: {
-      divisionId_segment: { divisionId: division.id, segment },
-    },
-    create: {
-      divisionId: division.id,
-      segment,
-      burdenMultiplier: new Prisma.Decimal(
-        IS_COM_LABOR_MULTIPLIERS.burdenMultiplier,
-      ),
-      commercialBillingMultiplier: new Prisma.Decimal(
-        IS_COM_LABOR_MULTIPLIERS.commercialBillingMultiplier,
-      ),
-      afterHoursMultiplier: new Prisma.Decimal(
-        IS_COM_LABOR_MULTIPLIERS.afterHoursMultiplier,
-      ),
-      holidayMultiplier: new Prisma.Decimal(
-        IS_COM_LABOR_MULTIPLIERS.holidayMultiplier,
-      ),
-    },
-    update: {
-      burdenMultiplier: new Prisma.Decimal(
-        IS_COM_LABOR_MULTIPLIERS.burdenMultiplier,
-      ),
-      commercialBillingMultiplier: new Prisma.Decimal(
-        IS_COM_LABOR_MULTIPLIERS.commercialBillingMultiplier,
-      ),
-      afterHoursMultiplier: new Prisma.Decimal(
-        IS_COM_LABOR_MULTIPLIERS.afterHoursMultiplier,
-      ),
-      holidayMultiplier: new Prisma.Decimal(
-        IS_COM_LABOR_MULTIPLIERS.holidayMultiplier,
-      ),
-    },
-  });
-
-  for (const p of IS_COM_LABOR_POSITIONS) {
-    await prisma.laborPosition.upsert({
+    await prisma.laborRateConfig.upsert({
       where: {
-        divisionId_segment_sku: {
+        divisionId_segment: {
           divisionId: division.id,
-          segment,
-          sku: p.sku,
+          segment: scope.segment,
         },
       },
       create: {
         divisionId: division.id,
-        segment,
-        title: p.title,
-        sku: p.sku,
-        baseHourlyRate: new Prisma.Decimal(p.baseHourlyRate),
-        actualCostOfLabor: new Prisma.Decimal(p.actualCostOfLabor),
-        standardBillingRate: new Prisma.Decimal(p.standardBillingRate),
-        afterHoursRate: new Prisma.Decimal(p.afterHoursRate),
-        holidayRate: new Prisma.Decimal(p.holidayRate),
-        quotedAllocationPct: new Prisma.Decimal(p.quotedAllocationPct),
-        context: p.context,
-        sortOrder: p.sortOrder,
+        segment: scope.segment,
+        ...configData,
       },
-      update: {
-        title: p.title,
-        baseHourlyRate: new Prisma.Decimal(p.baseHourlyRate),
-        actualCostOfLabor: new Prisma.Decimal(p.actualCostOfLabor),
-        standardBillingRate: new Prisma.Decimal(p.standardBillingRate),
-        afterHoursRate: new Prisma.Decimal(p.afterHoursRate),
-        holidayRate: new Prisma.Decimal(p.holidayRate),
-        quotedAllocationPct: new Prisma.Decimal(p.quotedAllocationPct),
-        context: p.context,
-        sortOrder: p.sortOrder,
-      },
+      update: configData,
     });
+
+    for (const p of scope.positions) {
+      const positionData = {
+        title: p.title,
+        baseHourlyRate: toDecimal(p.baseHourlyRate),
+        actualCostOfLabor: toDecimal(p.actualCostOfLabor),
+        standardBillingRate: toDecimal(p.standardBillingRate),
+        afterHoursRate: toDecimal(p.afterHoursRate),
+        holidayRate: toDecimal(p.holidayRate),
+        discountedRate: toNullableDecimal(p.discountedRate),
+        quotedAllocationPct: toDecimal(p.quotedAllocationPct),
+        context: p.context,
+        sortOrder: p.sortOrder,
+      };
+      await prisma.laborPosition.upsert({
+        where: {
+          divisionId_segment_sku: {
+            divisionId: division.id,
+            segment: scope.segment,
+            sku: p.sku,
+          },
+        },
+        create: {
+          divisionId: division.id,
+          segment: scope.segment,
+          sku: p.sku,
+          ...positionData,
+        },
+        update: positionData,
+      });
+    }
   }
 }

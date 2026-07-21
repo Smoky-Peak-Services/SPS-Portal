@@ -7,11 +7,10 @@ import {
 } from "./scope-code";
 
 describe("resolveStorageScope", () => {
-  it("IS Commercial is identity (not shared)", () => {
+  it("IS Commercial is identity", () => {
     const r = resolveStorageScope("integrated-systems", "COMMERCIAL");
     assert.equal(r.storageSegment, "COMMERCIAL");
     assert.equal(r.customerSegment, "COMMERCIAL");
-    assert.equal(r.shared, false);
     assert.equal(r.scopeCode, "IS_COM");
   });
 
@@ -19,18 +18,19 @@ describe("resolveStorageScope", () => {
     const r = resolveStorageScope("integrated-systems", "RESIDENTIAL");
     assert.equal(r.storageSegment, "RESIDENTIAL");
     assert.equal(r.scopeCode, "IS_RES");
-    assert.equal(r.shared, false);
   });
 
-  it("CS STR and CS Residential both store as STR and share", () => {
-    const str = resolveStorageScope("cabin-services", "STR");
-    const res = resolveStorageScope("cabin-services", "RESIDENTIAL");
-    assert.equal(str.storageSegment, "STR");
-    assert.equal(res.storageSegment, "STR");
-    assert.equal(str.shared, true);
-    assert.equal(res.shared, true);
-    assert.equal(str.scopeCode, "CS_STR");
-    assert.equal(res.scopeCode, "CS_RES");
+  it("Cabin Services is a single STR scope", () => {
+    const r = resolveStorageScope("cabin-services", "STR");
+    assert.equal(r.storageSegment, "STR");
+    assert.equal(r.scopeCode, "CS_STR");
+  });
+
+  it("rejects Cabin Services + RESIDENTIAL (no STR/RESI split)", () => {
+    assert.throws(
+      () => resolveStorageScope("cabin-services", "RESIDENTIAL"),
+      /not valid/,
+    );
   });
 
   it("rejects Cabin Services + COMMERCIAL", () => {
@@ -42,22 +42,20 @@ describe("resolveStorageScope", () => {
 });
 
 describe("listScopeCodes / listCustomerScopes", () => {
-  it("includes CS_STR and CS_RES with shared storage STR", () => {
-    const codes = listScopeCodes();
-    const csStr = codes.find((c) => c.code === "CS_STR");
-    const csRes = codes.find((c) => c.code === "CS_RES");
-    assert.ok(csStr);
-    assert.ok(csRes);
-    assert.equal(csStr!.storageSegment, "STR");
-    assert.equal(csRes!.storageSegment, "STR");
-    assert.equal(csStr!.shared, true);
-    assert.equal(csRes!.shared, true);
+  it("exposes exactly the three scopes", () => {
+    const codes = listScopeCodes().map((c) => c.code);
+    assert.deepEqual(codes.sort(), ["CS_STR", "IS_COM", "IS_RES"]);
   });
 
-  it("does not invent CS_COM", () => {
-    assert.equal(
-      listCustomerScopes().some((s) => s.scopeCode === "CS_COM"),
-      false,
-    );
+  it("storage always equals the segment", () => {
+    for (const s of listCustomerScopes()) {
+      assert.equal(s.storageSegment, s.customerSegment);
+    }
+  });
+
+  it("does not invent CS_RES or CS_COM", () => {
+    const codes = listCustomerScopes().map((s) => s.scopeCode);
+    assert.equal(codes.includes("CS_RES"), false);
+    assert.equal(codes.includes("CS_COM"), false);
   });
 });

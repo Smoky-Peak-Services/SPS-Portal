@@ -13,7 +13,10 @@ import {
 } from "@/features/materials/authz";
 import { isCoreCategoryAttributeSlug } from "./attribute-list-defs";
 import { ensureCoreAssignmentsForCategory } from "./ensure-core-assignments";
-import { operationalDivisionSlugs, isOperationalDivisionSlug } from "@/config/company";
+import {
+  operationalDivisionSlugs,
+  isOperationalDivisionSlug,
+} from "@/config/company";
 import { slugify } from "./slug";
 import { deriveTaxProfileFromStripeCode } from "./tax";
 import { assertItemAttributeValues } from "./validation";
@@ -150,12 +153,21 @@ export async function getCategory(id: string) {
   });
 }
 
-export async function listAttributes(opts?: { activeOnly?: boolean }) {
+export async function listAttributes(opts?: {
+  activeOnly?: boolean;
+  divisionId?: string;
+  segment?: "COMMERCIAL" | "RESIDENTIAL" | "STR";
+}) {
   await requireMaterialsAccess();
   return prisma.materialAttribute.findMany({
-    where: opts?.activeOnly ? { isActive: true } : undefined,
+    where: {
+      ...(opts?.activeOnly ? { isActive: true } : {}),
+      ...(opts?.divisionId ? { divisionId: opts.divisionId } : {}),
+      ...(opts?.segment ? { segment: opts.segment } : {}),
+    },
     orderBy: { name: "asc" },
     include: {
+      division: { select: { id: true, name: true, slug: true } },
       _count: { select: { options: true, assignments: true } },
       options: { orderBy: { sortOrder: "asc" } },
     },
@@ -167,6 +179,7 @@ export async function getAttribute(id: string) {
   return prisma.materialAttribute.findUnique({
     where: { id },
     include: {
+      division: { select: { id: true, name: true, slug: true } },
       options: {
         orderBy: { sortOrder: "asc" },
         include: {
@@ -176,7 +189,11 @@ export async function getAttribute(id: string) {
       assignments: {
         include: {
           category: {
-            select: { id: true, name: true, domain: { select: { name: true } } },
+            select: {
+              id: true,
+              name: true,
+              domain: { select: { name: true } },
+            },
           },
         },
       },
@@ -309,9 +326,7 @@ export async function createCategory(raw: unknown) {
   if (writeCatalog) assertCatalogWrite(user);
 
   const slug = data.slug?.trim() || slugify(data.name);
-  const stripeTaxCodeId = writeFin
-    ? emptyToNull(data.stripeTaxCodeId)
-    : null;
+  const stripeTaxCodeId = writeFin ? emptyToNull(data.stripeTaxCodeId) : null;
   const taxProfile = deriveTaxProfileFromStripeCode(stripeTaxCodeId);
   const category = await prisma.materialCategory.create({
     data: {
@@ -411,9 +426,12 @@ export async function createAttribute(raw: unknown) {
   const user = await requireMaterialsAccess();
   assertAttributesWrite(user);
   const data = createAttributeSchema.parse(raw);
+  await assertOperationalDivision(data.divisionId);
   const slug = data.slug?.trim() || slugify(data.name);
   const attribute = await prisma.materialAttribute.create({
     data: {
+      divisionId: data.divisionId,
+      segment: data.segment,
       name: data.name.trim(),
       slug,
       inputType: data.inputType,
@@ -487,10 +505,26 @@ export async function upsertAssignment(raw: unknown) {
 
   const attribute = await prisma.materialAttribute.findUnique({
     where: { id: data.attributeId },
-    select: { slug: true },
+    select: { slug: true, divisionId: true, segment: true },
   });
   if (!attribute) {
     throw new Error("Attribute not found");
+  }
+
+  const categoryScope = await prisma.materialCategory.findUnique({
+    where: { id: data.categoryId },
+    select: { domain: { select: { divisionId: true, segment: true } } },
+  });
+  if (!categoryScope) {
+    throw new Error("Category not found");
+  }
+  if (
+    categoryScope.domain.divisionId !== attribute.divisionId ||
+    categoryScope.domain.segment !== attribute.segment
+  ) {
+    throw new Error(
+      "Attribute and category belong to different scopes — attributes are per-scope and can only be assigned within their own division + segment",
+    );
   }
 
   let isRequired = data.isRequired ?? false;

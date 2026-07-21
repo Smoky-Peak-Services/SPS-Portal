@@ -6,10 +6,10 @@ import {
   buildAssignmentWorkbookBuffer,
   type ExportAssignmentRow,
 } from "@/features/materials/attribute-assignment-io";
-import {
-  loadPermissionSubject,
-  subjectCan,
-} from "@/lib/permission-subject";
+import { resolveStorageScope } from "@/features/materials/scope";
+import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
+
+const SEGMENTS = new Set(["COMMERCIAL", "RESIDENTIAL", "STR"]);
 
 function todayStamp(): string {
   const d = new Date();
@@ -30,7 +30,39 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const divisionId = req.nextUrl.searchParams.get("divisionId")?.trim() ?? "";
+  const segmentRaw = req.nextUrl.searchParams.get("segment")?.trim() ?? "";
+  if (!divisionId || !SEGMENTS.has(segmentRaw)) {
+    return NextResponse.json(
+      { error: "divisionId and segment are required" },
+      { status: 400 },
+    );
+  }
+
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { id: true, slug: true },
+  });
+  if (!division) {
+    return NextResponse.json({ error: "Division not found" }, { status: 404 });
+  }
+
+  let resolved;
+  try {
+    resolved = resolveStorageScope(division.slug, segmentRaw);
+  } catch {
+    return NextResponse.json(
+      { error: "Segment not valid for division" },
+      { status: 400 },
+    );
+  }
+
   const assignments = await prisma.materialAttributeAssignment.findMany({
+    where: {
+      category: {
+        domain: { divisionId, segment: resolved.storageSegment },
+      },
+    },
     orderBy: [
       { category: { domain: { name: "asc" } } },
       { category: { name: "asc" } },
@@ -65,7 +97,7 @@ export async function GET(req: NextRequest) {
   }));
 
   const buffer = await buildAssignmentWorkbookBuffer(rows);
-  const filename = `attribute_assignments_${todayStamp()}.xlsx`;
+  const filename = `attribute_assignments_${resolved.scopeCode}_${todayStamp()}.xlsx`;
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,

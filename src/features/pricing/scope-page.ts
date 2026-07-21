@@ -10,9 +10,7 @@ export type ScopeDivision = {
   slug: string;
 };
 
-export function parseCustomerSegment(
-  raw: string | undefined,
-): Segment | null {
+export function parseCustomerSegment(raw: string | undefined): Segment | null {
   const u = (raw ?? "").toUpperCase();
   if (u === "COMMERCIAL" || u === "RESIDENTIAL" || u === "STR") return u;
   return null;
@@ -29,8 +27,9 @@ export function resolvePageScope(params: {
   preferredSlug?: string;
 }): { divisionId: string; segment: Segment } {
   const preferred =
-    params.divisions.find((d) => d.slug === (params.preferredSlug ?? "integrated-systems")) ??
-    params.divisions[0];
+    params.divisions.find(
+      (d) => d.slug === (params.preferredSlug ?? "integrated-systems"),
+    ) ?? params.divisions[0];
 
   const division =
     (params.divisionId

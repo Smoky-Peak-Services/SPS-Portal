@@ -58,8 +58,8 @@ export function DomainIoToolbar({ isAdmin }: { isAdmin: boolean }) {
         <div>
           <h2 className="text-sm font-medium">Domains Excel</h2>
           <p className="text-xs text-muted-foreground">
-            Flat list: division, segment, name, slug, sortOrder. Additive import —
-            missing rows are never deleted.
+            Flat list: division, segment, name, slug, sortOrder. Additive import
+            — missing rows are never deleted.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

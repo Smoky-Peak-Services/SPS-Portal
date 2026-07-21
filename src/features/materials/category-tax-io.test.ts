@@ -93,14 +93,7 @@ describe("planCategoryTaxImport", () => {
         "laborInstallTaxCodeId",
         "laborServiceTaxCodeId",
       ],
-      [
-        "Access Control",
-        "Card Reader",
-        "true",
-        PARTS_SALE_TAX_CODE_ID,
-        "",
-        "",
-      ],
+      ["Access Control", "Card Reader", "true", PARTS_SALE_TAX_CODE_ID, "", ""],
       ["No Domain", "Ghost Cat", "true", "", "", ""],
     ]);
     const plan = planCategoryTaxImport(existing, parsed);
@@ -181,9 +174,7 @@ describe("planCategoryTaxImport", () => {
       ["Access Control", "Card Reader", "", "", "txcd_20020010", ""],
     ]);
     const plan = planCategoryTaxImport(existing, parsed);
-    assert.ok(
-      plan.warnings.some((w) => /taxReviewed blank/.test(w.message)),
-    );
+    assert.ok(plan.warnings.some((w) => /taxReviewed blank/.test(w.message)));
     // blank stripe → null (was null) — no change; labor same
     assert.equal(plan.updates.length, 0);
   });
@@ -199,22 +190,13 @@ describe("planCategoryTaxImport", () => {
         "laborInstallTaxCodeId",
         "laborServiceTaxCodeId",
       ],
-      [
-        "Access Control",
-        "Locks",
-        "true",
-        NONTAXABLE_TAX_CODE_ID,
-        "",
-        "",
-      ],
+      ["Access Control", "Locks", "true", NONTAXABLE_TAX_CODE_ID, "", ""],
     ]);
     const plan = planCategoryTaxImport(existing, parsed);
     assert.equal(plan.updates.length, 1);
     assert.equal(plan.updates[0]!.stripeTaxCodeId, NONTAXABLE_TAX_CODE_ID);
     assert.equal(plan.updates[0]!.taxProfile, "REAL_PROPERTY");
-    assert.ok(
-      plan.updates[0]!.changes.some((c) => c.field === "taxProfile"),
-    );
+    assert.ok(plan.updates[0]!.changes.some((c) => c.field === "taxProfile"));
   });
 
   it("matches via slug fallback", () => {

@@ -18,9 +18,7 @@ type ScopeDivision = {
   segments: string[];
   scopes: {
     segment: Segment;
-    storageSegment?: Segment;
     scopeCode: string;
-    shared?: boolean;
   }[];
 };
 
@@ -119,11 +117,12 @@ export function MaterialsImportExportClient({
         ) : null}
       </section>
 
-<section className="space-y-3 rounded-lg border border-border bg-card p-4">
+      <section className="space-y-3 rounded-lg border border-border bg-card p-4">
         <h2 className="text-lg font-medium">Import</h2>
         <p className="text-sm text-muted-foreground">
-          Upload a catalog workbook. Preview shows creates/updates only — missing
-          rows are never deleted. Commit is admin-only and re-parses the file.
+          Upload a catalog workbook. Preview shows creates/updates only —
+          missing rows are never deleted. Commit is admin-only and re-parses the
+          file.
         </p>
         <input
           type="file"
@@ -236,8 +235,12 @@ export function MaterialsImportExportClient({
           ) : null}
 
           {(() => {
-            const sheetWarnings = preview.plan.warnings.filter((w) => w.row === 0);
-            const rowWarnings = preview.plan.warnings.filter((w) => w.row !== 0);
+            const sheetWarnings = preview.plan.warnings.filter(
+              (w) => w.row === 0,
+            );
+            const rowWarnings = preview.plan.warnings.filter(
+              (w) => w.row !== 0,
+            );
             return (
               <>
                 {sheetWarnings.length > 0 ? (
@@ -285,4 +288,3 @@ function Stat({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
-

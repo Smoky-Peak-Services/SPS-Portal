@@ -1,8 +1,10 @@
 /**
- * Customer segment vs storage segment resolution (prompt 13).
+ * Scope resolution (prompt 14).
  *
- * Cabin Services: customer STR | RESIDENTIAL both map to storage STR (shared).
- * Integrated Systems: storage === customer segment (independent datasets).
+ * Three independent scopes, nothing shared:
+ * - Integrated Systems / COMMERCIAL (IS_COM)
+ * - Integrated Systems / RESIDENTIAL (IS_RES)
+ * - Cabin Services / STR (CS_STR) — Cabin is a single, undivided scope.
  */
 import {
   company,
@@ -70,7 +72,6 @@ export type CustomerScope = {
   customerSegment: PrismaSegment;
   storageSegment: PrismaSegment;
   scopeCode: string;
-  shared: boolean;
   label: string;
 };
 
@@ -78,18 +79,19 @@ export function listCustomerScopes(): CustomerScope[] {
   const out: CustomerScope[] = [];
   for (const d of company.divisions) {
     for (const seg of d.segments) {
-      const customerSegment = toPrismaSegment(seg);
-      if (!customerSegment) continue;
-      const resolved = resolveStorageScope(d.slug, customerSegment);
+      const segment = toPrismaSegment(seg);
+      if (!segment) continue;
       out.push({
         divisionSlug: d.slug,
         divisionName: d.name,
         divisionCode: d.code,
-        customerSegment,
-        storageSegment: resolved.storageSegment,
-        scopeCode: resolved.scopeCode,
-        shared: resolved.shared,
-        label: `${d.name} · ${SEGMENT_LABEL[customerSegment]}`,
+        customerSegment: segment,
+        storageSegment: segment,
+        scopeCode: scopeCodeFor(d.code, segment),
+        label:
+          d.segments.length > 1
+            ? `${d.name} · ${SEGMENT_LABEL[segment]}`
+            : d.name,
       });
     }
   }
@@ -101,61 +103,43 @@ export type ResolvedStorageScope = {
   customerSegment: PrismaSegment;
   storageSegment: PrismaSegment;
   scopeCode: string;
-  shared: boolean;
 };
 
 /**
- * Map a picker (customer) segment to the Prisma storage segment for queries.
- * Invalid division/segment pairs throw.
+ * Validate a division + segment pair and return the scope used for Prisma
+ * reads/writes. Storage always equals the requested segment (prompt 14 removed
+ * the shared-catalog aliasing); invalid pairs throw.
  */
 export function resolveStorageScope(
   divisionSlug: string,
-  customerSegment: PrismaSegment | string,
+  segment: PrismaSegment | string,
 ): ResolvedStorageScope {
   const division = getDivision(divisionSlug);
   if (!division) {
     throw new Error(`Unknown division slug: ${divisionSlug}`);
   }
-  const customer = toPrismaSegment(customerSegment);
-  if (!customer) {
-    throw new Error(`Invalid segment: ${customerSegment}`);
+  const seg = toPrismaSegment(segment);
+  if (!seg) {
+    throw new Error(`Invalid segment: ${segment}`);
   }
   const allowed = division.segments
     .map((s) => toPrismaSegment(s))
     .filter((s): s is PrismaSegment => s != null);
-  if (!allowed.includes(customer)) {
+  if (!allowed.includes(seg)) {
     throw new Error(
-      `Segment ${customer} is not valid for division ${division.slug}`,
+      `Segment ${seg} is not valid for division ${division.slug}`,
     );
-  }
-
-  if (division.sharedCatalog) {
-    const storage = toPrismaSegment(division.storageSegment ?? "");
-    if (!storage) {
-      throw new Error(
-        `Division "${division.slug}" has sharedCatalog but no storageSegment`,
-      );
-    }
-    return {
-      divisionSlug: division.slug,
-      customerSegment: customer,
-      storageSegment: storage,
-      // Scope code uses the *customer* segment so CS_RES stays visible.
-      scopeCode: scopeCodeFor(division.code, customer),
-      shared: true,
-    };
   }
 
   return {
     divisionSlug: division.slug,
-    customerSegment: customer,
-    storageSegment: customer,
-    scopeCode: scopeCodeFor(division.code, customer),
-    shared: false,
+    customerSegment: seg,
+    storageSegment: seg,
+    scopeCode: scopeCodeFor(division.code, seg),
   };
 }
 
-/** Customer segments for a division (Prisma enum), from company config. */
+/** Segments for a division (Prisma enum), from company config. */
 export function customerSegmentsForDivision(
   divisionSlug: string,
 ): PrismaSegment[] {

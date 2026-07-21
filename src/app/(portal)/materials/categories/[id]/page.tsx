@@ -20,13 +20,19 @@ export default async function CategoryDetailPage({
 }) {
   const { id } = await params;
   await requireDesktopSurface(`/materials/categories/${id}`);
-  const [category, domains, attributes, taxCodes] = await Promise.all([
+  const [category, domains, taxCodes] = await Promise.all([
     getCategory(id),
     listDomains(),
-    listAttributes({ activeOnly: true }),
     listStripeTaxCodes(),
   ]);
   if (!category) notFound();
+
+  // Attributes are per-scope: only offer this category's scope for assignment.
+  const attributes = await listAttributes({
+    activeOnly: true,
+    divisionId: category.domain.divisionId,
+    segment: category.domain.segment,
+  });
 
   return (
     <div className="space-y-6">

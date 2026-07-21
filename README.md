@@ -49,12 +49,12 @@ npm run typecheck
 
 ## Env: local vs Vercel
 
-| File | Purpose |
-|------|---------|
-| `.env.local` | Local secrets (gitignored). Includes `PII_*`, seed vars |
-| `.env.vercel` | Upload/sync to Vercel (gitignored). No raw PII URLs, no Stripe secret, no Upstash yet |
-| `.env.vercel.example` | Key-name template safe to commit |
-| `.env.example` | Documented key names |
+| File                  | Purpose                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `.env.local`          | Local secrets (gitignored). Includes `PII_*`, seed vars                               |
+| `.env.vercel`         | Upload/sync to Vercel (gitignored). No raw PII URLs, no Stripe secret, no Upstash yet |
+| `.env.vercel.example` | Key-name template safe to commit                                                      |
+| `.env.example`        | Documented key names                                                                  |
 
 ```powershell
 powershell -File scripts/sync-vercel-env.ps1 -EnvFile .env.vercel `
@@ -69,10 +69,10 @@ Installable standalone app (browser “Install” / Add to Home Screen). Service
 
 ## Portal routes (current)
 
-| Route | Purpose |
-|-------|---------|
-| `/sign-in` | Invite-only sign-in |
-| `/` | Empty dashboard shell |
-| `/account` | Profile |
-| `/materials` | Materials catalog admin (desktop, admin/staff) |
-| `POST /api/v1/leads` | Public lead ingest (PII) |
+| Route                | Purpose                                        |
+| -------------------- | ---------------------------------------------- |
+| `/sign-in`           | Invite-only sign-in                            |
+| `/`                  | Empty dashboard shell                          |
+| `/account`           | Profile                                        |
+| `/materials`         | Materials catalog admin (desktop, admin/staff) |
+| `POST /api/v1/leads` | Public lead ingest (PII)                       |

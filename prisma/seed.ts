@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { company, storageSegmentsForDivision } from "../src/config/company";
+import { company } from "../src/config/company";
 import { prisma } from "../src/lib/prisma";
 import { prismaPii } from "../src/lib/prisma-pii";
 import { seedStripeTaxCodes } from "../scripts/seed-stripe-tax-codes";
@@ -12,6 +12,7 @@ import { deriveTaxProfileFromStripeCode } from "../src/features/materials/tax";
 import { seedLaborRates } from "../scripts/seed-labor-rates";
 import { seedComplexityMultipliers } from "../scripts/seed-complexity-multipliers";
 import { seedRecurringFees } from "../scripts/seed-recurring-fees";
+import { seedServicePlans } from "../scripts/seed-service-plans";
 
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -67,7 +68,7 @@ async function ensureAdminMemberships(userId: string) {
 async function main() {
   console.log("Seeding divisions…");
   for (const d of company.divisions) {
-    const segments = storageSegmentsForDivision(d);
+    const segments = [...d.segments];
     const div = await prisma.division.upsert({
       where: { slug: d.slug },
       create: { slug: d.slug, name: d.name, segments },
@@ -257,17 +258,21 @@ async function main() {
     `  ✓ manufacturer + part_number on ${coreAssign.categoriesUpdated} categories`,
   );
 
-  console.log("Seeding IS-Commercial labor rates…");
+  console.log("Seeding labor rates (IS-Com, IS-Res, Cabin)…");
   await seedLaborRates(prisma);
-  console.log("  ✓ LaborRateConfig + 5 LaborPosition rows");
+  console.log("  ✓ 3 LaborRateConfig + 13 LaborPosition rows");
 
-  console.log("Seeding IS-Commercial complexity multipliers…");
+  console.log("Seeding complexity multipliers (IS-Com, IS-Res, Cabin)…");
   await seedComplexityMultipliers(prisma);
-  console.log("  ✓ 10 ComplexityMultiplier rows");
+  console.log("  ✓ 46 ComplexityMultiplier rows (10 + 16 + 20)");
 
   console.log("Seeding IS-Commercial recurring fees…");
   await seedRecurringFees(prisma);
   console.log("  ✓ 11 RecurringFeeItem rows");
+
+  console.log("Seeding Cabin Services plan rates…");
+  await seedServicePlans(prisma);
+  console.log("  ✓ 18 ServicePlanRate rows (MP/CIP/FSP)");
 
   console.log("Seeding role capabilities…");
   await seedCapabilities(prisma);

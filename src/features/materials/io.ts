@@ -653,7 +653,10 @@ export function planImport(
     domainByKey.set(d.slug.toLowerCase(), d);
   }
 
-  const categoriesByDomainSlug = new Map<string, Map<string, ExistingCategory>>();
+  const categoriesByDomainSlug = new Map<
+    string,
+    Map<string, ExistingCategory>
+  >();
   for (const c of existing.categories) {
     let m = categoriesByDomainSlug.get(c.domainSlug);
     if (!m) {

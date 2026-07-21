@@ -239,7 +239,9 @@ export type ParsedCategoryTaxWorkbook = {
   layoutMessage: string | null;
 };
 
-export function parseCategoryTaxAoa(aoa: unknown[][]): ParsedCategoryTaxWorkbook {
+export function parseCategoryTaxAoa(
+  aoa: unknown[][],
+): ParsedCategoryTaxWorkbook {
   const warnings: CatTaxRowWarning[] = [];
   if (aoa.length < 1) {
     return {

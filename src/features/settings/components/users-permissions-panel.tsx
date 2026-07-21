@@ -38,7 +38,10 @@ export function UsersPermissionsPanel({ users }: { users: UserRow[] }) {
     });
   }
 
-  function setOverride(capabilityId: string, effect: "ALLOW" | "DENY" | "INHERIT") {
+  function setOverride(
+    capabilityId: string,
+    effect: "ALLOW" | "DENY" | "INHERIT",
+  ) {
     if (!selected) return;
     setError(null);
     start(async () => {
@@ -56,7 +59,10 @@ export function UsersPermissionsPanel({ users }: { users: UserRow[] }) {
   }
 
   const overrideMap = new Map(
-    (selected?.capabilityOverrides ?? []).map((o) => [o.capabilityId, o.effect]),
+    (selected?.capabilityOverrides ?? []).map((o) => [
+      o.capabilityId,
+      o.effect,
+    ]),
   );
 
   return (
@@ -129,7 +135,11 @@ export function UsersPermissionsPanel({ users }: { users: UserRow[] }) {
                           disabled={pending}
                           onClick={() => setOverride(cap.id, e)}
                         >
-                          {e === "INHERIT" ? "Inherit" : e === "ALLOW" ? "Allow" : "Deny"}
+                          {e === "INHERIT"
+                            ? "Inherit"
+                            : e === "ALLOW"
+                              ? "Allow"
+                              : "Deny"}
                         </Button>
                       ))}
                     </div>

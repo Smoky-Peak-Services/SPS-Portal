@@ -41,10 +41,7 @@ export function SectionTabs({
   return (
     <nav
       aria-label="Section"
-      className={cn(
-        "flex flex-wrap gap-1 border-b border-border",
-        className,
-      )}
+      className={cn("flex flex-wrap gap-1 border-b border-border", className)}
     >
       {tabs.map((tab) => {
         if (tab.disabled || !tab.href) {

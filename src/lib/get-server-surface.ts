@@ -1,8 +1,5 @@
 import { headers } from "next/headers";
-import {
-  SURFACE_COOKIE,
-  type DeviceSurface,
-} from "@/lib/device-surface";
+import { SURFACE_COOKIE, type DeviceSurface } from "@/lib/device-surface";
 
 /**
  * Server-side surface hint.

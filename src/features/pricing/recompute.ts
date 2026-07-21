@@ -10,7 +10,7 @@ import { roundMoney } from "./rate-for";
 
 export type LaborRateMultipliers = {
   burdenMultiplier: number;
-  commercialBillingMultiplier: number;
+  standardBillingMultiplier: number;
   afterHoursMultiplier: number;
   holidayMultiplier: number;
 };
@@ -24,7 +24,7 @@ export type RecomputedRates = {
 
 /**
  * actualCost = round(base × burden)
- * standardRaw = cost × commercialBilling (unrounded)
+ * standardRaw = cost × standardBilling (unrounded)
  * standard = round(standardRaw)
  * afterHours / holiday = round(standardRaw × respective multipliers)
  */
@@ -35,12 +35,9 @@ export function recomputeRates(
   const actualCostOfLabor = roundMoney(
     baseHourlyRate * config.burdenMultiplier,
   );
-  const standardRaw =
-    actualCostOfLabor * config.commercialBillingMultiplier;
+  const standardRaw = actualCostOfLabor * config.standardBillingMultiplier;
   const standardBillingRate = roundMoney(standardRaw);
-  const afterHoursRate = roundMoney(
-    standardRaw * config.afterHoursMultiplier,
-  );
+  const afterHoursRate = roundMoney(standardRaw * config.afterHoursMultiplier);
   const holidayRate = roundMoney(standardRaw * config.holidayMultiplier);
   return {
     actualCostOfLabor,

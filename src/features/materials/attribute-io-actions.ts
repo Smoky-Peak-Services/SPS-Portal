@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Segment } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   assertImportExport,
   requireMaterialsAccess,
 } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
+import { resolveStorageScope } from "./scope";
 import {
   parseAttributeWorkbookBuffer,
   planAttributeImport,
@@ -41,8 +43,34 @@ async function readFileBuffer(formData: FormData): Promise<{
   return { buffer: Buffer.from(ab), filename: file.name };
 }
 
-async function loadExistingAttributeSnapshot(): Promise<ExistingAttributeSnapshot> {
+/** Attributes are per-scope (prompt 14): every IO round-trip targets one scope. */
+async function readScope(formData: FormData): Promise<{
+  divisionId: string;
+  segment: Segment;
+  scopeCode: string;
+}> {
+  const divisionId = String(formData.get("divisionId") ?? "").trim();
+  const segmentRaw = String(formData.get("segment") ?? "").trim();
+  if (!divisionId) throw new Error("Missing divisionId");
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { slug: true },
+  });
+  if (!division) throw new Error("Division not found");
+  const resolved = resolveStorageScope(division.slug, segmentRaw);
+  return {
+    divisionId,
+    segment: resolved.storageSegment,
+    scopeCode: resolved.scopeCode,
+  };
+}
+
+async function loadExistingAttributeSnapshot(
+  divisionId: string,
+  segment: Segment,
+): Promise<ExistingAttributeSnapshot> {
   const attributes = await prisma.materialAttribute.findMany({
+    where: { divisionId, segment },
     select: {
       id: true,
       slug: true,
@@ -63,6 +91,9 @@ async function loadExistingAttributeSnapshot(): Promise<ExistingAttributeSnapsho
 
 export type AttributeListsImportPreview = {
   filename: string;
+  divisionId: string;
+  segment: Segment;
+  scopeCode: string;
   summary: ReturnType<typeof summarizeAttributePlan>;
   plan: AttributeImportPlan;
 };
@@ -73,11 +104,18 @@ async function buildPreview(
   const user = await requireMaterialsAccess();
   assertImportExport(user);
   const { buffer, filename } = await readFileBuffer(formData);
+  const scope = await readScope(formData);
   const parsed = await parseAttributeWorkbookBuffer(buffer);
-  const existing = await loadExistingAttributeSnapshot();
+  const existing = await loadExistingAttributeSnapshot(
+    scope.divisionId,
+    scope.segment,
+  );
   const plan = planAttributeImport(existing, parsed);
   return {
     filename,
+    divisionId: scope.divisionId,
+    segment: scope.segment,
+    scopeCode: scope.scopeCode,
     summary: summarizeAttributePlan(plan),
     plan,
   };
@@ -118,11 +156,12 @@ export async function commitAttributeListsImport(
     );
   }
 
-  const { plan } = preview;
+  const { plan, divisionId, segment } = preview;
 
   const applied = await prisma.$transaction(async (tx) => {
     const attrIdBySlug = new Map<string, string>();
     const existing = await tx.materialAttribute.findMany({
+      where: { divisionId, segment },
       select: { id: true, slug: true },
     });
     for (const a of existing) {
@@ -133,6 +172,8 @@ export async function commitAttributeListsImport(
     for (const a of plan.attributeCreates) {
       const created = await tx.materialAttribute.create({
         data: {
+          divisionId,
+          segment,
           slug: a.slug,
           name: a.name,
           inputType: "SELECT",

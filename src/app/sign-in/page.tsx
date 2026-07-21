@@ -11,7 +11,9 @@ export default function SignInPage() {
       <div className="relative z-10 w-full">
         <Suspense
           fallback={
-            <p className="text-center text-sm text-muted-foreground">Loading…</p>
+            <p className="text-center text-sm text-muted-foreground">
+              Loading…
+            </p>
           }
         >
           <SignInForm />

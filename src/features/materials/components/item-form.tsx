@@ -319,10 +319,11 @@ export function ItemForm({
         defaultValue={initial?.laborServiceTaxCodeId}
       />
       <p className="text-xs text-muted-foreground">
-        Leave blank to use the default derived from tax profile + install/service
-        context. Set both to the same code only if this item&apos;s labor is
-        always one type of work regardless of which job or ticket it&apos;s
-        billed on (e.g. running cable is always installation labor).
+        Leave blank to use the default derived from tax profile +
+        install/service context. Set both to the same code only if this
+        item&apos;s labor is always one type of work regardless of which job or
+        ticket it&apos;s billed on (e.g. running cable is always installation
+        labor).
       </p>
       <div className="space-y-2">
         <Label htmlFor="supplier">Supplier</Label>

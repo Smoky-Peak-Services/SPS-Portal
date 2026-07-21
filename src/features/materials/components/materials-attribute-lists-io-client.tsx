@@ -1,17 +1,30 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import type { Segment } from "@prisma/client";
 import {
   commitAttributeListsImport,
   previewAttributeListsImport,
   type AttributeListsImportPreview,
 } from "@/features/materials/attribute-io-actions";
 import { Button } from "@/components/ui/button";
+import {
+  ScopeSelector,
+  type ScopeDivisionOption,
+} from "@/components/patterns/scope-selector";
 
 export function MaterialsAttributeListsIoClient({
   isAdmin,
+  divisionId,
+  segment,
+  divisions,
 }: {
   isAdmin: boolean;
+  /** Fixed scope (e.g. from the attributes page filter). */
+  divisionId?: string;
+  segment?: Segment;
+  /** When provided (import/export hub), render an embedded scope selector. */
+  divisions?: ScopeDivisionOption[];
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<AttributeListsImportPreview | null>(
@@ -20,11 +33,24 @@ export function MaterialsAttributeListsIoClient({
   const [error, setError] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [pickedScope, setPickedScope] = useState<{
+    divisionId: string;
+    segment: Segment;
+  }>({
+    divisionId: divisionId ?? divisions?.[0]?.id ?? "",
+    segment: segment ?? "COMMERCIAL",
+  });
+
+  const effDivisionId = divisionId ?? pickedScope.divisionId;
+  const effSegment = segment ?? pickedScope.segment;
 
   function buildFormData() {
     if (!file) throw new Error("Choose an .xlsx file first");
+    if (!effDivisionId) throw new Error("Choose a scope first");
     const fd = new FormData();
     fd.set("file", file);
+    fd.set("divisionId", effDivisionId);
+    fd.set("segment", effSegment);
     return fd;
   }
 
@@ -64,17 +90,33 @@ export function MaterialsAttributeListsIoClient({
           <div>
             <h2 className="text-lg font-medium">Attribute lists</h2>
             <p className="text-sm text-muted-foreground">
-              Global picklists (`MaterialAttribute` / options). Upsert only —
-              missing rows are never deleted. filter_mode, tags, and RFQ columns
-              are ignored. Commit is admin-only.
+              Per-scope picklists (`MaterialAttribute` / options) — each scope
+              owns its own attributes. Upsert only — missing rows are never
+              deleted. filter_mode, tags, and RFQ columns are ignored. Commit is
+              admin-only.
             </p>
           </div>
-          <Button asChild variant="outline">
-            <a href="/api/materials/attributes/export">
+          <Button asChild variant="outline" disabled={!effDivisionId}>
+            <a
+              href={`/api/materials/attributes/export?divisionId=${encodeURIComponent(effDivisionId)}&segment=${encodeURIComponent(effSegment)}`}
+            >
               Export attribute lists (.xlsx)
             </a>
           </Button>
         </div>
+
+        {divisions && !divisionId ? (
+          <ScopeSelector
+            divisions={divisions}
+            divisionId={effDivisionId}
+            segment={effSegment}
+            onChange={(next) => {
+              setPickedScope(next);
+              setPreview(null);
+              setCommitMessage(null);
+            }}
+          />
+        ) : null}
 
         <input
           type="file"
@@ -121,7 +163,9 @@ export function MaterialsAttributeListsIoClient({
       {preview ? (
         <section className="space-y-4 rounded-lg border border-border bg-card p-4">
           <h3 className="font-medium">Attribute lists preview</h3>
-          <p className="text-sm text-muted-foreground">File: {preview.filename}</p>
+          <p className="text-sm text-muted-foreground">
+            File: {preview.filename} · Scope: {preview.scopeCode}
+          </p>
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6 text-sm">
             <Stat
               label="New attributes"
@@ -131,10 +175,7 @@ export function MaterialsAttributeListsIoClient({
               label="Attr updates"
               value={preview.summary.attributesUpdated}
             />
-            <Stat
-              label="New options"
-              value={preview.summary.optionsCreated}
-            />
+            <Stat label="New options" value={preview.summary.optionsCreated} />
             <Stat
               label="Option updates"
               value={preview.summary.optionsUpdated}
@@ -186,7 +227,9 @@ export function MaterialsAttributeListsIoClient({
             const sheetWarnings = preview.plan.warnings.filter(
               (w) => w.row === 0,
             );
-            const rowWarnings = preview.plan.warnings.filter((w) => w.row !== 0);
+            const rowWarnings = preview.plan.warnings.filter(
+              (w) => w.row !== 0,
+            );
             return (
               <>
                 {sheetWarnings.length > 0 ? (

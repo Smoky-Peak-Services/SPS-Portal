@@ -145,7 +145,7 @@ export const MANUFACTURER_APPEND = [
 
 /** Unchanged pathways attachment types from prior fixture. */
 const ATTACHMENT_TYPE_PATHWAYS = [
-  'Bat Wing Drop Wire Clip',
+  "Bat Wing Drop Wire Clip",
   'Bang-On 1/8" Flange',
   'Bang-On Swivel 1/8" Flange',
   'Bang-On 1/4" Flange',
@@ -197,14 +197,7 @@ export const CANONICAL_ATTRIBUTE_LISTS: AttributeListDef[] = [
   {
     slug: "box_length",
     name: "Box Length",
-    options: fromLabels([
-      "250'",
-      "500'",
-      "1000'",
-      "1250'",
-      "1500'",
-      "2000'",
-    ]),
+    options: fromLabels(["250'", "500'", "1000'", "1250'", "1500'", "2000'"]),
   },
   {
     slug: "patch_cable_length",
@@ -303,16 +296,7 @@ export const CANONICAL_ATTRIBUTE_LISTS: AttributeListDef[] = [
   {
     slug: "voltage",
     name: "Voltage",
-    options: fromLabels([
-      "5V",
-      "9V",
-      "12V",
-      "18V",
-      "24V",
-      "28V",
-      "36V",
-      "48V",
-    ]),
+    options: fromLabels(["5V", "9V", "12V", "18V", "24V", "28V", "36V", "48V"]),
   },
   {
     slug: "amp_rating",
@@ -341,10 +325,7 @@ export const CANONICAL_ATTRIBUTE_LISTS: AttributeListDef[] = [
     slug: "manufacturer",
     name: "Manufacturer",
     inputType: "SELECT",
-    options: fromLabels([
-      ...MANUFACTURER_EXISTING,
-      ...MANUFACTURER_APPEND,
-    ]),
+    options: fromLabels([...MANUFACTURER_EXISTING, ...MANUFACTURER_APPEND]),
   },
   {
     slug: "part_number",

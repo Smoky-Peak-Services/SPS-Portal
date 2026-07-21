@@ -11,7 +11,10 @@ import pg from "pg";
 const g = globalThis as unknown as { piiClientPromise?: Promise<PrismaClient> };
 
 function normalizeSsl(url: string) {
-  return url.replace(/sslmode=(prefer|require|verify-ca)\b/i, "sslmode=verify-full");
+  return url.replace(
+    /sslmode=(prefer|require|verify-ca)\b/i,
+    "sslmode=verify-full",
+  );
 }
 
 /** True when a dedicated PII database URL is present and can be used. */
@@ -38,7 +41,9 @@ async function resolvePiiUrl(): Promise<string> {
 }
 
 async function createClient(): Promise<PrismaClient> {
-  const pool = new pg.Pool({ connectionString: normalizeSsl(await resolvePiiUrl()) });
+  const pool = new pg.Pool({
+    connectionString: normalizeSsl(await resolvePiiUrl()),
+  });
   return new PrismaClient({
     adapter: new PrismaPg(pool),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
@@ -68,7 +73,10 @@ export const prismaPii = new Proxy({} as PrismaClient, {
           if (typeof method !== "string") return undefined;
           return (...args: unknown[]) =>
             getClient().then((c) => {
-              const model = c[prop as keyof PrismaClient] as unknown as Record<string, AnyFn>;
+              const model = c[prop as keyof PrismaClient] as unknown as Record<
+                string,
+                AnyFn
+              >;
               return model[method](...args);
             });
         },
@@ -77,4 +85,8 @@ export const prismaPii = new Proxy({} as PrismaClient, {
   },
 });
 
-export type { LeadStatus, LeadSource, ActivityType } from "../../prisma/generated/pii";
+export type {
+  LeadStatus,
+  LeadSource,
+  ActivityType,
+} from "../../prisma/generated/pii";

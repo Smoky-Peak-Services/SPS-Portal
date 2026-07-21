@@ -8,10 +8,7 @@ import {
   type ExportCategoryTaxRow,
   type StripeTaxCodeRef,
 } from "@/features/materials/category-tax-io";
-import {
-  loadPermissionSubject,
-  subjectCan,
-} from "@/lib/permission-subject";
+import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
 
 function todayStamp(): string {
   const d = new Date();

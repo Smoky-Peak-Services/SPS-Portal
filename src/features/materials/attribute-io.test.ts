@@ -53,10 +53,7 @@ describe("attribute-io parse + plan", () => {
       3,
     );
 
-    const plan = planAttributeImport(
-      { attributes: [] },
-      parsed,
-    );
+    const plan = planAttributeImport({ attributes: [] }, parsed);
     const summary = summarizeAttributePlan(plan);
     assert.equal(summary.attributesCreated, 2);
     assert.equal(summary.optionsCreated, 3);
@@ -142,19 +139,21 @@ describe("attribute-lists fixture", () => {
       return;
     }
     const { CANONICAL_ATTRIBUTE_LISTS } = await import("./attribute-list-defs");
-    const expectedTotal = CANONICAL_ATTRIBUTE_LISTS.reduce(
-      (n, a) => n + a.options.length,
-      0,
+    // The fixture writer only emits SELECT picklists — TEXT attributes
+    // (part_number) have no option sheet and are excluded from the workbook.
+    const selectLists = CANONICAL_ATTRIBUTE_LISTS.filter(
+      (a) => (a.inputType ?? "SELECT") === "SELECT",
     );
+    const expectedTotal = selectLists.reduce((n, a) => n + a.options.length, 0);
     const buf = await readFile(FIXTURE);
     const parsed = await parseAttributeWorkbookBuffer(buf);
     assert.equal(parsed.layoutOk, true);
-    assert.equal(parsed.attributes.length, CANONICAL_ATTRIBUTE_LISTS.length);
+    assert.equal(parsed.attributes.length, selectLists.length);
 
     const bySlug = Object.fromEntries(
       parsed.attributes.map((a) => [a.slug, a.options.length]),
     );
-    for (const def of CANONICAL_ATTRIBUTE_LISTS) {
+    for (const def of selectLists) {
       assert.equal(
         bySlug[def.slug],
         def.options.length,
@@ -166,7 +165,7 @@ describe("attribute-lists fixture", () => {
     assert.equal(total, expectedTotal);
 
     const plan = planAttributeImport({ attributes: [] }, parsed);
-    assert.equal(plan.attributeCreates.length, CANONICAL_ATTRIBUTE_LISTS.length);
+    assert.equal(plan.attributeCreates.length, selectLists.length);
     assert.equal(plan.optionCreates.length, expectedTotal);
 
     // Vendor and Color must not appear in the canonical fixture

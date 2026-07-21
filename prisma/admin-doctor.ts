@@ -60,9 +60,7 @@ async function main() {
   });
   console.log(`\nusers (${users.length}):`);
   for (const u of users)
-    console.log(
-      `  - ${u.email}  role=${u.role}  verified=${u.emailVerified}`,
-    );
+    console.log(`  - ${u.email}  role=${u.role}  verified=${u.emailVerified}`);
 
   const accounts = await prisma.account.findMany({
     select: { userId: true, providerId: true, password: true },
@@ -87,9 +85,7 @@ async function main() {
     admin &&
     accounts.find(
       (a) =>
-        a.userId === admin.id &&
-        a.providerId === "credential" &&
-        a.password,
+        a.userId === admin.id && a.providerId === "credential" && a.password,
     );
   console.log("\n=== VERDICT ===");
   if (admin && adminCred)

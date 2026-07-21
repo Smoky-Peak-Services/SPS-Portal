@@ -9,7 +9,11 @@ import {
   requireMaterialsAccess,
 } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
-import { divisionCode, isOperationalDivisionSlug, operationalDivisionSlugs } from "@/config/company";
+import {
+  divisionCode,
+  isOperationalDivisionSlug,
+  operationalDivisionSlugs,
+} from "@/config/company";
 import {
   parseWorkbookBuffer,
   planImport,
@@ -18,10 +22,7 @@ import {
   type ImportPlan,
 } from "./io";
 import { parseScopeFromFilename } from "./scope-code";
-import {
-  customerSegmentsForDivision,
-  resolveStorageScope,
-} from "./scope";
+import { customerSegmentsForDivision, resolveStorageScope } from "./scope";
 
 const SEGMENTS = new Set<string>(["COMMERCIAL", "RESIDENTIAL", "STR"]);
 
@@ -224,7 +225,9 @@ export async function commitMaterialsImport(
   assertImportExport(user);
   // Commit is admin-grade: require force_delete-level trust (catalog structure)
   if (!userCan(user, "materials.force_delete")) {
-    throw new Error("Only users with force-delete permission can commit materials imports");
+    throw new Error(
+      "Only users with force-delete permission can commit materials imports",
+    );
   }
 
   // Re-parse — never trust a client-echoed plan.
@@ -324,8 +327,7 @@ export async function commitMaterialsImport(
       if (!domainId) {
         throw new Error(`Missing domain for category ${c.name}`);
       }
-      const next =
-        (nextCatSortByDomain.get(c.domainSlug) ?? -1) + 1;
+      const next = (nextCatSortByDomain.get(c.domainSlug) ?? -1) + 1;
       nextCatSortByDomain.set(c.domainSlug, next);
       const created = await tx.materialCategory.create({
         data: {
@@ -361,10 +363,7 @@ export async function commitMaterialsImport(
             `Missing category ${item.categorySlug} for item ${item.name}`,
           );
         }
-        categoryIdByKey.set(
-          `${item.domainSlug}|${item.categorySlug}`,
-          cat.id,
-        );
+        categoryIdByKey.set(`${item.domainSlug}|${item.categorySlug}`, cat.id);
       }
       const catId = categoryIdByKey.get(
         `${item.domainSlug}|${item.categorySlug}`,
@@ -442,9 +441,7 @@ export async function listImportExportScopes() {
       const resolved = resolveStorageScope(d.slug, customerSegment);
       return {
         segment: customerSegment,
-        storageSegment: resolved.storageSegment,
         scopeCode: resolved.scopeCode,
-        shared: resolved.shared,
       };
     });
     return {

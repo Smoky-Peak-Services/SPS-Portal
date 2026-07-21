@@ -1,4 +1,7 @@
-import { SectionTabs, type SectionTab } from "@/components/patterns/section-tabs";
+import {
+  SectionTabs,
+  type SectionTab,
+} from "@/components/patterns/section-tabs";
 import { requireUser } from "@/lib/session";
 import { userCan } from "@/config/permissions";
 
@@ -9,9 +12,7 @@ export default async function MaterialsLayout({
 }) {
   const user = await requireUser();
 
-  const tabs: SectionTab[] = [
-    { label: "Materials", href: "/materials" },
-  ];
+  const tabs: SectionTab[] = [{ label: "Materials", href: "/materials" }];
 
   if (userCan(user, "pricing.access")) {
     tabs.push({ label: "Recurring Fees", href: "/materials/recurring" });

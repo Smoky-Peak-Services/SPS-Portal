@@ -9,8 +9,7 @@ const REVOKE_CHECK_MS = 5 * 60_000;
 
 /** Must stay below Better Auth expiresIn (60 min). */
 const IDLE_MS =
-  (Number(process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES ?? "45") || 45) *
-  60_000;
+  (Number(process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES ?? "45") || 45) * 60_000;
 
 /** Align with Better Auth updateAge — don't spam get-session. */
 const SESSION_REFRESH_MS = 5 * 60_000;

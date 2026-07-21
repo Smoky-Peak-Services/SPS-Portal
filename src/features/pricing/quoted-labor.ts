@@ -52,9 +52,7 @@ export function distributeQuotedLabor(
   let costBasis = 0;
 
   for (const p of parsed.positions) {
-    const hours = roundMoney(
-      parsed.totalHours * (p.quotedAllocationPct / 100),
-    );
+    const hours = roundMoney(parsed.totalHours * (p.quotedAllocationPct / 100));
     const rateUsed = rateFor(p, parsed.rateType);
     const roleBillable = roundMoney(hours * rateUsed);
     const roleCost = roundMoney(hours * p.actualCostOfLabor);

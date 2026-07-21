@@ -7,10 +7,10 @@ import {
   buildAttributeExportWorkbookBuffer,
   type ExportAttribute,
 } from "@/features/materials/attribute-io";
-import {
-  loadPermissionSubject,
-  subjectCan,
-} from "@/lib/permission-subject";
+import { resolveStorageScope } from "@/features/materials/scope";
+import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
+
+const SEGMENTS = new Set(["COMMERCIAL", "RESIDENTIAL", "STR"]);
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -23,7 +23,35 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const divisionId = req.nextUrl.searchParams.get("divisionId")?.trim() ?? "";
+  const segmentRaw = req.nextUrl.searchParams.get("segment")?.trim() ?? "";
+  if (!divisionId || !SEGMENTS.has(segmentRaw)) {
+    return NextResponse.json(
+      { error: "divisionId and segment are required" },
+      { status: 400 },
+    );
+  }
+
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { id: true, slug: true },
+  });
+  if (!division) {
+    return NextResponse.json({ error: "Division not found" }, { status: 404 });
+  }
+
+  let resolved;
+  try {
+    resolved = resolveStorageScope(division.slug, segmentRaw);
+  } catch {
+    return NextResponse.json(
+      { error: "Segment not valid for division" },
+      { status: 400 },
+    );
+  }
+
   const attributes = await prisma.materialAttribute.findMany({
+    where: { divisionId, segment: resolved.storageSegment },
     orderBy: { slug: "asc" },
     include: {
       options: {
@@ -42,7 +70,7 @@ export async function GET(req: NextRequest) {
   }));
 
   const buffer = await buildAttributeExportWorkbookBuffer(exportAttrs);
-  const filename = attributeListsExportFileName();
+  const filename = attributeListsExportFileName(resolved.scopeCode);
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,

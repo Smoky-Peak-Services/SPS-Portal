@@ -53,7 +53,10 @@ describe("ops-pii schema guard", () => {
     assert.match(schema, /model LaborPosition \{/);
     assert.match(schema, /enum LaborRateType \{/);
     assert.match(schema, /model ComplexityMultiplier \{/);
-    assert.match(schema, /enum ComplexityCategory \{/);
+    assert.match(schema, /enum ComplexityMultiplierType \{/);
+    assert.match(schema, /enum ComplexityAppliedTo \{/);
+    assert.match(schema, /model ServicePlanRate \{/);
+    assert.match(schema, /enum ServicePlanType \{/);
     assert.match(schema, /model RecurringFeeItem \{/);
     assert.match(schema, /enum RecurringFeeType \{/);
     assert.match(schema, /enum BillingCycle \{/);
@@ -69,6 +72,9 @@ describe("ops-pii schema guard", () => {
     assert.equal(schema.includes("model Job {"), false);
     assert.equal(schema.includes("model Ticket {"), false);
     assert.equal(schema.includes("model TimeEntry {"), false);
+    // Prompt 14 removed the IS-Commercial-only shapes.
+    assert.equal(schema.includes("enum ComplexityCategory {"), false);
+    assert.equal(schema.includes("commercialBillingMultiplier"), false);
   });
 
   it("pii schema owns lead ingest models and not deferred CRM", () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import type { Segment } from "@prisma/client";
 import {
   commitAssignmentImport,
   previewAssignmentImport,
@@ -10,8 +11,12 @@ import { Button } from "@/components/ui/button";
 
 export function AttributeAssignmentIoToolbar({
   isAdmin,
+  divisionId,
+  segment,
 }: {
   isAdmin: boolean;
+  divisionId: string;
+  segment: Segment;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<AssignmentImportPreview | null>(null);
@@ -24,6 +29,8 @@ export function AttributeAssignmentIoToolbar({
     if (!file) throw new Error("Choose an .xlsx file first");
     const fd = new FormData();
     fd.set("file", file);
+    fd.set("divisionId", divisionId);
+    fd.set("segment", segment);
     return fd;
   }
 
@@ -62,13 +69,18 @@ export function AttributeAssignmentIoToolbar({
         <div>
           <h2 className="text-sm font-medium">Attribute assignments Excel</h2>
           <p className="text-xs text-muted-foreground">
-            Flat category↔attribute linkage. Upsert only — missing rows are
-            never deleted. Attribute column matches slug or name.
+            Flat category↔attribute linkage for the selected scope. Upsert only
+            — missing rows are never deleted. Attribute column matches slug or
+            name within the scope.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
-            <a href="/api/materials/attributes/assignments-export">Export</a>
+            <a
+              href={`/api/materials/attributes/assignments-export?divisionId=${encodeURIComponent(divisionId)}&segment=${encodeURIComponent(segment)}`}
+            >
+              Export
+            </a>
           </Button>
           <Button
             type="button"

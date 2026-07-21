@@ -5,19 +5,22 @@ export const CAPABILITIES = [
   {
     id: "materials.access",
     label: "Materials — access",
-    description: "Open Materials area and read catalog (subject to financials.view).",
+    description:
+      "Open Materials area and read catalog (subject to financials.view).",
     sortOrder: 10,
   },
   {
     id: "materials.catalog.write",
     label: "Materials — catalog write",
-    description: "Create/edit domains, categories, items (non-financial fields).",
+    description:
+      "Create/edit domains, categories, items (non-financial fields).",
     sortOrder: 20,
   },
   {
     id: "materials.attributes.write",
     label: "Materials — attributes write",
-    description: "Create/edit attribute definitions and options; manage assignments.",
+    description:
+      "Create/edit attribute definitions and options; manage assignments.",
     sortOrder: 30,
   },
   {
@@ -93,47 +96,45 @@ export type CapabilityId = (typeof CAPABILITIES)[number]["id"];
 export const ALL_CAPABILITY_IDS: CapabilityId[] = CAPABILITIES.map((c) => c.id);
 
 /** Seeded role × capability allow matrix (missing = deny). */
-export const DEFAULT_ROLE_CAPABILITIES: Record<
-  Role,
-  readonly CapabilityId[]
-> = {
-  admin: ALL_CAPABILITY_IDS,
-  power_user: [
-    "dashboard.access",
-    "materials.access",
-    "materials.catalog.write",
-    "materials.attributes.write",
-    "materials.financials.view",
-    "materials.financials.write",
-    "materials.import_export",
-    "materials.delete",
-    "materials.tax_review",
-    "pricing.access",
-    "pricing.write",
-  ],
-  sales: [
-    "dashboard.access",
-    "materials.access",
-    "materials.financials.view",
-    "pricing.access",
-  ],
-  accounting: [
-    "dashboard.access",
-    "materials.access",
-    "materials.financials.view",
-    "materials.financials.write",
-    "materials.tax_review",
-    "pricing.access",
-    "pricing.write",
-  ],
-  field_supervisor: [
-    "dashboard.access",
-    "materials.access",
-    "materials.financials.view",
-    "pricing.access",
-  ],
-  field_tech: ["dashboard.access"],
-};
+export const DEFAULT_ROLE_CAPABILITIES: Record<Role, readonly CapabilityId[]> =
+  {
+    admin: ALL_CAPABILITY_IDS,
+    power_user: [
+      "dashboard.access",
+      "materials.access",
+      "materials.catalog.write",
+      "materials.attributes.write",
+      "materials.financials.view",
+      "materials.financials.write",
+      "materials.import_export",
+      "materials.delete",
+      "materials.tax_review",
+      "pricing.access",
+      "pricing.write",
+    ],
+    sales: [
+      "dashboard.access",
+      "materials.access",
+      "materials.financials.view",
+      "pricing.access",
+    ],
+    accounting: [
+      "dashboard.access",
+      "materials.access",
+      "materials.financials.view",
+      "materials.financials.write",
+      "materials.tax_review",
+      "pricing.access",
+      "pricing.write",
+    ],
+    field_supervisor: [
+      "dashboard.access",
+      "materials.access",
+      "materials.financials.view",
+      "pricing.access",
+    ],
+    field_tech: ["dashboard.access"],
+  };
 
 export async function seedCapabilities(prisma: PrismaClient): Promise<void> {
   for (const cap of CAPABILITIES) {

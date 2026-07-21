@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Segment } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   assertImportExport,
   requireMaterialsAccess,
 } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
+import { resolveStorageScope } from "./scope";
 import {
   parseAssignmentWorkbookBuffer,
   planAssignmentImport,
@@ -41,9 +43,35 @@ async function readFileBuffer(formData: FormData): Promise<{
   return { buffer: Buffer.from(ab), filename: file.name };
 }
 
-async function loadExistingAssignmentSnapshot(): Promise<ExistingAssignmentSnapshot> {
+/** Attributes and assignments are per-scope (prompt 14). */
+async function readScope(formData: FormData): Promise<{
+  divisionId: string;
+  segment: Segment;
+  scopeCode: string;
+}> {
+  const divisionId = String(formData.get("divisionId") ?? "").trim();
+  const segmentRaw = String(formData.get("segment") ?? "").trim();
+  if (!divisionId) throw new Error("Missing divisionId");
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { slug: true },
+  });
+  if (!division) throw new Error("Division not found");
+  const resolved = resolveStorageScope(division.slug, segmentRaw);
+  return {
+    divisionId,
+    segment: resolved.storageSegment,
+    scopeCode: resolved.scopeCode,
+  };
+}
+
+async function loadExistingAssignmentSnapshot(
+  divisionId: string,
+  segment: Segment,
+): Promise<ExistingAssignmentSnapshot> {
   const [categories, attributes, assignments] = await Promise.all([
     prisma.materialCategory.findMany({
+      where: { domain: { divisionId, segment } },
       select: {
         id: true,
         name: true,
@@ -52,6 +80,7 @@ async function loadExistingAssignmentSnapshot(): Promise<ExistingAssignmentSnaps
       },
     }),
     prisma.materialAttribute.findMany({
+      where: { divisionId, segment },
       select: {
         id: true,
         name: true,
@@ -60,6 +89,7 @@ async function loadExistingAssignmentSnapshot(): Promise<ExistingAssignmentSnaps
       },
     }),
     prisma.materialAttributeAssignment.findMany({
+      where: { category: { domain: { divisionId, segment } } },
       select: {
         id: true,
         categoryId: true,
@@ -99,6 +129,9 @@ async function loadExistingAssignmentSnapshot(): Promise<ExistingAssignmentSnaps
 
 export type AssignmentImportPreview = {
   filename: string;
+  divisionId: string;
+  segment: Segment;
+  scopeCode: string;
   summary: ReturnType<typeof summarizeAssignmentPlan>;
   plan: AssignmentImportPlan;
 };
@@ -109,11 +142,18 @@ async function buildPreview(
   const user = await requireMaterialsAccess();
   assertImportExport(user);
   const { buffer, filename } = await readFileBuffer(formData);
+  const scope = await readScope(formData);
   const parsed = await parseAssignmentWorkbookBuffer(buffer);
-  const existing = await loadExistingAssignmentSnapshot();
+  const existing = await loadExistingAssignmentSnapshot(
+    scope.divisionId,
+    scope.segment,
+  );
   const plan = planAssignmentImport(existing, parsed);
   return {
     filename,
+    divisionId: scope.divisionId,
+    segment: scope.segment,
+    scopeCode: scope.scopeCode,
     summary: summarizeAssignmentPlan(plan),
     plan,
   };

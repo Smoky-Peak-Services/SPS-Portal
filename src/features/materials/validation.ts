@@ -83,9 +83,7 @@ export function assertItemAttributeValues(opts: {
     if (type === "SELECT") {
       const opt = a.attribute.options.find((o) => o.id === v.optionId);
       if (!opt || !opt.isActive) {
-        throw new Error(
-          `Invalid option for attribute "${a.attribute.slug}".`,
-        );
+        throw new Error(`Invalid option for attribute "${a.attribute.slug}".`);
       }
     }
     if (type === "MULTISELECT") {

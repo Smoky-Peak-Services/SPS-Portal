@@ -40,7 +40,10 @@ export function parseProductTaxCodesCsv(raw: string): {
   name: string;
   description: string;
 }[] {
-  const lines = raw.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.length > 0);
+  const lines = raw
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter((l) => l.length > 0);
   if (lines.length < 2) return [];
 
   function parseLine(line: string): string[] {
@@ -107,7 +110,9 @@ export function parseProductTaxCodesCsv(raw: string): {
   return rows;
 }
 
-export async function seedStripeTaxCodes(prisma: PrismaClient): Promise<number> {
+export async function seedStripeTaxCodes(
+  prisma: PrismaClient,
+): Promise<number> {
   const csvPath = join(
     process.cwd(),
     "claude/prompts/samples/product_tax_codes.csv",

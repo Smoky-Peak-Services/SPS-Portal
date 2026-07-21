@@ -10,8 +10,12 @@ import {
   createOption,
   updateAttribute,
 } from "@/features/materials/actions";
-import type { MaterialAttributeInputType } from "@prisma/client";
+import type { MaterialAttributeInputType, Segment } from "@prisma/client";
 import { AttributeOptionRow } from "./attribute-option-row";
+import {
+  ScopeSelector,
+  type ScopeDivisionOption,
+} from "@/components/patterns/scope-selector";
 
 type Option = {
   id: string;
@@ -24,6 +28,10 @@ type Option = {
 
 type Props = {
   canForceDelete?: boolean;
+  /** Required for create mode — scope the new attribute belongs to. */
+  divisions?: ScopeDivisionOption[];
+  defaultDivisionId?: string;
+  defaultSegment?: Segment;
   initial?: {
     id: string;
     name: string;
@@ -32,14 +40,26 @@ type Props = {
     unit: string | null;
     isActive: boolean;
     options: Option[];
+    divisionName?: string;
+    segment?: Segment;
   };
 };
 
-export function AttributeForm({ initial, canForceDelete = false }: Props) {
+export function AttributeForm({
+  initial,
+  canForceDelete = false,
+  divisions,
+  defaultDivisionId,
+  defaultSegment,
+}: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [optPending, startOpt] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [scope, setScope] = useState<{ divisionId: string; segment: Segment }>({
+    divisionId: defaultDivisionId ?? divisions?.[0]?.id ?? "",
+    segment: defaultSegment ?? "COMMERCIAL",
+  });
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,7 +80,14 @@ export function AttributeForm({ initial, canForceDelete = false }: Props) {
           await updateAttribute({ id: initial.id, ...base });
           router.refresh();
         } else {
-          const attr = await createAttribute(base);
+          if (!scope.divisionId) {
+            throw new Error("Choose a scope for the new attribute");
+          }
+          const attr = await createAttribute({
+            ...base,
+            divisionId: scope.divisionId,
+            segment: scope.segment,
+          });
           router.push(`/materials/attributes/${attr.id}`);
           router.refresh();
         }
@@ -97,12 +124,25 @@ export function AttributeForm({ initial, canForceDelete = false }: Props) {
         onSubmit={onSubmit}
         className="max-w-xl space-y-4 rounded-lg border border-border bg-card p-6"
       >
+        {!initial && divisions ? (
+          <ScopeSelector
+            divisions={divisions}
+            divisionId={scope.divisionId}
+            segment={scope.segment}
+            onChange={setScope}
+          />
+        ) : null}
+        {initial?.divisionName ? (
+          <p className="text-sm text-muted-foreground">
+            Scope: {initial.divisionName} · {initial.segment}
+          </p>
+        ) : null}
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input id="name" name="name" required defaultValue={initial?.name} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="slug">Slug (optional, globally unique)</Label>
+          <Label htmlFor="slug">Slug (optional, unique within the scope)</Label>
           <Input id="slug" name="slug" defaultValue={initial?.slug} />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -161,7 +201,9 @@ export function AttributeForm({ initial, canForceDelete = false }: Props) {
               />
             ))}
             {initial.options.length === 0 ? (
-              <li className="py-2 text-sm text-muted-foreground">No options yet.</li>
+              <li className="py-2 text-sm text-muted-foreground">
+                No options yet.
+              </li>
             ) : null}
           </ul>
           <form onSubmit={onAddOption} className="grid gap-3 border-t pt-4">

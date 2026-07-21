@@ -114,7 +114,12 @@ export type AssignmentImportPlan = {
   creates: PlannedAssignmentCreate[];
   updates: PlannedAssignmentUpdate[];
   unchangedCount: number;
-  unresolved: { domain: string; category: string; attribute: string; row: number }[];
+  unresolved: {
+    domain: string;
+    category: string;
+    attribute: string;
+    row: number;
+  }[];
   warnings: AssignRowWarning[];
   layoutOk: boolean;
   layoutMessage: string | null;
@@ -134,11 +139,16 @@ function headerIndex(headerRow: unknown[]): Map<string, number> {
   return m;
 }
 
-function parseBool(raw: string, fallback: boolean): { value: boolean; ok: boolean } {
+function parseBool(
+  raw: string,
+  fallback: boolean,
+): { value: boolean; ok: boolean } {
   const t = raw.trim().toLowerCase();
   if (t === "") return { value: fallback, ok: false };
-  if (t === "true" || t === "1" || t === "yes") return { value: true, ok: true };
-  if (t === "false" || t === "0" || t === "no") return { value: false, ok: true };
+  if (t === "true" || t === "1" || t === "yes")
+    return { value: true, ok: true };
+  if (t === "false" || t === "0" || t === "no")
+    return { value: false, ok: true };
   return { value: fallback, ok: false };
 }
 
@@ -254,7 +264,9 @@ export function parseAssignmentAoa(aoa: unknown[][]): ParsedAssignmentWorkbook {
       defaultOption: idx.has("defaultoption")
         ? str(line[idx.get("defaultoption")!])
         : "",
-      sortOrderRaw: idx.has("sortorder") ? str(line[idx.get("sortorder")!]) : "",
+      sortOrderRaw: idx.has("sortorder")
+        ? str(line[idx.get("sortorder")!])
+        : "",
       row: r + 1,
     });
   }
@@ -444,11 +456,11 @@ export function planAssignmentImport(
         isVariantDefining: isVariantDefining.ok
           ? isVariantDefining.value
           : false,
-        defaultOptionId:
-          defaultOptionId === undefined ? null : defaultOptionId,
-        sortOrder: row.sortOrderRaw === "" || parseSortOrder(row.sortOrderRaw) == null
-          ? 0
-          : sortOrder,
+        defaultOptionId: defaultOptionId === undefined ? null : defaultOptionId,
+        sortOrder:
+          row.sortOrderRaw === "" || parseSortOrder(row.sortOrderRaw) == null
+            ? 0
+            : sortOrder,
         row: row.row,
       });
       continue;

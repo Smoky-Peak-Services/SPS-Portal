@@ -21,10 +21,7 @@ describe("deriveTaxProfileFromStripeCode", () => {
   });
 
   it("any other code → TPP", () => {
-    assert.equal(
-      deriveTaxProfileFromStripeCode(PARTS_SALE_TAX_CODE_ID),
-      "TPP",
-    );
+    assert.equal(deriveTaxProfileFromStripeCode(PARTS_SALE_TAX_CODE_ID), "TPP");
     assert.equal(deriveTaxProfileFromStripeCode("txcd_20020010"), "TPP");
   });
 });

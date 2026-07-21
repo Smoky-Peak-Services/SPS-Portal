@@ -65,9 +65,7 @@ function resolveMaterialCode(
   category: TaxableCategory,
 ): string | null {
   return (
-    item.stripeTaxCodeId?.trim() ||
-    category.stripeTaxCodeId?.trim() ||
-    null
+    item.stripeTaxCodeId?.trim() || category.stripeTaxCodeId?.trim() || null
   );
 }
 
@@ -113,10 +111,7 @@ export function resolveMaterialStripeTaxCode(args: {
     };
   }
 
-  const classification = resolveItemTaxClassification(
-    args.item,
-    args.category,
-  );
+  const classification = resolveItemTaxClassification(args.item, args.category);
   return {
     stripeTaxCodeId: classification.stripeTaxCodeId,
     taxProfile: classification.taxProfile,

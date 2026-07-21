@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { ComplexityCategory } from "@prisma/client";
+import type {
+  ComplexityAppliedTo,
+  ComplexityMultiplierType,
+} from "@prisma/client";
 import { updateComplexityMultiplier } from "@/features/pricing/actions";
 import { AFTER_HOURS_COMPLEXITY_SLUG } from "@/features/pricing/is-com-complexity";
 import { Button } from "@/components/ui/button";
@@ -12,12 +15,35 @@ type Row = {
   id: string;
   name: string;
   slug: string;
-  category: ComplexityCategory;
-  modificationRate: { toString(): string };
+  category: string;
+  multiplierType: ComplexityMultiplierType;
+  appliedTo: ComplexityAppliedTo;
+  value: { toString(): string };
   description: string;
   isActive: boolean;
   sortOrder: number;
 };
+
+const APPLIED_TO_OPTIONS: { value: ComplexityAppliedTo; label: string }[] = [
+  { value: "TOTAL_LABOR", label: "Total labor hours" },
+  { value: "PROGRAMMING_LABOR", label: "Programming labor hours" },
+  { value: "NETWORK_LABOR", label: "Network labor hours" },
+  { value: "BASE_PACKAGE_RATE", label: "Base package rate" },
+];
+
+function appliedToLabel(appliedTo: ComplexityAppliedTo): string {
+  return (
+    APPLIED_TO_OPTIONS.find((o) => o.value === appliedTo)?.label ?? appliedTo
+  );
+}
+
+function formatValue(row: Row): string {
+  const n = Number(row.value.toString());
+  if (row.multiplierType === "FIXED") {
+    return `$${n.toFixed(2)}`;
+  }
+  return `${(n * 100).toFixed((n * 100) % 1 === 0 ? 0 : 2)}%`;
+}
 
 export function ComplexityMultipliersTable({
   multipliers,
@@ -29,11 +55,16 @@ export function ComplexityMultipliersTable({
   return (
     <div className="space-y-3">
       <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        Multipliers adjust labor <strong className="text-foreground">hours</strong> only
-        (never dollars). Additive, not compounded.{" "}
-        <strong className="text-foreground">After Hours Required Installation</strong>{" "}
-        (+20% hours) may stack with the after-hours <em>rate type</em> (higher $/hr) by
-        design — choose both deliberately.
+        Additive, not compounded. Percent rows applied to a labor bucket adjust{" "}
+        <strong className="text-foreground">hours</strong> only (never labor
+        dollars). Rows applied to the{" "}
+        <strong className="text-foreground">base package rate</strong> add
+        dollars per billing cycle (fixed amount, or percent of the base rate).{" "}
+        <strong className="text-foreground">
+          After Hours Required Installation
+        </strong>{" "}
+        (+20% hours) may stack with the after-hours <em>rate type</em> (higher
+        $/hr) by design — choose both deliberately.
       </p>
       <div className="space-y-3">
         {multipliers.map((m) => (
@@ -67,7 +98,9 @@ function ComplexityEditCard({
           id: row.id,
           name: fd.get("name"),
           category: fd.get("category"),
-          modificationRate: fd.get("modificationRate"),
+          multiplierType: fd.get("multiplierType"),
+          appliedTo: fd.get("appliedTo"),
+          value: fd.get("value"),
           description: fd.get("description"),
           isActive: fd.get("isActive") === "on",
           sortOrder: fd.get("sortOrder"),
@@ -86,7 +119,8 @@ function ComplexityEditCard({
           <div>
             <div className="font-medium">{row.name}</div>
             <div className="font-mono text-xs text-muted-foreground">
-              {row.slug} · {row.category} · rate {row.modificationRate.toString()}
+              {row.slug} · {row.category} · {formatValue(row)} on{" "}
+              {appliedToLabel(row.appliedTo)}
               {!row.isActive ? " · inactive" : ""}
             </div>
           </div>
@@ -114,27 +148,45 @@ function ComplexityEditCard({
           required
           className="min-w-[12rem] flex-1"
         />
-        <select
+        <Input
           name="category"
           defaultValue={row.category}
           disabled={pending}
+          required
+          className="w-40"
+          title="Free-text category (e.g. Structural, Amenity)"
+        />
+        <select
+          name="multiplierType"
+          defaultValue={row.multiplierType}
+          disabled={pending}
           className="flex h-9 rounded-md border border-input bg-background px-2 text-sm"
         >
-          <option value="STRUCTURAL">STRUCTURAL</option>
-          <option value="ACCESS">ACCESS</option>
-          <option value="COMPLIANCE">COMPLIANCE</option>
+          <option value="PERCENT">Percent</option>
+          <option value="FIXED">Fixed $</option>
+        </select>
+        <select
+          name="appliedTo"
+          defaultValue={row.appliedTo}
+          disabled={pending}
+          className="flex h-9 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          {APPLIED_TO_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
         </select>
         <Input
-          name="modificationRate"
+          name="value"
           type="number"
           step="0.0001"
           min="0"
-          max="1"
-          defaultValue={row.modificationRate.toString()}
+          defaultValue={row.value.toString()}
           disabled={pending}
           required
           className="w-28"
-          title="Decimal rate (0.08 = 8%)"
+          title="Percent rows: decimal rate (0.08 = 8%). Fixed rows: dollars."
         />
         <Input
           name="sortOrder"
@@ -159,7 +211,8 @@ function ComplexityEditCard({
         </Button>
       </div>
       <div className="font-mono text-xs text-muted-foreground">
-        {row.slug}
+        {row.slug} · currently {formatValue(row)} on{" "}
+        {appliedToLabel(row.appliedTo)}
         {isAfterHours ? " · stacks with AFTER_HOURS rate type" : ""}
       </div>
       <textarea

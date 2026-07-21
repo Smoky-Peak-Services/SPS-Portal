@@ -21,13 +21,18 @@ export const quotedLaborPositionSchema = z.object({
   actualCostOfLabor: z.number(),
 });
 
-export type QuotedLaborPositionInput = z.infer<typeof quotedLaborPositionSchema>;
+export type QuotedLaborPositionInput = z.infer<
+  typeof quotedLaborPositionSchema
+>;
 
 const ALLOCATION_TOLERANCE = 0.001;
 
 /**
  * INSTALL positions only; allocation must sum to exactly 100% (±0.001).
- * Rejects SERVICE-context roles (e.g. LAB-COM-SVC-SIS) — fail loudly, never drop.
+ * Rejects SERVICE-context roles for any scope (IS service techs, Cabin
+ * Contractor Coordination) — fail loudly, never drop. The blend is whatever
+ * INSTALL positions carry quotedAllocationPct > 0 (generalized in prompt 14;
+ * no hardcoded SKUs).
  */
 export const quotedAllocationSchema = z
   .array(quotedLaborPositionSchema)
@@ -35,7 +40,7 @@ export const quotedAllocationSchema = z
   .superRefine((positions, ctx) => {
     for (let i = 0; i < positions.length; i++) {
       const p = positions[i]!;
-      if (p.context === "SERVICE" || p.sku === "LAB-COM-SVC-SIS") {
+      if (p.context === "SERVICE") {
         ctx.addIssue({
           code: "custom",
           message: `Service position "${p.sku}" cannot appear in quoted labor distribution`,

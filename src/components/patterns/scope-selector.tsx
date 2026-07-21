@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import type { Segment } from "@prisma/client";
-import { getDivision } from "@/config/company";
 import {
   customerSegmentsForDivision,
   resolveStorageScope,
@@ -60,17 +59,14 @@ export function ScopeSelector({
     }
   }, [selected, segment, segmentOptions]);
 
-  const sharedNote =
-    selected && getDivision(selected.slug)?.sharedCatalog
-      ? `${selected.name} uses one shared catalog and rate set — STR and Residential edit the same data.`
-      : null;
-
   function onDivisionChange(nextId: string | null) {
     if (!nextId) return;
     const d = divisions.find((x) => x.id === nextId);
     if (!d) return;
     const segs = customerSegmentsForDivision(d.slug);
-    const nextSeg = segs.includes(segment) ? segment : (segs[0] ?? "COMMERCIAL");
+    const nextSeg = segs.includes(segment)
+      ? segment
+      : (segs[0] ?? "COMMERCIAL");
     onChange({ divisionId: nextId, segment: nextSeg });
   }
 
@@ -151,10 +147,6 @@ export function ScopeSelector({
           </div>
         </div>
       </div>
-
-      {sharedNote ? (
-        <p className="mt-2 text-xs text-muted-foreground">{sharedNote}</p>
-      ) : null}
     </div>
   );
 }

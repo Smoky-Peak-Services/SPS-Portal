@@ -5,16 +5,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { operationalDivisionSlugs } from "@/config/company";
 import { resolveStorageScope } from "@/features/materials/scope";
-import {
-  assertCapability,
-  requireArea,
-  type SessionUser,
-} from "@/lib/session";
+import { assertCapability, requireArea, type SessionUser } from "@/lib/session";
 import {
   updateComplexityMultiplierSchema,
   updateLaborPositionSchema,
   updateLaborRateConfigSchema,
   updateRecurringFeeItemSchema,
+  updateServicePlanRateSchema,
 } from "./admin-schemas";
 
 function assertPricingWrite(user: SessionUser) {
@@ -81,11 +78,19 @@ export async function updateLaborRateConfig(raw: unknown) {
     where: { id: data.id },
     data: {
       burdenMultiplier: new Prisma.Decimal(data.burdenMultiplier),
-      commercialBillingMultiplier: new Prisma.Decimal(
-        data.commercialBillingMultiplier,
+      standardBillingMultiplier: new Prisma.Decimal(
+        data.standardBillingMultiplier,
       ),
       afterHoursMultiplier: new Prisma.Decimal(data.afterHoursMultiplier),
       holidayMultiplier: new Prisma.Decimal(data.holidayMultiplier),
+      ...(data.discountedMultiplier !== undefined
+        ? {
+            discountedMultiplier:
+              data.discountedMultiplier === null
+                ? null
+                : new Prisma.Decimal(data.discountedMultiplier),
+          }
+        : {}),
     },
   });
   revalidateLaborRates();
@@ -105,6 +110,14 @@ export async function updateLaborPosition(raw: unknown) {
       standardBillingRate: new Prisma.Decimal(data.standardBillingRate),
       afterHoursRate: new Prisma.Decimal(data.afterHoursRate),
       holidayRate: new Prisma.Decimal(data.holidayRate),
+      ...(data.discountedRate !== undefined
+        ? {
+            discountedRate:
+              data.discountedRate === null
+                ? null
+                : new Prisma.Decimal(data.discountedRate),
+          }
+        : {}),
       quotedAllocationPct: new Prisma.Decimal(data.quotedAllocationPct),
       sortOrder: data.sortOrder,
     },
@@ -156,7 +169,9 @@ export async function updateComplexityMultiplier(raw: unknown) {
     data: {
       name: data.name,
       category: data.category,
-      modificationRate: new Prisma.Decimal(data.modificationRate),
+      multiplierType: data.multiplierType,
+      appliedTo: data.appliedTo,
+      value: new Prisma.Decimal(data.value),
       description: data.description,
       isActive: data.isActive,
       sortOrder: data.sortOrder,
@@ -226,6 +241,59 @@ export async function updateRecurringFeeItem(raw: unknown) {
       ...(data.systemValueMax !== undefined
         ? { systemValueMax: toNullableDecimal(data.systemValueMax) }
         : {}),
+    },
+  });
+  revalidateRecurring();
+  return { ok: true as const };
+}
+
+export async function getServicePlansForScope(
+  divisionId: string,
+  segment: "COMMERCIAL" | "RESIDENTIAL" | "STR",
+) {
+  await requireArea("pricing");
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { id: true, name: true, slug: true },
+  });
+  if (!division) {
+    return { plans: [], division: null };
+  }
+  const { storageSegment } = resolveStorageScope(division.slug, segment);
+  const plans = await prisma.servicePlanRate.findMany({
+    where: { divisionId, segment: storageSegment },
+    orderBy: [{ planType: "asc" }, { sortOrder: "asc" }, { sku: "asc" }],
+  });
+  return { plans, division };
+}
+
+export async function updateServicePlanRate(raw: unknown) {
+  const user = await requireArea("pricing");
+  assertPricingWrite(user);
+  const data = updateServicePlanRateSchema.parse(raw);
+  const existing = await prisma.servicePlanRate.findUnique({
+    where: { id: data.id },
+    select: { isCustomQuote: true },
+  });
+  if (!existing) {
+    throw new Error("Service plan row not found");
+  }
+  if (
+    !existing.isCustomQuote &&
+    (data.rate === null || data.rate === undefined)
+  ) {
+    throw new Error(
+      "Standard plan rows require a rate; only custom-quote rows are quoted",
+    );
+  }
+  await prisma.servicePlanRate.update({
+    where: { id: data.id },
+    data: {
+      rate:
+        data.rate === null || data.rate === undefined
+          ? null
+          : new Prisma.Decimal(data.rate),
+      isActive: data.isActive,
     },
   });
   revalidateRecurring();

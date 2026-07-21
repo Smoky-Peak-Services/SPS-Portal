@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { CircleUser, Gauge, Headset, LayoutDashboard, Package } from "lucide-react";
+import {
+  CircleUser,
+  Gauge,
+  Headset,
+  LayoutDashboard,
+  Package,
+} from "lucide-react";
 import {
   filterFooterForCapabilities,
   filterNavForCapabilities,
@@ -50,7 +56,9 @@ export function AppSidebar({
     >
       <div className="border-b border-sidebar-border px-4 py-4">
         <AppLogo variant="wordmark" />
-        <p className="mt-2 truncate text-xs text-muted-foreground">{userName}</p>
+        <p className="mt-2 truncate text-xs text-muted-foreground">
+          {userName}
+        </p>
       </div>
 
       <ScrollArea className="flex-1 px-3 py-4">

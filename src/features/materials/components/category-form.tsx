@@ -5,10 +5,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  createCategory,
-  updateCategory,
-} from "@/features/materials/actions";
+import { createCategory, updateCategory } from "@/features/materials/actions";
 import { deriveTaxProfileFromStripeCode } from "@/features/materials/tax";
 import {
   StripeTaxCodeCombobox,
@@ -146,10 +143,11 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
         defaultValue={initial?.laborServiceTaxCodeId}
       />
       <p className="text-xs text-muted-foreground">
-        Leave blank to use the default derived from tax profile + install/service
-        context. Set both to the same code only if this category&apos;s labor is
-        always one type of work regardless of which job or ticket it&apos;s
-        billed on (e.g. running cable is always installation labor).
+        Leave blank to use the default derived from tax profile +
+        install/service context. Set both to the same code only if this
+        category&apos;s labor is always one type of work regardless of which job
+        or ticket it&apos;s billed on (e.g. running cable is always installation
+        labor).
       </p>
       <div className="flex flex-wrap gap-4 text-sm">
         <label className="flex items-center gap-2">

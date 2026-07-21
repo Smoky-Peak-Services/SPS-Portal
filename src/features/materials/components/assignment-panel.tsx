@@ -121,8 +121,8 @@ export function AssignmentPanel({
       </div>
       <p className="text-xs text-muted-foreground">
         Tap a bubble to assign or remove. Manufacturer and Part Number are
-        always assigned. Part Number required-ness follows the category
-        checkbox above.
+        always assigned. Part Number required-ness follows the category checkbox
+        above.
       </p>
 
       {availableAttributes.length === 0 ? (
@@ -157,9 +157,7 @@ export function AssignmentPanel({
                   )}
                   aria-pressed={selected}
                   title={
-                    locked
-                      ? "Always assigned on every category"
-                      : undefined
+                    locked ? "Always assigned on every category" : undefined
                   }
                 >
                   <span>

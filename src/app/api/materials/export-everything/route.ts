@@ -17,10 +17,7 @@ import {
   type CatalogScopeExport,
 } from "@/features/materials/export-everything";
 import { scopeCodeFor } from "@/features/materials/scope-code";
-import {
-  loadPermissionSubject,
-  subjectCan,
-} from "@/lib/permission-subject";
+import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
 
 function todayStamp(): string {
   const d = new Date();
@@ -114,8 +111,9 @@ export async function GET(req: NextRequest) {
       },
     }),
     prisma.materialAttribute.findMany({
-      orderBy: { slug: "asc" },
+      orderBy: [{ divisionId: "asc" }, { segment: "asc" }, { slug: "asc" }],
       include: {
+        division: { select: { slug: true } },
         options: {
           orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
         },
@@ -233,8 +231,10 @@ export async function GET(req: NextRequest) {
     scope.domains.push(exportDomain);
   }
 
+  // Attributes are per-scope — prefix list keys with the scope code so
+  // same-slug attributes from different scopes stay distinct in the workbook.
   const attributes: ExportAttribute[] = attributesDb.map((a) => ({
-    slug: a.slug,
+    slug: `${scopeCodeFor(divisionCode(a.division.slug), a.segment)} ${a.slug}`,
     name: a.name,
     options: a.options.map((o) => ({
       label: o.label,

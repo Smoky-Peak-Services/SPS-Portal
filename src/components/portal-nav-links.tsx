@@ -32,9 +32,7 @@ export function PortalNavLinks({
 }) {
   const capSet = new Set(capabilities);
   const sections = filterNavForCapabilities(capSet, navSections, surface);
-  const footer = showFooter
-    ? filterFooterForCapabilities(capSet, surface)
-    : [];
+  const footer = showFooter ? filterFooterForCapabilities(capSet, surface) : [];
 
   return (
     <>

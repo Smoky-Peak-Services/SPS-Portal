@@ -52,7 +52,9 @@ async function main() {
 
 const isDirectRun =
   typeof process.argv[1] === "string" &&
-  process.argv[1].replace(/\\/g, "/").endsWith("write-attribute-lists-fixture.ts");
+  process.argv[1]
+    .replace(/\\/g, "/")
+    .endsWith("write-attribute-lists-fixture.ts");
 
 if (isDirectRun) {
   main().catch((err) => {

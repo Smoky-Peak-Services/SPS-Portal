@@ -1,15 +1,23 @@
 /**
  * Sync canonical attribute lists into the ops DB.
+ *
+ * The canonical lists are Integrated Systems Commercial vocabulary — since
+ * prompt 14 attributes are per-scope, this sync applies to the IS-Commercial
+ * scope only. Other scopes build their own attributes via admin UI / import.
+ *
  * Upserts attributes/options, renames length_feet → patch_cable_length,
  * hard-deletes vendor, deactivates color, deactivates stale options.
  */
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Segment } from "@prisma/client";
 import {
   ATTRIBUTE_SLUG_RENAMES,
   ATTRIBUTE_SLUGS_TO_DEACTIVATE,
   ATTRIBUTE_SLUGS_TO_DELETE,
   CANONICAL_ATTRIBUTE_LISTS,
 } from "../src/features/materials/attribute-list-defs";
+
+const CANONICAL_DIVISION_SLUG = "integrated-systems";
+const CANONICAL_SEGMENT: Segment = "COMMERCIAL";
 
 export type SyncAttributeListsResult = {
   attributesUpserted: number;
@@ -23,6 +31,17 @@ export type SyncAttributeListsResult = {
 export async function syncAttributeLists(
   prisma: PrismaClient,
 ): Promise<SyncAttributeListsResult> {
+  const division = await prisma.division.findUnique({
+    where: { slug: CANONICAL_DIVISION_SLUG },
+    select: { id: true },
+  });
+  if (!division) {
+    throw new Error(
+      `Division "${CANONICAL_DIVISION_SLUG}" not found — seed divisions before syncing attribute lists`,
+    );
+  }
+  const scope = { divisionId: division.id, segment: CANONICAL_SEGMENT };
+
   const result: SyncAttributeListsResult = {
     attributesUpserted: 0,
     optionsUpserted: 0,
@@ -32,14 +51,15 @@ export async function syncAttributeLists(
     slugsRenamed: [],
   };
 
+  const findBySlug = (slug: string) =>
+    prisma.materialAttribute.findUnique({
+      where: { divisionId_segment_slug: { ...scope, slug } },
+    });
+
   for (const [fromSlug, toSlug] of Object.entries(ATTRIBUTE_SLUG_RENAMES)) {
-    const existing = await prisma.materialAttribute.findUnique({
-      where: { slug: fromSlug },
-    });
+    const existing = await findBySlug(fromSlug);
     if (!existing) continue;
-    const conflict = await prisma.materialAttribute.findUnique({
-      where: { slug: toSlug },
-    });
+    const conflict = await findBySlug(toSlug);
     if (conflict) {
       // Target already exists — delete the old slug after clearing dependents.
       await hardDeleteAttribute(prisma, existing.id);
@@ -59,18 +79,14 @@ export async function syncAttributeLists(
   }
 
   for (const slug of ATTRIBUTE_SLUGS_TO_DELETE) {
-    const attr = await prisma.materialAttribute.findUnique({
-      where: { slug },
-    });
+    const attr = await findBySlug(slug);
     if (!attr) continue;
     await hardDeleteAttribute(prisma, attr.id);
     result.attributesDeleted.push(slug);
   }
 
   for (const slug of ATTRIBUTE_SLUGS_TO_DEACTIVATE) {
-    const attr = await prisma.materialAttribute.findUnique({
-      where: { slug },
-    });
+    const attr = await findBySlug(slug);
     if (!attr) continue;
     await prisma.materialAttribute.update({
       where: { id: attr.id },
@@ -82,8 +98,9 @@ export async function syncAttributeLists(
   for (const def of CANONICAL_ATTRIBUTE_LISTS) {
     const inputType = def.inputType ?? "SELECT";
     const attr = await prisma.materialAttribute.upsert({
-      where: { slug: def.slug },
+      where: { divisionId_segment_slug: { ...scope, slug: def.slug } },
       create: {
+        ...scope,
         slug: def.slug,
         name: def.name,
         inputType,
@@ -177,7 +194,7 @@ async function hardDeleteAttribute(prisma: PrismaClient, attributeId: string) {
 
 async function main() {
   const { prisma } = await import("../src/lib/prisma");
-  console.log("Syncing attribute lists…");
+  console.log("Syncing attribute lists (IS-Commercial scope)…");
   const result = await syncAttributeLists(prisma);
   console.log(JSON.stringify(result, null, 2));
   await prisma.$disconnect();

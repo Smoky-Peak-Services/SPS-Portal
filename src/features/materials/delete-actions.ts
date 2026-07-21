@@ -2,10 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import {
-  assertCapability,
-  type SessionUser,
-} from "@/lib/session";
+import { assertCapability, type SessionUser } from "@/lib/session";
 import { deleteByIdSchema, forceDeleteSchema } from "./schemas";
 import { normalizeName } from "./normalize";
 import {
@@ -109,9 +106,7 @@ export async function forceDeleteMaterialDomain(raw: unknown) {
   });
   if (!domain) throw new Error("Domain not found");
   if (!namesMatch(domain.name, confirmName)) {
-    throw new Error(
-      `Confirmation name does not match domain "${domain.name}"`,
-    );
+    throw new Error(`Confirmation name does not match domain "${domain.name}"`);
   }
 
   const categoryIds = domain.categories.map((c) => c.id);

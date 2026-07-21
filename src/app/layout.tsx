@@ -22,7 +22,9 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [{ url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [
+      { url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
   },
   manifest: "/manifest.webmanifest",
 };

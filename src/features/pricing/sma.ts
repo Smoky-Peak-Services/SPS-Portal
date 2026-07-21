@@ -81,9 +81,7 @@ export function calculateAnnualSmaPrice(raw: {
   // Line total uses unrounded (rate × qty) then cent-rounds once so
   // 62.94 × 0.90 × 10 = 566.46 (not 56.65 × 10 = 566.50).
   const bankOfHours = roundMoney(
-    input.tech12StandardRate *
-      IS_COM_BOH_RATE_FACTOR *
-      input.bankOfHoursQty,
+    input.tech12StandardRate * IS_COM_BOH_RATE_FACTOR * input.bankOfHoursQty,
   );
 
   const total = roundMoney(baseRate + svmAmount + bankOfHours);

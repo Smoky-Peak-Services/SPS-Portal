@@ -5,7 +5,9 @@ async function main() {
   await seedLaborRates(prisma);
   const configs = await prisma.laborRateConfig.count();
   const positions = await prisma.laborPosition.count();
-  console.log(`Seeded labor rates: ${configs} config(s), ${positions} position(s)`);
+  console.log(
+    `Seeded labor rates: ${configs} config(s), ${positions} position(s)`,
+  );
 }
 
 main()

@@ -43,6 +43,8 @@ export const updateCategorySchema = createCategorySchema.extend({
 });
 
 export const createAttributeSchema = z.object({
+  divisionId: z.string().min(1),
+  segment: segmentSchema,
   name: z.string().min(1).max(200),
   slug: z.string().min(1).max(80).optional(),
   inputType: inputTypeSchema,
@@ -50,8 +52,14 @@ export const createAttributeSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export const updateAttributeSchema = createAttributeSchema.extend({
+/** Scope (divisionId/segment) is fixed after create — omit it on update. */
+export const updateAttributeSchema = z.object({
   id: z.string().min(1),
+  name: z.string().min(1).max(200),
+  slug: z.string().min(1).max(80).optional(),
+  inputType: inputTypeSchema,
+  unit: z.string().max(40).optional().or(z.literal("")),
+  isActive: z.boolean().optional(),
 });
 
 export const createOptionSchema = z.object({

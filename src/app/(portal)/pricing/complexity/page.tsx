@@ -36,7 +36,7 @@ export default async function ComplexityMultipliersPage({
     <div className="space-y-6">
       <PageHeader
         title="Complexity multipliers"
-        description="Hours-only adders for quoted labor. Adjusted hours feed distributeQuotedLabor later — never multiply dollars."
+        description="Additive complexity adders per scope. Labor-bucket rows adjust hours only; Cabin package-rate rows add dollars to the base plan rate."
       />
 
       <ScopeFilterBar
@@ -47,9 +47,12 @@ export default async function ComplexityMultipliersPage({
 
       {scope.multipliers.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No complexity multipliers for this scope. Seed IS-Commercial with{" "}
+          No complexity multipliers for this scope. Seed all scopes with{" "}
           <code className="text-xs">npm run db:seed</code> or{" "}
-          <code className="text-xs">scripts/run-seed-complexity-multipliers.ts</code>.
+          <code className="text-xs">
+            scripts/run-seed-complexity-multipliers.ts
+          </code>
+          .
         </p>
       ) : (
         <Panel

@@ -88,7 +88,18 @@ describe("planAssignmentImport", () => {
 
   it("never deletes missing assignments; unresolved reported", () => {
     const parsed = parseAssignmentAoa([
-      [...["domain", "category", "attribute", "isRequired", "isFilterable", "isVariantDefining", "defaultOption", "sortOrder"]],
+      [
+        ...[
+          "domain",
+          "category",
+          "attribute",
+          "isRequired",
+          "isFilterable",
+          "isVariantDefining",
+          "defaultOption",
+          "sortOrder",
+        ],
+      ],
       ["Ghost", "Cat", "color", "true", "true", "false", "", "0"],
     ]);
     const plan = planAssignmentImport(snapshot(), parsed);

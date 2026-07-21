@@ -19,18 +19,18 @@ import {
 } from "./schemas";
 import { z } from "zod";
 
-const tiers = IS_COM_RECURRING_FEES.filter((r) => r.feeType === "SMA_BASE_TIER").map(
-  (r) => ({
-    sku: r.sku,
-    feeType: "SMA_BASE_TIER" as const,
-    billingCycle: "ANNUAL" as const,
-    valueType: "CURRENCY" as const,
-    directPurchaseRate: r.directPurchaseRate,
-    smaBundledRate: r.smaBundledRate,
-    systemValueMin: r.systemValueMin,
-    systemValueMax: r.systemValueMax,
-  }),
-);
+const tiers = IS_COM_RECURRING_FEES.filter(
+  (r) => r.feeType === "SMA_BASE_TIER",
+).map((r) => ({
+  sku: r.sku,
+  feeType: "SMA_BASE_TIER" as const,
+  billingCycle: "ANNUAL" as const,
+  valueType: "CURRENCY" as const,
+  directPurchaseRate: r.directPurchaseRate,
+  smaBundledRate: r.smaBundledRate,
+  systemValueMin: r.systemValueMin,
+  systemValueMax: r.systemValueMax,
+}));
 
 const svmRow = IS_COM_RECURRING_FEES.find((r) => r.sku === "REC-SMA_SVM-ANN")!;
 const svm = {
@@ -68,16 +68,8 @@ describe("IS-Commercial recurring seed literals", () => {
       const expectedBundled =
         Math.round(row.directPurchaseRate * IS_COM_SMA_BUNDLE_FACTOR * 100) /
         100;
-      assert.equal(
-        row.directPurchaseRate,
-        expectedDirect,
-        `${row.sku} direct`,
-      );
-      assert.equal(
-        row.smaBundledRate,
-        expectedBundled,
-        `${row.sku} bundled`,
-      );
+      assert.equal(row.directPurchaseRate, expectedDirect, `${row.sku} direct`);
+      assert.equal(row.smaBundledRate, expectedBundled, `${row.sku} bundled`);
     }
   });
 });

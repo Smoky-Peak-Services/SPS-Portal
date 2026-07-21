@@ -20,6 +20,7 @@
     "test:pricing-labor": "tsx --test src/features/pricing/labor.test.ts",
     "test:pricing-complexity": "tsx --test src/features/pricing/complexity.test.ts",
     "test:pricing-recurring": "tsx --test src/features/pricing/recurring.test.ts",
+    "test:pricing-plans": "tsx --test src/features/pricing/service-plans.test.ts",
     "test:scope": "tsx --test src/features/materials/scope.test.ts",
     "format": "prettier --write .",
     "db:generate": "prisma generate",

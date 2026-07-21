@@ -1,23 +1,30 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Segment } from "@prisma/client";
 import { CORE_CATEGORY_ATTRIBUTE_SLUGS } from "./attribute-list-defs";
 
 export type EnsureCoreAssignmentsResult = {
-  manufacturerId: string;
-  partNumberId: string;
+  scopesUpdated: number;
   categoriesUpdated: number;
 };
 
+type CoreAttributeIds = { manufacturerId: string; partNumberId: string };
+
 /**
  * Ensure manufacturer (SELECT, always required) and part_number (TEXT,
- * required iff category.requiresManualPartNumber) exist and are assigned
- * on the given category — or on every category when categoryId is omitted.
+ * required iff category.requiresManualPartNumber) exist *in the given scope*
+ * (attributes are per-scope since prompt 14).
  */
 export async function ensureCoreCatalogAttributes(
   prisma: PrismaClient,
-): Promise<{ manufacturerId: string; partNumberId: string }> {
+  divisionId: string,
+  segment: Segment,
+): Promise<CoreAttributeIds> {
   const manufacturer = await prisma.materialAttribute.upsert({
-    where: { slug: "manufacturer" },
+    where: {
+      divisionId_segment_slug: { divisionId, segment, slug: "manufacturer" },
+    },
     create: {
+      divisionId,
+      segment,
       slug: "manufacturer",
       name: "Manufacturer",
       inputType: "SELECT",
@@ -31,8 +38,12 @@ export async function ensureCoreCatalogAttributes(
   });
 
   const partNumber = await prisma.materialAttribute.upsert({
-    where: { slug: "part_number" },
+    where: {
+      divisionId_segment_slug: { divisionId, segment, slug: "part_number" },
+    },
     create: {
+      divisionId,
+      segment,
       slug: "part_number",
       name: "Part Number",
       inputType: "TEXT",
@@ -52,9 +63,21 @@ export async function ensureCoreAssignmentsForCategory(
   prisma: PrismaClient,
   categoryId: string,
   requiresManualPartNumber: boolean,
-  ids?: { manufacturerId: string; partNumberId: string },
+  ids?: CoreAttributeIds,
 ): Promise<void> {
-  const resolved = ids ?? (await ensureCoreCatalogAttributes(prisma));
+  let resolved = ids;
+  if (!resolved) {
+    const category = await prisma.materialCategory.findUnique({
+      where: { id: categoryId },
+      select: { domain: { select: { divisionId: true, segment: true } } },
+    });
+    if (!category) throw new Error("Category not found");
+    resolved = await ensureCoreCatalogAttributes(
+      prisma,
+      category.domain.divisionId,
+      category.domain.segment,
+    );
+  }
 
   await prisma.materialAttributeAssignment.upsert({
     where: {
@@ -101,16 +124,30 @@ export async function ensureCoreAssignmentsForCategory(
   });
 }
 
-/** One-shot / seed: assign core attrs on every category. */
+/** One-shot / seed: assign core attrs on every category, scope by scope. */
 export async function ensureCoreAssignmentsForAllCategories(
   prisma: PrismaClient,
 ): Promise<EnsureCoreAssignmentsResult> {
-  const ids = await ensureCoreCatalogAttributes(prisma);
   const categories = await prisma.materialCategory.findMany({
-    select: { id: true, requiresManualPartNumber: true },
+    select: {
+      id: true,
+      requiresManualPartNumber: true,
+      domain: { select: { divisionId: true, segment: true } },
+    },
   });
 
+  const idsByScope = new Map<string, CoreAttributeIds>();
   for (const cat of categories) {
+    const key = `${cat.domain.divisionId}:${cat.domain.segment}`;
+    let ids = idsByScope.get(key);
+    if (!ids) {
+      ids = await ensureCoreCatalogAttributes(
+        prisma,
+        cat.domain.divisionId,
+        cat.domain.segment,
+      );
+      idsByScope.set(key, ids);
+    }
     await ensureCoreAssignmentsForCategory(
       prisma,
       cat.id,
@@ -120,7 +157,7 @@ export async function ensureCoreAssignmentsForAllCategories(
   }
 
   return {
-    ...ids,
+    scopesUpdated: idsByScope.size,
     categoriesUpdated: categories.length,
   };
 }

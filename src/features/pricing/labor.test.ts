@@ -1,17 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ZodError } from "zod";
+import { CABIN_LABOR_MULTIPLIERS, CABIN_LABOR_POSITIONS } from "./cabin-rates";
 import {
   IS_COM_LABOR_MULTIPLIERS,
   IS_COM_LABOR_POSITIONS,
   SERVICE_TECH_SKU,
 } from "./is-com-rates";
+import { IS_RES_LABOR_POSITIONS } from "./is-res-rates";
 import { distributeQuotedLabor } from "./quoted-labor";
 import { recomputeRates } from "./recompute";
-import {
-  quotedAllocationSchema,
-  laborRateTypeSchema,
-} from "./schemas";
+import { quotedAllocationSchema, laborRateTypeSchema } from "./schemas";
 import { calculateServiceTicketLabor } from "./service-labor";
 
 const installPositions = IS_COM_LABOR_POSITIONS.filter(
@@ -107,6 +106,81 @@ describe("distributeQuotedLabor", () => {
         ),
       ZodError,
     );
+  });
+});
+
+function toQuotedInput(p: {
+  sku: string;
+  title: string;
+  context: "INSTALL" | "SERVICE";
+  quotedAllocationPct: number;
+  standardBillingRate: number;
+  afterHoursRate: number;
+  holidayRate: number;
+  actualCostOfLabor: number;
+}) {
+  return {
+    sku: p.sku,
+    title: p.title,
+    context: p.context,
+    quotedAllocationPct: p.quotedAllocationPct,
+    standardBillingRate: p.standardBillingRate,
+    afterHoursRate: p.afterHoursRate,
+    holidayRate: p.holidayRate,
+    actualCostOfLabor: p.actualCostOfLabor,
+  };
+}
+
+describe("per-scope blends (prompt 14)", () => {
+  const resInstall = IS_RES_LABOR_POSITIONS.filter(
+    (p) => p.context === "INSTALL",
+  ).map(toQuotedInput);
+  const cabinInstall = CABIN_LABOR_POSITIONS.filter(
+    (p) => p.context === "INSTALL",
+  ).map(toQuotedInput);
+
+  it("IS-Res STANDARD 100h → 60/25/15 blend and $5,723.90 billable", () => {
+    const result = distributeQuotedLabor(100, resInstall, "STANDARD");
+    assert.equal(result.roles.length, 3);
+    assert.equal(result.roles[0]!.hours, 60);
+    assert.equal(result.roles[1]!.hours, 25);
+    assert.equal(result.roles[2]!.hours, 15);
+    assert.equal(result.billable, 5723.9);
+  });
+
+  it("Cabin STANDARD 100h → 70/20/10 blend and $4,921.00 billable", () => {
+    const result = distributeQuotedLabor(100, cabinInstall, "STANDARD");
+    assert.equal(result.roles.length, 3);
+    assert.equal(result.roles[0]!.hours, 70);
+    assert.equal(result.roles[1]!.hours, 20);
+    assert.equal(result.roles[2]!.hours, 10);
+    assert.equal(result.billable, 4921.0);
+  });
+
+  it("rejects Cabin Contractor Coordination (SERVICE) in quoted input without hardcoded SKUs", () => {
+    const cco = CABIN_LABOR_POSITIONS.find((p) => p.sku === "LAB-CBN-CCO-SPC")!;
+    assert.throws(
+      () => quotedAllocationSchema.parse([...cabinInstall, toQuotedInput(cco)]),
+      ZodError,
+    );
+  });
+
+  it("Cabin discounted rates equal standard × 0.90 from the sheet", () => {
+    assert.equal(CABIN_LABOR_MULTIPLIERS.discountedMultiplier, 0.9);
+    for (const p of CABIN_LABOR_POSITIONS) {
+      assert.ok(p.discountedRate !== null, p.sku);
+      const derived = p.standardBillingRate * 0.9;
+      assert.ok(
+        Math.abs(p.discountedRate! - derived) < 1e-9,
+        `${p.sku}: ${p.discountedRate} vs ${derived}`,
+      );
+    }
+  });
+
+  it("IS-Res positions carry no discounted rates", () => {
+    for (const p of IS_RES_LABOR_POSITIONS) {
+      assert.equal(p.discountedRate, null, p.sku);
+    }
   });
 });
 

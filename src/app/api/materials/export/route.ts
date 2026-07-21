@@ -9,10 +9,7 @@ import {
 } from "@/features/materials/io";
 import { exportFileName } from "@/features/materials/scope-code";
 import { resolveStorageScope } from "@/features/materials/scope";
-import {
-  loadPermissionSubject,
-  subjectCan,
-} from "@/lib/permission-subject";
+import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
 
 const SEGMENTS = new Set(["COMMERCIAL", "RESIDENTIAL", "STR"]);
 

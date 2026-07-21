@@ -11,7 +11,7 @@ async function main() {
   console.log("Ensuring core category attribute assignments…");
   const result = await ensureCoreAssignmentsForAllCategories(prisma);
   console.log(
-    `  ✓ ${result.categoriesUpdated} categories; manufacturer=${result.manufacturerId}; part_number=${result.partNumberId}`,
+    `  ✓ ${result.categoriesUpdated} categories across ${result.scopesUpdated} scopes`,
   );
 }
 

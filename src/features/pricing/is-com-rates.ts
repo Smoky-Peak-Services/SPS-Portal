@@ -1,30 +1,22 @@
 /**
- * Canonical IS-Commercial sheet literals (prompt 09 / is-com-hourly-labor-rates.csv).
+ * Canonical IS-Commercial sheet literals (prompt 09 / is-com-hourly-labor-rates.csv,
+ * re-verified against is-commercial-master-rate-sheet.xlsx in prompt 14).
  * Used by seed + unit tests — do not invent or round differently.
  */
-import type { WorkContext } from "@prisma/client";
+import type {
+  LaborMultipliersSeed,
+  LaborPositionSeed,
+} from "./labor-seed-types";
 
-export const IS_COM_LABOR_MULTIPLIERS = {
+export const IS_COM_LABOR_MULTIPLIERS: LaborMultipliersSeed = {
   burdenMultiplier: 1.85,
-  commercialBillingMultiplier: 1.89,
+  standardBillingMultiplier: 1.89,
   afterHoursMultiplier: 1.45,
   holidayMultiplier: 1.75,
-} as const;
-
-export type IsComLaborPositionSeed = {
-  title: string;
-  sku: string;
-  baseHourlyRate: number;
-  actualCostOfLabor: number;
-  standardBillingRate: number;
-  afterHoursRate: number;
-  holidayRate: number;
-  quotedAllocationPct: number;
-  context: WorkContext;
-  sortOrder: number;
+  discountedMultiplier: null,
 };
 
-export const IS_COM_LABOR_POSITIONS: IsComLaborPositionSeed[] = [
+export const IS_COM_LABOR_POSITIONS: LaborPositionSeed[] = [
   {
     title: "Tech 1 and 2",
     sku: "LAB-COM-T12-SIS",
@@ -33,6 +25,7 @@ export const IS_COM_LABOR_POSITIONS: IsComLaborPositionSeed[] = [
     standardBillingRate: 62.94,
     afterHoursRate: 91.26,
     holidayRate: 110.14,
+    discountedRate: null,
     quotedAllocationPct: 50.0,
     context: "INSTALL",
     sortOrder: 0,
@@ -45,6 +38,7 @@ export const IS_COM_LABOR_POSITIONS: IsComLaborPositionSeed[] = [
     standardBillingRate: 90.91,
     afterHoursRate: 131.82,
     holidayRate: 159.09,
+    discountedRate: null,
     quotedAllocationPct: 20.0,
     context: "INSTALL",
     sortOrder: 1,
@@ -57,6 +51,7 @@ export const IS_COM_LABOR_POSITIONS: IsComLaborPositionSeed[] = [
     standardBillingRate: 111.89,
     afterHoursRate: 162.24,
     holidayRate: 195.8,
+    discountedRate: null,
     quotedAllocationPct: 15.0,
     context: "INSTALL",
     sortOrder: 2,
@@ -69,6 +64,7 @@ export const IS_COM_LABOR_POSITIONS: IsComLaborPositionSeed[] = [
     standardBillingRate: 150.35,
     afterHoursRate: 218.01,
     holidayRate: 263.11,
+    discountedRate: null,
     quotedAllocationPct: 15.0,
     context: "INSTALL",
     sortOrder: 3,
@@ -81,6 +77,7 @@ export const IS_COM_LABOR_POSITIONS: IsComLaborPositionSeed[] = [
     standardBillingRate: 76.92,
     afterHoursRate: 111.54,
     holidayRate: 134.62,
+    discountedRate: null,
     quotedAllocationPct: 0.0,
     context: "SERVICE",
     sortOrder: 4,

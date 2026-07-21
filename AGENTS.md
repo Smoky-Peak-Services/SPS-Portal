@@ -2,7 +2,7 @@
 
 This is the engineering handbook for any AI agent (Cursor, Claude, or otherwise) working in this repo. Read it before making structural changes. It is the long-form version of `.cursor/rules/*.mdc` — those files are the fast-recall summary; this file has the reasoning behind each rule.
 
-Two other docs matter: `claude/project-context.md` (why this exists, the two-year vision, reference platforms) and `claude/ARCHITECTURE.md` (the target layered architecture). Both describe where this is *going*. This file describes where it *is right now* — Phase 1, a solo build, real money and real customer data on the line. When a target doc and this file disagree, this file wins, because it reflects the actual code.
+Two other docs matter: `claude/project-context.md` (why this exists, the two-year vision, reference platforms) and `claude/ARCHITECTURE.md` (the target layered architecture). Both describe where this is _going_. This file describes where it _is right now_ — Phase 1, a solo build, real money and real customer data on the line. When a target doc and this file disagree, this file wins, because it reflects the actual code.
 
 ---
 
@@ -16,14 +16,16 @@ This is being built by one person (Ryan) with a real services company's operatio
 
 Smoky Peak Services LLC is a multi-division contractor and short-term-rental service company. This portal is its internal ERP: staff/admin operations, field jobs, scheduling, and (eventually) estimating, billing, and job costing.
 
-**Current state (2026-07-21): dashboard shell + materials catalog + pricing (labor rates + complexity multipliers + recurring fees/SMA, IS-Commercial seed + pure engines).** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume Quote/Job/ServiceTicket entities exist until they're rebuilt.
+**Current state (2026-07-21): dashboard shell + materials catalog + pricing (labor rates + complexity multipliers + recurring fees/SMA + Cabin service plans), seeded per scope from the three master rate workbooks (prompt 14).** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume Quote/Job/ServiceTicket entities exist until they're rebuilt.
 
 Divisions as currently modeled in `src/config/company.ts` (the single source of truth for company/division/branding — edit only that file for those changes). **`company.divisions` lists operational divisions only** (Integrated Systems, Cabin Services). Smoky Peak Services LLC is the legal entity / brand, not a catalog or pricing scope — do not add it as a `Division` row for materials or labor rates.
 
-- **Integrated Systems** — low-voltage, access control, security, structured cabling. Customer segments Commercial + Residential are **separate datasets** (`sharedCatalog: false`).
-- **Cabin Services** — STR property maintenance and quick-turn support. Customer segments STR + Residential share **one** catalog/rate dataset stored under `STR` (`sharedCatalog: true`, `storageSegment: "str"`). Scope codes `CS_STR` and `CS_RES` are both valid; both read/write the same rows via `resolveStorageScope`.
+- **Integrated Systems** — low-voltage, access control, security, structured cabling. Customer segments Commercial + Residential are **separate datasets**.
+- **Cabin Services** — STR property maintenance and quick-turn support. **One scope** (`segments: ["str"]`, scope code `CS_STR`). Prompt 13 briefly aliased a Cabin "Residential" segment onto STR storage (`sharedCatalog`/`storageSegment`); prompt 14 reverted that — there is no `CS_RES`/`CS_COM`, no shared-catalog concept, and `resolveStorageScope` always returns `storageSegment === customerSegment`.
 
-**Scope pickers (prompt 13):** Always use shared [`ScopeSelector`](src/components/patterns/scope-selector.tsx) (Radix/Base UI `Select` in `src/components/ui/select.tsx`) driven by `company.ts` customer segments — never invent options from seeded rate rows. Show the resolved scope code; when the division is shared, show the shared-catalog note. Every catalog/labor/recurring query that takes a picker segment must call `resolveStorageScope` and use `storageSegment` in Prisma `where`.
+**Three scopes, nothing shared (prompt 14):** IS Commercial, IS Residential, and Cabin Services each own a complete, independently shaped set of Materials, Attributes, Labor Rates, Complexity Multipliers, and Recurring/Service pricing, seeded from `claude/prompts/samples/{is-commercial,is-residential,cabin-services}-master-rate-sheet.xlsx`. Never treat IS-Commercial's shape (blend SKUs, complexity categories, recurring fee types) as universal.
+
+**Scope pickers (prompt 13):** Always use shared [`ScopeSelector`](src/components/patterns/scope-selector.tsx) (Radix/Base UI `Select` in `src/components/ui/select.tsx`) driven by `company.ts` customer segments — never invent options from seeded rate rows. Show the resolved scope code. Every catalog/labor/recurring query that takes a picker segment still calls `resolveStorageScope` (validation + scope code; storage segment is now identity) and uses `storageSegment` in Prisma `where`.
 
 Two things described in `claude/project-context.md` are **not yet in code**: the **Trash Valet** division and the **STR Magic** marketplace integration. Don't build against them as if they exist — if a task implies one of them, flag it rather than inventing the missing piece.
 
@@ -99,15 +101,15 @@ This is the single most important — and most fragile — architectural decisio
 
 **Two databases, two Prisma schemas:**
 
-| | Ops DB | PII DB |
-|---|---|---|
-| Schema | `prisma/schema.prisma` | `prisma/pii/schema.prisma` |
-| Client | `src/lib/prisma.ts` → `prisma` | `src/lib/prisma-pii.ts` → `prismaPii` |
-| Owns | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`), pricing (`LaborRateConfig`, `LaborPosition`, `ComplexityMultiplier`, `RecurringFeeItem`) | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
-| Deferred | Field Ops / work-order models | CRM `Customer`, `Contact`, `ServiceLocation` |
-| Env vars | `OPS_DATABASE_URL`, `OPS_DIRECT_URL` | `PII_DATABASE_URL`, `PII_DIRECT_URL` |
-| Generate | `npm run db:generate` | `npm run db:generate:pii` |
-| Migrate | `npm run db:migrate` | `npm run db:migrate:pii` |
+|          | Ops DB                                                                                                                                                                                                                                     | PII DB                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Schema   | `prisma/schema.prisma`                                                                                                                                                                                                                     | `prisma/pii/schema.prisma`                               |
+| Client   | `src/lib/prisma.ts` → `prisma`                                                                                                                                                                                                             | `src/lib/prisma-pii.ts` → `prismaPii`                    |
+| Owns     | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`), pricing (`LaborRateConfig`, `LaborPosition`, `ComplexityMultiplier`, `RecurringFeeItem`, `ServicePlanRate`) | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
+| Deferred | Field Ops / work-order models                                                                                                                                                                                                              | CRM `Customer`, `Contact`, `ServiceLocation`             |
+| Env vars | `OPS_DATABASE_URL`, `OPS_DIRECT_URL`                                                                                                                                                                                                       | `PII_DATABASE_URL`, `PII_DIRECT_URL`                     |
+| Generate | `npm run db:generate`                                                                                                                                                                                                                      | `npm run db:generate:pii`                                |
+| Migrate  | `npm run db:migrate`                                                                                                                                                                                                                       | `npm run db:migrate:pii`                                 |
 
 `Division` is replicated into the PII database (same `id`, no FK) so PII rows can reference a division without crossing the boundary; run `npm run sync:divisions-pii` after any ops migration that touches `Division` rows. There is no cross-database Prisma relation.
 
@@ -125,7 +127,7 @@ This is the single most important — and most fragile — architectural decisio
 
 Foundation for quoting. Ops-only EAV taxonomy — no customer PII, no tax calculation, no part numbers on items.
 
-Hierarchy: `MaterialDomain` (scoped to `divisionId` + `Segment`) → `MaterialCategory` → `MaterialItem`, with global `MaterialAttribute` / options assigned to categories via `MaterialAttributeAssignment`. Units live in `MaterialUnit` (seeded: EACH, FT, BOX, ROLL).
+Hierarchy: `MaterialDomain` (scoped to `divisionId` + `Segment`) → `MaterialCategory` → `MaterialItem`, with **per-scope** `MaterialAttribute` / options (prompt 14: `@@unique([divisionId, segment, slug])`, no global attributes) assigned to categories via `MaterialAttributeAssignment` — `upsertAssignment` rejects attributes whose scope differs from the category's domain scope. Units live in `MaterialUnit` (seeded: EACH, FT, BOX, ROLL).
 
 Tax classification is metadata only — no Stripe Tax API, no amount calculation, no use-tax accrual in this phase.
 
@@ -148,7 +150,7 @@ Scoped round-trips live on each list page **and** `/materials/import-export`. Hu
 
 - Workbook: one sheet per domain name; category blocks = title row → header `description | unit | laborUnits | laborUnitNotes | stripeTaxCodeId | laborInstallTaxCodeId | laborServiceTaxCodeId` → items → blank separator. Empty categories are valid. Legacy files without tax columns leave item tax overrides untouched.
 - Item tax FKs: blank cell → set null; invalid id → flag, leave DB; do **not** write item `taxProfile` (stays null / inherit).
-- Scope code (e.g. `IS_COM`, `CS_RES`) from `company.divisions[].code` + **customer** segment; filename `catalog_{SCOPE}_{YYYY-MM-DD}.xlsx`. Cabin Services files `CS_STR` / `CS_RES` both import/export the same storage segment (`STR`).
+- Scope code (`IS_COM`, `IS_RES`, `CS_STR` — the only three) from `company.divisions[].code` + customer segment; filename `catalog_{SCOPE}_{YYYY-MM-DD}.xlsx`.
 - Matching: `normalizeName` / slugify. Upsert only; **never delete** rows absent from the file.
 - **Layout gate:** sheet with no category title→`description` header match is skipped. Zero matched sheets → “doesn't look like a materials catalog export” (blocks commit).
 - Flow: `previewMaterialsImport` → `commitMaterialsImport` (**admin / force_delete**, re-parse, `$transaction`).
@@ -168,6 +170,7 @@ Scoped round-trips live on each list page **and** `/materials/import-export`. Hu
 **Attribute assignments** (flat, `/materials/attributes`, `GET /api/materials/attributes/assignments-export`):
 
 - Sheet `Attribute Assignments`: `domain | category | attribute | isRequired | isFilterable | isVariantDefining | defaultOption | sortOrder`.
+- **Scoped** (prompt 14): export/import take `divisionId` + `segment`; matching happens within that scope only; filename gains the scope code.
 - `attribute` matches slug or name; `defaultOption` by option label (invalid → flag, leave FK). Upsert only; never delete missing assignments.
 - Tests: `npm run test:materials-assignment-io`.
 
@@ -175,13 +178,15 @@ Scoped round-trips live on each list page **and** `/materials/import-export`. Hu
 
 Same hub page (`/materials/import-export`, second section) and on `/materials/attributes`; `GET /api/materials/attributes/export`. Pure logic in `attribute-io.ts` / `attribute-io-actions.ts` (not overloaded into catalog `io.ts`).
 
-- **Canonical attributes** live in `src/features/materials/attribute-list-defs.ts` (SELECT picklists: Jacket Color, Cable Jacket Rating, Plastics Color, Hardware Finish, Power Type, Voltage, Amp Rating, POE Class, Box Length, Patch Cable Length, Manufacturer, Attachment Type; plus TEXT `part_number`). Apply with `npm run sync:attribute-lists` (also run from `prisma/seed.ts`). Sync hard-deletes `vendor`, deactivates legacy `color`, renames `length_feet` → `patch_cable_length`, and deactivates stale options. After sync/seed, `ensureCoreAssignmentsForAllCategories` assigns manufacturer + part_number on every category (`npm run ensure:core-assignments`).
+- **Attributes are per-scope** (prompt 14). The canonical picklists in `src/features/materials/attribute-list-defs.ts` (SELECT: Jacket Color, Cable Jacket Rating, Plastics Color, Hardware Finish, Power Type, Voltage, Amp Rating, POE Class, Box Length, Patch Cable Length, Manufacturer, Attachment Type; plus TEXT `part_number`) are IS lists — `npm run sync:attribute-lists` applies them to the **IS-Commercial scope only** (also run from `prisma/seed.ts`). Sync hard-deletes `vendor`, deactivates legacy `color`, renames `length_feet` → `patch_cable_length`, and deactivates stale options, all within that scope. After sync/seed, `ensureCoreAssignmentsForAllCategories` upserts manufacturer + part_number **per scope** and assigns them on every category (`npm run ensure:core-assignments`).
+- Attribute-list export/import is scope-parameterized: the export route requires `divisionId` + `segment`, filenames carry the scope code, and slug matching happens within the selected scope (client uses `ScopeSelector`).
 - Workbook: index sheet `Attribute Lists` (`list_key | list_name | filter_mode`) + one sheet per `list_key` (`label | sort_order | tags | rfq_contact | rfq_email`).
 - Mapping: `list_key`→`MaterialAttribute.slug`, `list_name`→`name`, `inputType=SELECT`; option `label`→label, `value=slugify(label)` (Power Type / POE Class use stable values in the sync defs), `sort_order`→`sortOrder`.
 - **Ignored columns (intentional):** `filter_mode` (filtering is per-assignment `isFilterable`, not on the attribute); `rfq_contact` / `rfq_email` (vendor/RFQ out of catalog scope); **`tags`** (legacy option↔category visibility tags — **no model yet**; do not invent a schema as a side effect of import — decide later if worth a join/tag design).
 - Excel upsert by attribute `slug` and option `(attributeId, value)` is **additive only** (never deletes). Use the sync script for full replace/delete semantics.
 - Flow: `previewAttributeListsImport` → `commitAttributeListsImport` (**admin only**, re-parse, `$transaction`).
 - Fixture: `claude/prompts/samples/attribute-lists-canonical.xlsx` (regenerate with `npm run write:attribute-lists-fixture`). Prior export `attribute-lists-2026-06-24.xlsx` kept for historical reference only.
+
 ### Delete
 
 Hard delete (not soft/`isActive`) lives in `src/features/materials/delete-actions.ts`, wired on list pages:
@@ -192,37 +197,41 @@ Hard delete (not soft/`isActive`) lives in `src/features/materials/delete-action
 
 Import upsert and UI delete are separate: missing Excel rows are never removed by import.
 
-### Pricing — labor rates (prompt 09)
+### Pricing — labor rates (prompt 09, generalized in 14)
 
 Feature code: `src/features/pricing/`. Admin UI: `/pricing/labor-rates` (desktop-only, `requireArea("pricing")` → `pricing.access`; edits need `pricing.write`).
 
-- **`LaborRateConfig`**: one row per `(divisionId, Segment)` — multipliers (`burden` 1.85, `commercialBilling` 1.89, `afterHours` 1.45, `holiday` 1.75 for IS-COM). Transparency / `recomputeRates` only; **stored position rates are authoritative at runtime**.
-- **`LaborPosition`**: roles scoped by `(divisionId, Segment)` with SKU unique in scope. Money columns `Decimal(12,2)`; `quotedAllocationPct` `Decimal(5,2)`.
-- **`WorkContext`**: INSTALL = four blended quote roles; SERVICE = Service Technician only. Do **not** add a second JOB_QUOTE/SERVICE_TICKET enum.
+- **`LaborRateConfig`**: one row per `(divisionId, Segment)` — multipliers `burden`, `standardBillingMultiplier` (renamed from `commercialBillingMultiplier` in prompt 14; 1.89 IS-COM, 1.4 IS-RES/Cabin), `afterHours` 1.45, `holiday` 1.75, plus nullable `discountedMultiplier` (0.90 Cabin only). Transparency / `recomputeRates` only; **stored position rates are authoritative at runtime**.
+- **`LaborPosition`**: roles scoped by `(divisionId, Segment)` with SKU unique in scope. Money columns `Decimal(12,2)`; `quotedAllocationPct` `Decimal(5,2)`; nullable `discountedRate` (Cabin rows only; sheet keeps 3 decimals, e.g. 41.958).
+- **`WorkContext`**: INSTALL = blended quote roles; SERVICE = flat-billed roles (IS service techs, Cabin Contractor Coordination `LAB-CBN-CCO-SPC`). Do **not** add a second JOB_QUOTE/SERVICE_TICKET enum.
 - **`LaborRateType`**: `STANDARD | AFTER_HOURS | HOLIDAY` — which billable column to use.
+- **Blends are per scope:** IS-Com 50/20/15/15 (four INSTALL roles), IS-Res 60/25/15 (`LAB-RES-*-SIS`), Cabin 70/20/10 (`LAB-CBN-*-SPC`). `quotedAllocationSchema` is generalized — it rejects any SERVICE-context position (no hardcoded SKUs) and requires INSTALL allocation to sum to 100.
 - **Engines (pure, no Quote/Job entities):**
-  - `distributeQuotedLabor` — INSTALL positions only; hours × allocation %; Zod rejects SERVICE / `LAB-COM-SVC-SIS` and allocation ≠ 100%.
-  - `calculateServiceTicketLabor` — SERVICE tech only, flat hours × rate.
+  - `distributeQuotedLabor` — INSTALL positions only; hours × allocation %.
+  - `calculateServiceTicketLabor` — SERVICE positions, flat hours × rate.
   - Cost basis uses `actualCostOfLabor` for every `LaborRateType` (sheet has no AH/holiday cost) — off-hours margin looks inflated until the sheet gains cost multipliers.
-- Seed: `scripts/seed-labor-rates.ts` / `db:seed` upserts IS-Commercial only (`integrated-systems` + `COMMERCIAL`) from sheet literals in `is-com-rates.ts` (fixture CSV: `claude/prompts/samples/is-com-hourly-labor-rates.csv`).
-- Tests: `npm run test:pricing-labor`. No Excel IO for five rows.
+- Seed: `scripts/seed-labor-rates.ts` / `db:seed` upserts **all three scopes** from literals in `is-com-rates.ts`, `is-res-rates.ts`, `cabin-rates.ts` (shared shape in `labor-seed-types.ts`; sources: the three `claude/prompts/samples/*-master-rate-sheet.xlsx`).
+- Tests: `npm run test:pricing-labor`. No Excel IO.
 
-### Pricing — complexity multipliers (prompt 10)
+### Pricing — complexity multipliers (prompt 10, generalized in 14)
 
-- **`ComplexityMultiplier`**: scoped by `(divisionId, Segment)`; categories `STRUCTURAL | ACCESS | COMPLIANCE`; `modificationRate` is a **decimal** (0.08 = 8%), not an integer percent.
-- **Hours only:** `calculateAdjustedLaborHours` adds `Σ (baseHours × rate)` — never multiplies billable dollars, cost, or project price. Additive, not compounded; no cap.
-- `totalHours` is what later quoting passes into `distributeQuotedLabor`. After Hours Required Installation (+20% hours) may intentionally stack with `LaborRateType.AFTER_HOURS`.
-- Admin: `/pricing/complexity` (same `pricing.access` / `pricing.write`). Seed: `scripts/seed-complexity-multipliers.ts` (10 IS-COM rows). Tests: `npm run test:pricing-complexity`.
+- **`ComplexityMultiplier`**: scoped by `(divisionId, Segment)`; `category` is **free text** from each sheet's own vocabulary (Structural, Systems Integration, Amenity, …), not an enum. `multiplierType` `PERCENT | FIXED`; `appliedTo` `TOTAL_LABOR | PROGRAMMING_LABOR | NETWORK_LABOR | BASE_PACKAGE_RATE`; `value` `Decimal(12,4)` — PERCENT values are decimals (0.08 = 8%), FIXED values are dollars.
+- **Two engines, strictly separated:**
+  - `calculateAdjustedLaborHours({ totalHours, programmingHours?, networkHours? }, multipliers)` — PERCENT rows add hours to their `appliedTo` bucket (buckets fall back to `totalHours` when not itemized); rejects FIXED and `BASE_PACKAGE_RATE` rows. Hours only — never multiplies dollars. Additive, not compounded; no cap.
+  - `calculateAdjustedPackageRate(basePackageRate, multipliers)` (`package-rate.ts`, Cabin) — FIXED adds `value` dollars, PERCENT adds `base × value`; rejects labor-bucket rows. Additive; no cap.
+- `totalHours` is what later quoting passes into `distributeQuotedLabor`. After Hours Required Installation (+20% hours, IS-Com) may intentionally stack with `LaborRateType.AFTER_HOURS`.
+- Admin: `/pricing/complexity` (same `pricing.access` / `pricing.write`); category free text, type/appliedTo/value editable. Seed: `scripts/seed-complexity-multipliers.ts` — all three scopes (IS-Com 10, IS-Res 16, Cabin 20 rows; literals in `is-com-complexity.ts`, `is-res-complexity.ts`, `cabin-complexity.ts`, shared shape `complexity-seed-types.ts`). Cabin rows are all `BASE_PACKAGE_RATE`. Tests: `npm run test:pricing-complexity`.
 
-### Pricing — recurring fees + SMA (prompt 11)
+### Pricing — recurring fees + SMA (prompt 11) and Cabin service plans (prompt 14)
 
-Admin UI: `/materials/recurring` (Catalog section tab; desktop-only). **Still** `requireArea("pricing")` / `pricing.write` — route path ≠ capability area. `/pricing/recurring` redirects here.
+Admin UI: `/materials/recurring` (Catalog section tab; desktop-only). **Still** `requireArea("pricing")` / `pricing.write` — route path ≠ capability area. `/pricing/recurring` redirects here. The page is scope-shaped: IS-Commercial renders `RecurringFeeItem`; **Cabin renders a `ServicePlanRate` table instead**; IS-Residential has no recurring pricing (empty state; its workbook tab is empty).
 
 - **`RecurringFeeItem`**: scoped by `(divisionId, Segment)`, unique SKU in scope. Enums: `BillingCycle`, `RecurringFeeUnit`, `RecurringFeeType` (`SMA_BASE_TIER | SMA_SVM | SMA_BANK_OF_HOURS | MONTHLY_SERVICE`), `RateValueType` (`CURRENCY | PERCENT`). Money/percent columns `Decimal(12,4)` so SVM percents fit (`0.1560`).
 - **Two CSV deviations (locked):** drop duplicate Monthly Monitoring `$18.99` (seed only `$39.99` / `$51.99` / `$46.79`); Bank of Hours sell rate is **live** `LAB-COM-T12-SIS.standardBillingRate × 0.90` — seed stores `0` placeholders; engine never reads BOH dollar columns.
 - **SMA engine** (`sma.ts`): `Total = base tier + SVM + Bank of Hours`. `selectSmaBaseTier` bounds TR1 `[500,5000]`, TR2 `(5000,10000]`, … TR5 `(30000,∞)`; exact edge → lower tier; below `$500` → none (Zod rejects). SVM applies to **material value only** (never labor). `SmaPurchaseType { DIRECT, SMA_BUNDLED }` selects **both** the base-tier column and the SVM % together (confirm with Ryan if those should ever diverge).
 - **Monthly engine** (`monthly-service.ts`): `resolveMonthlyServiceRate(item, customerHasActiveSma)` — bundled vs direct only; **no SVM parameter** on the type. Separate code path from SMA.
 - Seed: 11 IS-COM rows (`is-com-recurring.ts` / `scripts/seed-recurring-fees.ts`). Tests: `npm run test:pricing-recurring` (worked: DIRECT `$12k` + 10 BOH → `$3,738.46`; BUNDLED → `$3,421.26`).
+- **`ServicePlanRate`** (Cabin only today): scoped by `(divisionId, Segment)`, unique SKU in scope; `planType` `MAINTENANCE | INSPECTION | FULL_SERVICE`, `bedrooms`/`maxBathrooms`, nullable `rate` + `isCustomQuote` (custom-quote rows are rate-less "Quoted"). 18 seeded rows (MP/CIP/FSP × 5 standard tiers + 1 custom) from the Cabin workbook via `cabin-service-plans.ts` / `scripts/seed-service-plans.ts`. Plan rates are the **base package rate** that Cabin `BASE_PACKAGE_RATE` complexity rows adjust via `calculateAdjustedPackageRate`. Rate edits via `updateServicePlanRate` (`pricing.write`; standard rows cannot be made rate-less). Tests: `npm run test:pricing-plans`. Sheet quirk kept verbatim: SKU `FSP-2BE-2BS-STD`.
 - Non-goals: no customer/SMA-contract/subscription/invoice; no Stripe; no proration/forfeiture enforcement.
 
 ---

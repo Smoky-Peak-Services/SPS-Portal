@@ -143,7 +143,9 @@ export function CategoryTaxIoToolbar({ isAdmin }: { isAdmin: boolean }) {
                   {preview.plan.updates.slice(0, 40).map((u) => (
                     <li key={`${u.id}-${u.row}`}>
                       Row {u.row}: {u.domain} / {u.category} —{" "}
-                      {u.changes.map((c) => `${c.field}: ${c.from}→${c.to}`).join("; ")}
+                      {u.changes
+                        .map((c) => `${c.field}: ${c.from}→${c.to}`)
+                        .join("; ")}
                     </li>
                   ))}
                   {preview.plan.updates.length > 40 ? (

@@ -6,10 +6,7 @@ import {
   buildDomainWorkbookBuffer,
   type ExportDomainRow,
 } from "@/features/materials/domain-io";
-import {
-  loadPermissionSubject,
-  subjectCan,
-} from "@/lib/permission-subject";
+import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
 
 function todayStamp(): string {
   const d = new Date();

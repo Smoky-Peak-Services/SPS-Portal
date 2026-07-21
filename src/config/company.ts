@@ -10,17 +10,14 @@ export type DivisionColor = "blue" | "green" | "slate";
 export interface DivisionConfig {
   slug: string;
   name: string;
-  /** Customer-facing segments shown in ScopeSelector. */
+  /**
+   * Operational scopes for this division. Each (division, segment) pair is an
+   * independent dataset (materials, attributes, labor, complexity, recurring).
+   * Cabin Services is a single undivided scope stored under STR.
+   */
   segments: Segment[];
   color: DivisionColor;
   code: string;
-  /**
-   * When true, all customer segments share one catalog/rate dataset keyed by
-   * `storageSegment` (Cabin Services: STR + Residential → STR storage).
-   */
-  sharedCatalog: boolean;
-  /** Required when sharedCatalog — Prisma Segment used for all reads/writes. */
-  storageSegment?: Segment;
 }
 
 export interface FeatureFlags {
@@ -109,16 +106,13 @@ export const company: Company = {
       segments: ["commercial", "residential"],
       color: "blue",
       code: "IS",
-      sharedCatalog: false,
     },
     {
       slug: "cabin-services",
       name: "Cabin Services",
-      segments: ["str", "residential"],
+      segments: ["str"],
       color: "green",
       code: "CS",
-      sharedCatalog: true,
-      storageSegment: "str",
     },
   ],
   features: {
@@ -162,23 +156,6 @@ export function operationalDivisionSlugs(): readonly string[] {
 
 export function isOperationalDivisionSlug(slug: string): boolean {
   return company.divisions.some((d) => d.slug === slug);
-}
-
-/**
- * Segments persisted on Division.segments / used as Prisma storage keys.
- * Shared-catalog divisions store only the canonical storage segment.
- */
-export function storageSegmentsForDivision(d: DivisionConfig): Segment[] {
-  if (d.sharedCatalog) {
-    const storage = d.storageSegment;
-    if (!storage) {
-      throw new Error(
-        `Division "${d.slug}" has sharedCatalog but no storageSegment`,
-      );
-    }
-    return [storage];
-  }
-  return [...d.segments];
 }
 
 export function divisionName(slug: string): string {

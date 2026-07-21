@@ -16,10 +16,7 @@ import {
   ASSIGNMENTS_SHEET,
   type ExportAssignmentRow,
 } from "./attribute-assignment-io";
-import {
-  buildAttributeExportAoa,
-  type ExportAttribute,
-} from "./attribute-io";
+import { buildAttributeExportAoa, type ExportAttribute } from "./attribute-io";
 import {
   buildDomainExportAoa,
   DOMAINS_SHEET,

@@ -6,7 +6,10 @@ import type { CapabilityEffect, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireCapability } from "@/lib/session";
 import { ALL_ROLES } from "@/config/permissions";
-import { CAPABILITIES, resetRoleCapabilitiesToDefaults } from "@/config/capabilities";
+import {
+  CAPABILITIES,
+  resetRoleCapabilitiesToDefaults,
+} from "@/config/capabilities";
 
 const roleSchema = z.enum([
   "admin",
