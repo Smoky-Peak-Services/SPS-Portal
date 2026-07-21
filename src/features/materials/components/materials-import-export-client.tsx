@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { Segment } from "@prisma/client";
 import {
   commitMaterialsImport,
@@ -8,6 +8,7 @@ import {
   type MaterialsImportPreview,
 } from "@/features/materials/io-actions";
 import { Button } from "@/components/ui/button";
+import { ScopeSelector } from "@/components/patterns/scope-selector";
 
 type ScopeDivision = {
   id: string;
@@ -15,7 +16,12 @@ type ScopeDivision = {
   slug: string;
   code: string;
   segments: string[];
-  scopes: { segment: Segment; scopeCode: string }[];
+  scopes: {
+    segment: Segment;
+    storageSegment?: Segment;
+    scopeCode: string;
+    shared?: boolean;
+  }[];
 };
 
 export function MaterialsImportExportClient({
@@ -35,21 +41,11 @@ export function MaterialsImportExportClient({
   const [commitMessage, setCommitMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const selectedDivision = useMemo(
-    () => divisions.find((d) => d.id === divisionId) ?? null,
-    [divisions, divisionId],
-  );
-
-  const segmentOptions = selectedDivision?.scopes ?? [];
-
-  function onDivisionChange(id: string) {
-    setDivisionId(id);
+  function onScopeChange(next: { divisionId: string; segment: Segment }) {
+    setDivisionId(next.divisionId);
+    setSegment(next.segment);
     setPreview(null);
     setCommitMessage(null);
-    const d = divisions.find((x) => x.id === id);
-    if (d?.scopes[0]) {
-      setSegment(d.scopes[0].segment);
-    }
   }
 
   function buildFormData() {
@@ -66,8 +62,6 @@ export function MaterialsImportExportClient({
     setPreview(null);
     setCommitMessage(null);
     setError(null);
-    if (!f) return;
-    // Filename guess is applied after preview; here we only store the file.
   }
 
   function runPreview() {
@@ -77,12 +71,6 @@ export function MaterialsImportExportClient({
       try {
         const result = await previewMaterialsImport(buildFormData());
         setPreview(result);
-        if (
-          result.filenameGuess &&
-          result.filenameGuess.scopeCode !== result.scopeCode
-        ) {
-          // Keep user selection; surface mismatch in UI via preview.filenameGuess
-        }
       } catch (e) {
         setPreview(null);
         setError(e instanceof Error ? e.message : "Preview failed");
@@ -112,52 +100,16 @@ export function MaterialsImportExportClient({
       ? `/api/materials/export?divisionId=${encodeURIComponent(divisionId)}&segment=${encodeURIComponent(segment)}`
       : null;
 
-  const scopeCode =
-    selectedDivision?.scopes.find((s) => s.segment === segment)?.scopeCode ??
-    "—";
-
   return (
     <div className="space-y-6">
       <section className="space-y-3 rounded-lg border border-border bg-card p-4">
         <h2 className="text-lg font-medium">Scope</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="block text-sm">
-            <span className="text-muted-foreground">Division</span>
-            <select
-              className="mt-1 w-full rounded border border-border px-2 py-2"
-              value={divisionId}
-              onChange={(e) => onDivisionChange(e.target.value)}
-            >
-              {divisions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.code})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="text-muted-foreground">Segment</span>
-            <select
-              className="mt-1 w-full rounded border border-border px-2 py-2"
-              value={segment}
-              onChange={(e) => {
-                setSegment(e.target.value as Segment);
-                setPreview(null);
-                setCommitMessage(null);
-              }}
-            >
-              {segmentOptions.map((s) => (
-                <option key={s.segment} value={s.segment}>
-                  {s.segment} ({s.scopeCode})
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="text-sm">
-            <div className="text-muted-foreground">Scope code</div>
-            <div className="mt-2 font-mono text-base">{scopeCode}</div>
-          </div>
-        </div>
+        <ScopeSelector
+          divisions={divisions}
+          divisionId={divisionId || divisions[0]?.id || ""}
+          segment={segment}
+          onChange={onScopeChange}
+        />
         {exportHref ? (
           <div>
             <Button asChild variant="outline">
@@ -167,7 +119,7 @@ export function MaterialsImportExportClient({
         ) : null}
       </section>
 
-      <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+<section className="space-y-3 rounded-lg border border-border bg-card p-4">
         <h2 className="text-lg font-medium">Import</h2>
         <p className="text-sm text-muted-foreground">
           Upload a catalog workbook. Preview shows creates/updates only — missing
@@ -333,3 +285,4 @@ function Stat({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+

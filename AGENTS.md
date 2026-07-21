@@ -20,8 +20,10 @@ Smoky Peak Services LLC is a multi-division contractor and short-term-rental ser
 
 Divisions as currently modeled in `src/config/company.ts` (the single source of truth for company/division/branding — edit only that file for those changes). **`company.divisions` lists operational divisions only** (Integrated Systems, Cabin Services). Smoky Peak Services LLC is the legal entity / brand, not a catalog or pricing scope — do not add it as a `Division` row for materials or labor rates.
 
-- **Integrated Systems** — low-voltage, access control, security, structured cabling.
-- **Cabin Services** — STR property maintenance and quick-turn support.
+- **Integrated Systems** — low-voltage, access control, security, structured cabling. Customer segments Commercial + Residential are **separate datasets** (`sharedCatalog: false`).
+- **Cabin Services** — STR property maintenance and quick-turn support. Customer segments STR + Residential share **one** catalog/rate dataset stored under `STR` (`sharedCatalog: true`, `storageSegment: "str"`). Scope codes `CS_STR` and `CS_RES` are both valid; both read/write the same rows via `resolveStorageScope`.
+
+**Scope pickers (prompt 13):** Always use shared [`ScopeSelector`](src/components/patterns/scope-selector.tsx) (Radix/Base UI `Select` in `src/components/ui/select.tsx`) driven by `company.ts` customer segments — never invent options from seeded rate rows. Show the resolved scope code; when the division is shared, show the shared-catalog note. Every catalog/labor/recurring query that takes a picker segment must call `resolveStorageScope` and use `storageSegment` in Prisma `where`.
 
 Two things described in `claude/project-context.md` are **not yet in code**: the **Trash Valet** division and the **STR Magic** marketplace integration. Don't build against them as if they exist — if a task implies one of them, flag it rather than inventing the missing piece.
 
@@ -146,7 +148,7 @@ Scoped round-trips live on each list page **and** `/materials/import-export`. Hu
 
 - Workbook: one sheet per domain name; category blocks = title row → header `description | unit | laborUnits | laborUnitNotes | stripeTaxCodeId | laborInstallTaxCodeId | laborServiceTaxCodeId` → items → blank separator. Empty categories are valid. Legacy files without tax columns leave item tax overrides untouched.
 - Item tax FKs: blank cell → set null; invalid id → flag, leave DB; do **not** write item `taxProfile` (stays null / inherit).
-- Scope code (e.g. `IS_COM`) from `company.divisions[].code` + segment; filename `catalog_{SCOPE}_{YYYY-MM-DD}.xlsx`.
+- Scope code (e.g. `IS_COM`, `CS_RES`) from `company.divisions[].code` + **customer** segment; filename `catalog_{SCOPE}_{YYYY-MM-DD}.xlsx`. Cabin Services files `CS_STR` / `CS_RES` both import/export the same storage segment (`STR`).
 - Matching: `normalizeName` / slugify. Upsert only; **never delete** rows absent from the file.
 - **Layout gate:** sheet with no category title→`description` header match is skipped. Zero matched sheets → “doesn't look like a materials catalog export” (blocks commit).
 - Flow: `previewMaterialsImport` → `commitMaterialsImport` (**admin / force_delete**, re-parse, `$transaction`).

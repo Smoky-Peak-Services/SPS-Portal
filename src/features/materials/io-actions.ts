@@ -17,7 +17,11 @@ import {
   type ExistingSnapshot,
   type ImportPlan,
 } from "./io";
-import { parseScopeFromFilename, scopeCodeFor } from "./scope-code";
+import { parseScopeFromFilename } from "./scope-code";
+import {
+  customerSegmentsForDivision,
+  resolveStorageScope,
+} from "./scope";
 
 const SEGMENTS = new Set<string>(["COMMERCIAL", "RESIDENTIAL", "STR"]);
 
@@ -164,7 +168,7 @@ async function buildPreview(
 ): Promise<MaterialsImportPreview> {
   const user = await requireMaterialsAccess();
   assertImportExport(user);
-  const { divisionId, segment } = scopeFromForm(formData);
+  const { divisionId, segment: customerSegment } = scopeFromForm(formData);
   const { buffer, filename } = await readFileBuffer(formData);
 
   const division = await prisma.division.findUnique({
@@ -177,22 +181,19 @@ async function buildPreview(
       "Catalog import requires an operational division (not the legal entity)",
     );
   }
-  if (!divisionAllowsSegment(division.segments, segment)) {
-    throw new Error(
-      `Segment ${segment} is not enabled for division ${division.name}`,
-    );
-  }
+
+  const resolved = resolveStorageScope(division.slug, customerSegment);
+  const storageSegment = resolved.storageSegment;
 
   const parsed = await parseWorkbookBuffer(buffer);
-  const existing = await loadExistingSnapshot(divisionId, segment);
+  const existing = await loadExistingSnapshot(divisionId, storageSegment);
   const plan = planImport(existing, parsed);
-  const code = divisionCode(division.slug);
 
   return {
     filename,
     divisionId,
-    segment,
-    scopeCode: scopeCodeFor(code, segment),
+    segment: customerSegment,
+    scopeCode: resolved.scopeCode,
     filenameGuess: parseScopeFromFilename(filename),
     summary: summarizePlan(plan),
     plan,
@@ -234,7 +235,16 @@ export async function commitMaterialsImport(
         "This file doesn't look like a materials catalog export.",
     );
   }
-  const { divisionId, segment, plan } = preview;
+  const { divisionId, segment: customerSegment, plan } = preview;
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { slug: true },
+  });
+  if (!division) throw new Error("Division not found");
+  const { storageSegment: segment } = resolveStorageScope(
+    division.slug,
+    customerSegment,
+  );
 
   const applied = await prisma.$transaction(async (tx) => {
     const unitIdByCode = new Map<string, string>();
@@ -417,21 +427,7 @@ export async function commitMaterialsImport(
   return { summary: preview.summary, applied };
 }
 
-/** Division.segments stores company.ts lowercase values; MaterialDomain uses Prisma Segment. */
-function companySegToPrisma(seg: string): Segment | null {
-  if (seg === "commercial" || seg === "COMMERCIAL") return "COMMERCIAL";
-  if (seg === "residential" || seg === "RESIDENTIAL") return "RESIDENTIAL";
-  if (seg === "str" || seg === "STR") return "STR";
-  return null;
-}
-
-function divisionAllowsSegment(
-  divisionSegments: string[],
-  segment: Segment,
-): boolean {
-  return divisionSegments.some((s) => companySegToPrisma(s) === segment);
-}
-
+/** Division.segments stores storage keys; customer scopes come from company.ts. */
 export async function listImportExportScopes() {
   const user = await requireMaterialsAccess();
   assertImportExport(user);
@@ -441,13 +437,16 @@ export async function listImportExportScopes() {
     select: { id: true, name: true, slug: true, segments: true },
   });
   return divisions.map((d) => {
-    const scopes = d.segments
-      .map((s) => companySegToPrisma(s))
-      .filter((s): s is Segment => s != null)
-      .map((segment) => ({
-        segment,
-        scopeCode: scopeCodeFor(divisionCode(d.slug), segment),
-      }));
+    const customerSegs = customerSegmentsForDivision(d.slug);
+    const scopes = customerSegs.map((customerSegment) => {
+      const resolved = resolveStorageScope(d.slug, customerSegment);
+      return {
+        segment: customerSegment,
+        storageSegment: resolved.storageSegment,
+        scopeCode: resolved.scopeCode,
+        shared: resolved.shared,
+      };
+    });
     return {
       ...d,
       code: divisionCode(d.slug),

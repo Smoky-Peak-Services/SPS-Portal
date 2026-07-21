@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { operationalDivisionSlugs } from "@/config/company";
+import { resolveStorageScope } from "@/features/materials/scope";
 import {
   assertCapability,
   requireArea,
@@ -50,17 +51,23 @@ export async function getLaborRatesForScope(
   segment: "COMMERCIAL" | "RESIDENTIAL" | "STR",
 ) {
   await requireArea("pricing");
-  const [config, positions, division] = await Promise.all([
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { id: true, name: true, slug: true },
+  });
+  if (!division) {
+    return { config: null, positions: [], division: null };
+  }
+  const { storageSegment } = resolveStorageScope(division.slug, segment);
+  const [config, positions] = await Promise.all([
     prisma.laborRateConfig.findUnique({
-      where: { divisionId_segment: { divisionId, segment } },
+      where: {
+        divisionId_segment: { divisionId, segment: storageSegment },
+      },
     }),
     prisma.laborPosition.findMany({
-      where: { divisionId, segment },
+      where: { divisionId, segment: storageSegment },
       orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
-    }),
-    prisma.division.findUnique({
-      where: { id: divisionId },
-      select: { id: true, name: true, slug: true },
     }),
   ]);
   return { config, positions, division };
@@ -125,16 +132,18 @@ export async function getComplexityForScope(
   segment: "COMMERCIAL" | "RESIDENTIAL" | "STR",
 ) {
   await requireArea("pricing");
-  const [multipliers, division] = await Promise.all([
-    prisma.complexityMultiplier.findMany({
-      where: { divisionId, segment },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    }),
-    prisma.division.findUnique({
-      where: { id: divisionId },
-      select: { id: true, name: true, slug: true },
-    }),
-  ]);
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { id: true, name: true, slug: true },
+  });
+  if (!division) {
+    return { multipliers: [], division: null };
+  }
+  const { storageSegment } = resolveStorageScope(division.slug, segment);
+  const multipliers = await prisma.complexityMultiplier.findMany({
+    where: { divisionId, segment: storageSegment },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
   return { multipliers, division };
 }
 
@@ -176,16 +185,18 @@ export async function getRecurringForScope(
   segment: "COMMERCIAL" | "RESIDENTIAL" | "STR",
 ) {
   await requireArea("pricing");
-  const [items, division] = await Promise.all([
-    prisma.recurringFeeItem.findMany({
-      where: { divisionId, segment },
-      orderBy: [{ sortOrder: "asc" }, { sku: "asc" }],
-    }),
-    prisma.division.findUnique({
-      where: { id: divisionId },
-      select: { id: true, name: true, slug: true },
-    }),
-  ]);
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { id: true, name: true, slug: true },
+  });
+  if (!division) {
+    return { items: [], division: null };
+  }
+  const { storageSegment } = resolveStorageScope(division.slug, segment);
+  const items = await prisma.recurringFeeItem.findMany({
+    where: { divisionId, segment: storageSegment },
+    orderBy: [{ sortOrder: "asc" }, { sku: "asc" }],
+  });
   return { items, division };
 }
 

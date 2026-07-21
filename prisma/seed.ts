@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { company } from "../src/config/company";
+import { company, storageSegmentsForDivision } from "../src/config/company";
 import { prisma } from "../src/lib/prisma";
 import { prismaPii } from "../src/lib/prisma-pii";
 import { seedStripeTaxCodes } from "../scripts/seed-stripe-tax-codes";
@@ -67,15 +67,16 @@ async function ensureAdminMemberships(userId: string) {
 async function main() {
   console.log("Seeding divisions…");
   for (const d of company.divisions) {
+    const segments = storageSegmentsForDivision(d);
     const div = await prisma.division.upsert({
       where: { slug: d.slug },
-      create: { slug: d.slug, name: d.name, segments: d.segments },
-      update: { name: d.name, segments: d.segments },
+      create: { slug: d.slug, name: d.name, segments },
+      update: { name: d.name, segments },
     });
     await prismaPii.division.upsert({
       where: { id: div.id },
-      create: { id: div.id, slug: d.slug, name: d.name, segments: d.segments },
-      update: { slug: d.slug, name: d.name, segments: d.segments },
+      create: { id: div.id, slug: d.slug, name: d.name, segments },
+      update: { slug: d.slug, name: d.name, segments },
     });
     console.log(`  ✓ ${d.slug}`);
   }

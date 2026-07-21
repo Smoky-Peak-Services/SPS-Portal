@@ -14,9 +14,9 @@ alwaysApply: true
   - `schemas.ts` — Zod schemas (Zod 4) for input validation, shared between the action and any client form.
   - `components/` — feature-specific UI.
 - `src/lib/` — infra clients and cross-cutting helpers: `prisma.ts` (ops DB client), `prisma-pii.ts` (PII DB client), `auth.ts` (Better Auth config), `session.ts` (session + permission helpers), `device-surface.ts` / `get-server-surface.ts` / `require-desktop.ts` (desktop vs. mobile routing; `/materials`, `/pricing`, `/settings` are desktop-only).
-- `src/config/` — `company.ts` (company/division/feature-flag source of truth) and `permissions.ts` (roles + area access rules; includes `materials` and `pricing`). Nav: Operations = Dashboard + Catalog + Rates (`src/config/nav.ts`); section chrome via `SectionTabs` in `materials/layout.tsx` and `pricing/layout.tsx`.
+- `src/config/` — `company.ts` (company/division/feature-flag source of truth; `sharedCatalog` + `storageSegment` for Cabin Services) and `permissions.ts` (roles + area access rules; includes `materials` and `pricing`). Nav: Operations = Dashboard + Catalog + Rates (`src/config/nav.ts`); section chrome via `SectionTabs` in `materials/layout.tsx` and `pricing/layout.tsx`. Scope pickers: `ScopeSelector` + `resolveStorageScope` (`src/features/materials/scope.ts`).
 - `src/proxy.ts` — the edge auth gate (this codebase's equivalent of `middleware.ts`): redirects unauthenticated requests to `/sign-in`, restricts `/api/v1/leads` to POST. Update `PUBLIC_PREFIXES` here when adding a new unauthenticated route. Authenticated APIs such as `/api/materials/export` stay off that list.
-- `src/components/ui/` — shared UI primitives (shadcn/Radix style).
-- `src/components/patterns/` — `PageHeader`, `Panel`, `DataTableShell`, `SectionTabs`, etc. Portal content width is one `max-w-7xl` column in `PortalShell`.
+- `src/components/ui/` — shared UI primitives (shadcn/Radix/Base UI style), including accessible `select.tsx` for scope dropdowns.
+- `src/components/patterns/` — `PageHeader`, `Panel`, `DataTableShell`, `SectionTabs`, `ScopeSelector`, etc. Portal content width is one `max-w-7xl` column in `PortalShell`.
 
 When `claude/ARCHITECTURE.md` and the actual code disagree, follow the code. If a change would require reconciling the two, say so to the user rather than silently reintroducing the tRPC/services plan.
