@@ -113,10 +113,10 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions             Session[]
-  accounts             Account[]
-  memberships          DivisionMembership[]
-  capabilityOverrides  UserCapabilityOverride[]
+  sessions            Session[]
+  accounts            Account[]
+  memberships         DivisionMembership[]
+  capabilityOverrides UserCapabilityOverride[]
 
   @@map("user")
 }
@@ -175,14 +175,14 @@ model Division {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships             DivisionMembership[]
-  materialDomains         MaterialDomain[]
-  materialAttributes      MaterialAttribute[]
-  laborRateConfigs        LaborRateConfig[]
-  laborPositions          LaborPosition[]
-  complexityMultipliers   ComplexityMultiplier[]
-  recurringFeeItems       RecurringFeeItem[]
-  servicePlanRates        ServicePlanRate[]
+  memberships           DivisionMembership[]
+  materialDomains       MaterialDomain[]
+  materialAttributes    MaterialAttribute[]
+  laborRateConfigs      LaborRateConfig[]
+  laborPositions        LaborPosition[]
+  complexityMultipliers ComplexityMultiplier[]
+  recurringFeeItems     RecurringFeeItem[]
+  servicePlanRates      ServicePlanRate[]
 
   @@map("division")
 }
@@ -427,20 +427,20 @@ model MaterialItem {
 
 /// Stripe product tax codes (reference data). Seeded from product_tax_codes.csv.
 model StripeTaxCode {
-  id                               String   @id
-  name                             String
-  description                      String   @db.Text
-  type                             String
-  performanceLocationRequirement   String
-  createdAt                        DateTime @default(now())
-  updatedAt                        DateTime @updatedAt
+  id                             String   @id
+  name                           String
+  description                    String   @db.Text
+  type                           String
+  performanceLocationRequirement String
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
 
-  categoryMaterial     MaterialCategory[]     @relation("CategoryMaterialTaxCode")
-  categoryLaborInstall MaterialCategory[]     @relation("CategoryLaborInstallTaxCode")
-  categoryLaborService MaterialCategory[]     @relation("CategoryLaborServiceTaxCode")
-  itemMaterial         MaterialItem[]         @relation("ItemMaterialTaxCode")
-  itemLaborInstall     MaterialItem[]         @relation("ItemLaborInstallTaxCode")
-  itemLaborService     MaterialItem[]         @relation("ItemLaborServiceTaxCode")
+  categoryMaterial     MaterialCategory[]    @relation("CategoryMaterialTaxCode")
+  categoryLaborInstall MaterialCategory[]    @relation("CategoryLaborInstallTaxCode")
+  categoryLaborService MaterialCategory[]    @relation("CategoryLaborServiceTaxCode")
+  itemMaterial         MaterialItem[]        @relation("ItemMaterialTaxCode")
+  itemLaborInstall     MaterialItem[]        @relation("ItemLaborInstallTaxCode")
+  itemLaborService     MaterialItem[]        @relation("ItemLaborServiceTaxCode")
   laborDefaults        LaborTaxCodeDefault[]
 
   @@map("stripe_tax_code")
@@ -483,8 +483,9 @@ model MaterialItemAttributeValue {
 
 // ---------- Pricing catalog (labor rates — prompt 09) ----------
 
-/// Global multipliers for a division+segment scope. Stored rates on LaborPosition
-/// are authoritative at runtime; these document derivation / recomputeRates.
+/// Global multipliers for a division+segment scope. Base rates + these
+/// multipliers are the source of truth (prompt 16): saving them recomputes and
+/// persists every LaborPosition's derived columns via recomputeRates.
 model LaborRateConfig {
   id                        String   @id @default(cuid())
   divisionId                String
@@ -504,27 +505,31 @@ model LaborRateConfig {
   @@map("labor_rate_config")
 }
 
-/// Per-role sell/cost rates for a division+segment. context=INSTALL → quoted blend;
+/// Per-role rates for a division+segment. context=INSTALL → quoted blend;
 /// context=SERVICE → service-ticket engine only (never in quoted distribution).
+/// baseHourlyRate is the only manually-entered money column (today an average
+/// of what the role is paid; later derived from employee profiles). Cost/Std/
+/// AH/Holiday/Discounted are a materialized cache of recomputeRates(base,
+/// config) — regenerated on every base/multiplier save, never hand-edited.
 model LaborPosition {
-  id                   String      @id @default(cuid())
-  divisionId           String
-  division             Division    @relation(fields: [divisionId], references: [id])
-  segment              Segment
-  title                String
-  sku                  String
-  baseHourlyRate       Decimal     @db.Decimal(12, 2)
-  actualCostOfLabor    Decimal     @db.Decimal(12, 2)
-  standardBillingRate  Decimal     @db.Decimal(12, 2)
-  afterHoursRate       Decimal     @db.Decimal(12, 2)
-  holidayRate          Decimal     @db.Decimal(12, 2)
+  id                  String      @id @default(cuid())
+  divisionId          String
+  division            Division    @relation(fields: [divisionId], references: [id])
+  segment             Segment
+  title               String
+  sku                 String
+  baseHourlyRate      Decimal     @db.Decimal(12, 2)
+  actualCostOfLabor   Decimal     @db.Decimal(12, 2)
+  standardBillingRate Decimal     @db.Decimal(12, 2)
+  afterHoursRate      Decimal     @db.Decimal(12, 2)
+  holidayRate         Decimal     @db.Decimal(12, 2)
   /// Cabin Services only — null for scopes without a discounted rate column.
-  discountedRate       Decimal?    @db.Decimal(12, 2)
-  quotedAllocationPct  Decimal     @db.Decimal(5, 2)
-  context              WorkContext
-  sortOrder            Int         @default(0)
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  discountedRate      Decimal?    @db.Decimal(12, 2)
+  quotedAllocationPct Decimal     @db.Decimal(5, 2)
+  context             WorkContext
+  sortOrder           Int         @default(0)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   @@unique([divisionId, segment, sku])
   @@index([divisionId])
@@ -564,26 +569,26 @@ model ComplexityMultiplier {
 /// PERCENT rows (SVM) store rates as decimals (0.1560); CURRENCY as dollars.
 /// Bank of Hours dollar columns are placeholders — sell rate is derived live from Tech 1&2.
 model RecurringFeeItem {
-  id                 String            @id @default(cuid())
+  id                 String           @id @default(cuid())
   divisionId         String
-  division           Division          @relation(fields: [divisionId], references: [id])
+  division           Division         @relation(fields: [divisionId], references: [id])
   segment            Segment
   sku                String
   description        String
   unit               RecurringFeeUnit
-  baseCost           Decimal           @db.Decimal(12, 4)
-  directPurchaseRate Decimal           @db.Decimal(12, 4)
-  smaBundledRate     Decimal           @db.Decimal(12, 4)
+  baseCost           Decimal          @db.Decimal(12, 4)
+  directPurchaseRate Decimal          @db.Decimal(12, 4)
+  smaBundledRate     Decimal          @db.Decimal(12, 4)
   billingCycle       BillingCycle
   feeType            RecurringFeeType
   valueType          RateValueType
-  systemValueMin     Decimal?          @db.Decimal(12, 2)
-  systemValueMax     Decimal?          @db.Decimal(12, 2)
-  notes              String            @db.Text
-  isActive           Boolean           @default(true)
-  sortOrder          Int               @default(0)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  systemValueMin     Decimal?         @db.Decimal(12, 2)
+  systemValueMax     Decimal?         @db.Decimal(12, 2)
+  notes              String           @db.Text
+  isActive           Boolean          @default(true)
+  sortOrder          Int              @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@unique([divisionId, segment, sku])
   @@index([divisionId])

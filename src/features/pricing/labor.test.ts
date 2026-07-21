@@ -7,8 +7,12 @@ import {
   IS_COM_LABOR_POSITIONS,
   SERVICE_TECH_SKU,
 } from "./is-com-rates";
-import { IS_RES_LABOR_POSITIONS } from "./is-res-rates";
+import {
+  IS_RES_LABOR_MULTIPLIERS,
+  IS_RES_LABOR_POSITIONS,
+} from "./is-res-rates";
 import { distributeQuotedLabor } from "./quoted-labor";
+import { roundMoney } from "./rate-for";
 import { recomputeRates } from "./recompute";
 import { quotedAllocationSchema, laborRateTypeSchema } from "./schemas";
 import { calculateServiceTicketLabor } from "./service-labor";
@@ -41,7 +45,46 @@ describe("recomputeRates", () => {
       assert.equal(derived.standardBillingRate, p.standardBillingRate, p.sku);
       assert.equal(derived.afterHoursRate, p.afterHoursRate, p.sku);
       assert.equal(derived.holidayRate, p.holidayRate, p.sku);
+      // No discounted multiplier for IS-COM → derived discounted is null.
+      assert.equal(derived.discountedRate, null, p.sku);
     }
+  });
+
+  it("IS-RES Tech 1&2: 18 → 33.30 / 46.62 / 67.60 / 81.59 (prompt 16 checklist)", () => {
+    const derived = recomputeRates(IS_RES_LABOR_MULTIPLIERS, 18);
+    assert.equal(derived.actualCostOfLabor, 33.3);
+    assert.equal(derived.standardBillingRate, 46.62);
+    assert.equal(derived.afterHoursRate, 67.6);
+    assert.equal(derived.holidayRate, 81.59);
+    assert.equal(derived.discountedRate, null);
+  });
+
+  it("derives Cabin discounted from the standard chain when the multiplier is set", () => {
+    for (const p of CABIN_LABOR_POSITIONS) {
+      const derived = recomputeRates(CABIN_LABOR_MULTIPLIERS, p.baseHourlyRate);
+      assert.notEqual(derived.discountedRate, null, p.sku);
+      // Seed literals keep extra sheet digits (e.g. 41.958); the shared
+      // function cent-rounds the same chain.
+      assert.equal(
+        derived.discountedRate,
+        roundMoney(p.discountedRate!),
+        p.sku,
+      );
+      assert.equal(derived.actualCostOfLabor, p.actualCostOfLabor, p.sku);
+      assert.equal(derived.standardBillingRate, p.standardBillingRate, p.sku);
+    }
+  });
+
+  it("standard-billing multiplier change cascades to Std/AH/Hol/Disc", () => {
+    const before = recomputeRates(IS_RES_LABOR_MULTIPLIERS, 18);
+    const after = recomputeRates(
+      { ...IS_RES_LABOR_MULTIPLIERS, standardBillingMultiplier: 1.3 },
+      18,
+    );
+    assert.equal(after.actualCostOfLabor, before.actualCostOfLabor);
+    assert.equal(after.standardBillingRate, 43.29); // 33.30 × 1.30
+    assert.ok(after.afterHoursRate < before.afterHoursRate);
+    assert.ok(after.holidayRate < before.holidayRate);
   });
 });
 

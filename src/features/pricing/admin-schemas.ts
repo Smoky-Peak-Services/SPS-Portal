@@ -9,15 +9,6 @@ const optionalNullablePositive = z.preprocess(
   z.union([z.null(), z.coerce.number().positive()]).optional(),
 );
 
-const optionalNullableNonnegative = z.preprocess(
-  (v) => {
-    if (v === undefined) return undefined;
-    if (v === null || v === "") return null;
-    return v;
-  },
-  z.union([z.null(), z.coerce.number().nonnegative()]).optional(),
-);
-
 export const updateLaborRateConfigSchema = z.object({
   id: z.string().min(1),
   burdenMultiplier: z.coerce.number().positive(),
@@ -27,15 +18,14 @@ export const updateLaborRateConfigSchema = z.object({
   discountedMultiplier: optionalNullablePositive,
 });
 
+/**
+ * Base is the only editable money input (prompt 16) — Cost/Std/AH/Holiday/
+ * Discounted are derived via recomputeRates on save and cannot be submitted.
+ */
 export const updateLaborPositionSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(120),
   baseHourlyRate: z.coerce.number().nonnegative(),
-  actualCostOfLabor: z.coerce.number().nonnegative(),
-  standardBillingRate: z.coerce.number().nonnegative(),
-  afterHoursRate: z.coerce.number().nonnegative(),
-  holidayRate: z.coerce.number().nonnegative(),
-  discountedRate: optionalNullableNonnegative,
   quotedAllocationPct: z.coerce.number().min(0).max(100),
   sortOrder: z.coerce.number().int(),
 });

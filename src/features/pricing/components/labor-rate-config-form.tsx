@@ -42,7 +42,7 @@ export function LaborRateConfigForm({
           holidayMultiplier: fd.get("holidayMultiplier"),
           discountedMultiplier: fd.get("discountedMultiplier"),
         });
-        setMessage("Config saved.");
+        setMessage("Saved — all positions in this scope recomputed.");
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Save failed");

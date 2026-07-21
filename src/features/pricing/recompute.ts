@@ -1,10 +1,17 @@
 /**
- * Derivation helper for labor rates (prompt 09).
- * Stored LaborPosition columns are authoritative at runtime;
- * this reproduces sheet math from base × config multipliers.
+ * The one definition of the labor rate chain (prompts 09 + 16).
+ *
+ * Base + the scope's LaborRateConfig multipliers are the source of truth;
+ * the stored Cost/Std/AH/Holiday/Discounted columns on LaborPosition are a
+ * materialized cache regenerated through this function on every base or
+ * multiplier save — never hand-edited, never defined anywhere else.
+ *
+ * Base is a manual per-position average today; later it becomes the computed
+ * average of employee pay rates for the role (same input slot, new source).
  *
  * Intermediate standard billing is kept unrounded when deriving after-hours /
- * holiday so Excel-style chain matches the sheet (e.g. Tech1 holiday 110.14).
+ * holiday / discounted so the Excel-style chain matches the sheets
+ * (e.g. IS-COM Tech1 holiday 110.14).
  */
 import { roundMoney } from "./rate-for";
 
@@ -13,6 +20,8 @@ export type LaborRateMultipliers = {
   standardBillingMultiplier: number;
   afterHoursMultiplier: number;
   holidayMultiplier: number;
+  /** Cabin only (0.90) — omit/null for scopes without a discounted rate. */
+  discountedMultiplier?: number | null;
 };
 
 export type RecomputedRates = {
@@ -20,13 +29,15 @@ export type RecomputedRates = {
   standardBillingRate: number;
   afterHoursRate: number;
   holidayRate: number;
+  /** null when the scope has no discountedMultiplier. */
+  discountedRate: number | null;
 };
 
 /**
  * actualCost = round(base × burden)
  * standardRaw = cost × standardBilling (unrounded)
  * standard = round(standardRaw)
- * afterHours / holiday = round(standardRaw × respective multipliers)
+ * afterHours / holiday / discounted = round(standardRaw × respective multipliers)
  */
 export function recomputeRates(
   config: LaborRateMultipliers,
@@ -39,10 +50,15 @@ export function recomputeRates(
   const standardBillingRate = roundMoney(standardRaw);
   const afterHoursRate = roundMoney(standardRaw * config.afterHoursMultiplier);
   const holidayRate = roundMoney(standardRaw * config.holidayMultiplier);
+  const discountedRate =
+    config.discountedMultiplier != null
+      ? roundMoney(standardRaw * config.discountedMultiplier)
+      : null;
   return {
     actualCostOfLabor,
     standardBillingRate,
     afterHoursRate,
     holidayRate,
+    discountedRate,
   };
 }

@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { resolveStorageScope } from "@/features/materials/scope";
 import { assertCapability, requireArea, type SessionUser } from "@/lib/session";
+import { recomputeRates, type LaborRateMultipliers } from "./recompute";
 import {
   updateComplexityMultiplierSchema,
   updateLaborPositionSchema,
@@ -56,11 +57,53 @@ export async function getLaborRatesForScope(
   return { config, positions, division };
 }
 
+/**
+ * Base + multipliers are authoritative (prompt 16): the derived rate columns
+ * on LaborPosition are a materialized cache written only through these two
+ * helpers, always from recomputeRates — never from client input.
+ */
+function multipliersFromConfig(config: {
+  burdenMultiplier: Prisma.Decimal;
+  standardBillingMultiplier: Prisma.Decimal;
+  afterHoursMultiplier: Prisma.Decimal;
+  holidayMultiplier: Prisma.Decimal;
+  discountedMultiplier: Prisma.Decimal | null;
+}): LaborRateMultipliers {
+  return {
+    burdenMultiplier: Number(config.burdenMultiplier),
+    standardBillingMultiplier: Number(config.standardBillingMultiplier),
+    afterHoursMultiplier: Number(config.afterHoursMultiplier),
+    holidayMultiplier: Number(config.holidayMultiplier),
+    discountedMultiplier:
+      config.discountedMultiplier == null
+        ? null
+        : Number(config.discountedMultiplier),
+  };
+}
+
+function derivedRateData(
+  multipliers: LaborRateMultipliers,
+  baseHourlyRate: number,
+) {
+  const derived = recomputeRates(multipliers, baseHourlyRate);
+  return {
+    actualCostOfLabor: new Prisma.Decimal(derived.actualCostOfLabor),
+    standardBillingRate: new Prisma.Decimal(derived.standardBillingRate),
+    afterHoursRate: new Prisma.Decimal(derived.afterHoursRate),
+    holidayRate: new Prisma.Decimal(derived.holidayRate),
+    discountedRate:
+      derived.discountedRate == null
+        ? null
+        : new Prisma.Decimal(derived.discountedRate),
+  };
+}
+
 export async function updateLaborRateConfig(raw: unknown) {
   const user = await requireArea("pricing");
   assertPricingWrite(user);
   const data = updateLaborRateConfigSchema.parse(raw);
-  await prisma.laborRateConfig.update({
+
+  const config = await prisma.laborRateConfig.update({
     where: { id: data.id },
     data: {
       burdenMultiplier: new Prisma.Decimal(data.burdenMultiplier),
@@ -79,6 +122,23 @@ export async function updateLaborRateConfig(raw: unknown) {
         : {}),
     },
   });
+
+  // Multipliers drive every position in the scope: recompute and persist the
+  // derived columns for all of them (other scopes untouched).
+  const multipliers = multipliersFromConfig(config);
+  const positions = await prisma.laborPosition.findMany({
+    where: { divisionId: config.divisionId, segment: config.segment },
+    select: { id: true, baseHourlyRate: true },
+  });
+  await prisma.$transaction(
+    positions.map((p) =>
+      prisma.laborPosition.update({
+        where: { id: p.id },
+        data: derivedRateData(multipliers, Number(p.baseHourlyRate)),
+      }),
+    ),
+  );
+
   revalidateLaborRates();
   return { ok: true as const };
 }
@@ -87,23 +147,34 @@ export async function updateLaborPosition(raw: unknown) {
   const user = await requireArea("pricing");
   assertPricingWrite(user);
   const data = updateLaborPositionSchema.parse(raw);
+
+  const position = await prisma.laborPosition.findUnique({
+    where: { id: data.id },
+    select: { divisionId: true, segment: true },
+  });
+  if (!position) {
+    throw new Error("Position not found");
+  }
+  const config = await prisma.laborRateConfig.findUnique({
+    where: {
+      divisionId_segment: {
+        divisionId: position.divisionId,
+        segment: position.segment,
+      },
+    },
+  });
+  if (!config) {
+    throw new Error(
+      "No labor rate config for this scope — seed it before editing positions",
+    );
+  }
+
   await prisma.laborPosition.update({
     where: { id: data.id },
     data: {
       title: data.title,
       baseHourlyRate: new Prisma.Decimal(data.baseHourlyRate),
-      actualCostOfLabor: new Prisma.Decimal(data.actualCostOfLabor),
-      standardBillingRate: new Prisma.Decimal(data.standardBillingRate),
-      afterHoursRate: new Prisma.Decimal(data.afterHoursRate),
-      holidayRate: new Prisma.Decimal(data.holidayRate),
-      ...(data.discountedRate !== undefined
-        ? {
-            discountedRate:
-              data.discountedRate === null
-                ? null
-                : new Prisma.Decimal(data.discountedRate),
-          }
-        : {}),
+      ...derivedRateData(multipliersFromConfig(config), data.baseHourlyRate),
       quotedAllocationPct: new Prisma.Decimal(data.quotedAllocationPct),
       sortOrder: data.sortOrder,
     },

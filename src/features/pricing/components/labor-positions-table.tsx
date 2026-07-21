@@ -4,6 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { WorkContext } from "@prisma/client";
 import { updateLaborPosition } from "@/features/pricing/actions";
+import {
+  recomputeRates,
+  type LaborRateMultipliers,
+} from "@/features/pricing/recompute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -22,15 +26,22 @@ type PositionRow = {
   sortOrder: number;
 };
 
+/**
+ * Base is the only editable rate (prompt 16). Cost/Std/AH/Hol/Disc are
+ * derived from Base × the scope multipliers via the shared recomputeRates and
+ * shown as a live preview while editing; save persists the same values.
+ */
 export function LaborPositionsTable({
   positions,
+  multipliers,
   canWrite,
 }: {
   positions: PositionRow[];
+  multipliers: LaborRateMultipliers;
   canWrite: boolean;
 }) {
-  // Discounted rate is a Cabin Services sheet column — only show when present.
-  const hasDiscounted = positions.some((p) => p.discountedRate != null);
+  // Discounted column follows the scope's multiplier (Cabin only).
+  const hasDiscounted = multipliers.discountedMultiplier != null;
 
   return (
     <table className="w-full text-left text-sm">
@@ -54,6 +65,7 @@ export function LaborPositionsTable({
           <PositionEditRow
             key={p.id}
             position={p}
+            multipliers={multipliers}
             canWrite={canWrite}
             hasDiscounted={hasDiscounted}
           />
@@ -65,16 +77,21 @@ export function LaborPositionsTable({
 
 function PositionEditRow({
   position,
+  multipliers,
   canWrite,
   hasDiscounted,
 }: {
   position: PositionRow;
+  multipliers: LaborRateMultipliers;
   canWrite: boolean;
   hasDiscounted: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [baseInput, setBaseInput] = useState(
+    position.baseHourlyRate.toString(),
+  );
 
   const colCount = 9 + (hasDiscounted ? 1 : 0) + (canWrite ? 1 : 0);
 
@@ -89,13 +106,6 @@ function PositionEditRow({
           id: position.id,
           title: fd.get("title"),
           baseHourlyRate: fd.get("baseHourlyRate"),
-          actualCostOfLabor: fd.get("actualCostOfLabor"),
-          standardBillingRate: fd.get("standardBillingRate"),
-          afterHoursRate: fd.get("afterHoursRate"),
-          holidayRate: fd.get("holidayRate"),
-          ...(hasDiscounted
-            ? { discountedRate: fd.get("discountedRate") }
-            : {}),
           quotedAllocationPct: fd.get("quotedAllocationPct"),
           sortOrder: fd.get("sortOrder"),
         });
@@ -132,18 +142,32 @@ function PositionEditRow({
     );
   }
 
-  const rateFields = [
-    ["baseHourlyRate", position.baseHourlyRate.toString()],
-    ["actualCostOfLabor", position.actualCostOfLabor.toString()],
-    ["standardBillingRate", position.standardBillingRate.toString()],
-    ["afterHoursRate", position.afterHoursRate.toString()],
-    ["holidayRate", position.holidayRate.toString()],
-  ] as const;
+  // Live preview of the derived chain from the current Base input; matches
+  // exactly what save will persist (same shared function).
+  const baseValue = Number(baseInput);
+  const preview = Number.isFinite(baseValue)
+    ? recomputeRates(multipliers, baseValue)
+    : null;
+  const baseChanged = baseInput !== position.baseHourlyRate.toString();
 
-  const rateColCount = 6 + (hasDiscounted ? 1 : 0);
+  const derivedCells: (string | null)[] = [
+    preview ? preview.actualCostOfLabor.toFixed(2) : null,
+    preview ? preview.standardBillingRate.toFixed(2) : null,
+    preview ? preview.afterHoursRate.toFixed(2) : null,
+    preview ? preview.holidayRate.toFixed(2) : null,
+    ...(hasDiscounted
+      ? [
+          preview?.discountedRate != null
+            ? preview.discountedRate.toFixed(2)
+            : null,
+        ]
+      : []),
+  ];
+
+  const rateColCount = 5 + (hasDiscounted ? 1 : 0);
 
   return (
-    <tr className="border-b last:border-0 align-top">
+    <tr className="border-b align-top last:border-0">
       <td className="px-3 py-2" colSpan={colCount}>
         <form
           onSubmit={onSubmit}
@@ -166,27 +190,28 @@ function PositionEditRow({
           <div className="text-xs text-muted-foreground">
             {position.context}
           </div>
-          {rateFields.map(([name, value]) => (
-            <Input
-              key={name}
-              name={name}
-              type="number"
-              step="0.01"
-              defaultValue={value}
-              disabled={pending}
-              required
-            />
+          <Input
+            name="baseHourlyRate"
+            type="number"
+            step="0.01"
+            min="0"
+            value={baseInput}
+            onChange={(e) => setBaseInput(e.target.value)}
+            disabled={pending}
+            aria-label="Base hourly rate"
+            required
+          />
+          {derivedCells.map((value, i) => (
+            <div
+              key={i}
+              className={`flex h-9 items-center text-sm tabular-nums ${
+                baseChanged ? "text-primary" : "text-muted-foreground"
+              }`}
+              title="Derived from Base × scope multipliers"
+            >
+              {value ?? "—"}
+            </div>
           ))}
-          {hasDiscounted ? (
-            <Input
-              name="discountedRate"
-              type="number"
-              step="0.01"
-              defaultValue={position.discountedRate?.toString() ?? ""}
-              disabled={pending}
-              placeholder="—"
-            />
-          ) : null}
           <Input
             name="quotedAllocationPct"
             type="number"
