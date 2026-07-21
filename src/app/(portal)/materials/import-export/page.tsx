@@ -2,14 +2,20 @@ import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { canForceDelete } from "@/features/materials/authz";
 import { listImportExportScopes } from "@/features/materials/io-actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { MaterialsImportExportClient } from "@/features/materials/components/materials-import-export-client";
 import { MaterialsAttributeListsIoClient } from "@/features/materials/components/materials-attribute-lists-io-client";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Panel } from "@/components/patterns/panel";
 
-export default async function MaterialsImportExportPage() {
+export default async function MaterialsImportExportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ divisionId?: string; segment?: string }>;
+}) {
   await requireDesktopSurface("/materials/import-export");
   const user = await requireArea("materials");
+  const scope = await getActiveScope(await searchParams);
   const divisions = await listImportExportScopes();
   const isAdmin = canForceDelete(user);
 
@@ -29,6 +35,8 @@ export default async function MaterialsImportExportPage() {
           <MaterialsImportExportClient
             divisions={divisions}
             isAdmin={isAdmin}
+            defaultDivisionId={scope.divisionId}
+            defaultSegment={scope.segment}
           />
         )}
       </Panel>
@@ -37,6 +45,8 @@ export default async function MaterialsImportExportPage() {
         <MaterialsAttributeListsIoClient
           isAdmin={isAdmin}
           divisions={divisions}
+          defaultDivisionId={scope.divisionId}
+          defaultSegment={scope.segment}
         />
       </Panel>
     </div>

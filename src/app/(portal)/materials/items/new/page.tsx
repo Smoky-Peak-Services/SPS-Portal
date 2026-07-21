@@ -6,6 +6,7 @@ import {
   listStripeTaxCodes,
   listUnits,
 } from "@/features/materials/actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { ItemForm } from "@/features/materials/components/item-form";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Panel } from "@/components/patterns/panel";
@@ -14,12 +15,19 @@ import { Button } from "@/components/ui/button";
 export default async function NewItemPage({
   searchParams,
 }: {
-  searchParams: Promise<{ categoryId?: string }>;
+  searchParams: Promise<{
+    categoryId?: string;
+    divisionId?: string;
+    segment?: string;
+  }>;
 }) {
   await requireDesktopSurface("/materials/items/new");
-  const { categoryId } = await searchParams;
+  const params = await searchParams;
+  const { categoryId } = params;
+  const scope = await getActiveScope(params);
+  // Category picker only offers the active scope's categories.
   const [categories, units, taxCodes, category] = await Promise.all([
-    listCategories(),
+    listCategories(scope),
     listUnits(),
     listStripeTaxCodes(),
     categoryId ? getCategory(categoryId) : Promise.resolve(null),

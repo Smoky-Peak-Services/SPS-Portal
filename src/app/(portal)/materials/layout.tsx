@@ -1,9 +1,16 @@
+import { Suspense } from "react";
 import {
   SectionTabs,
   type SectionTab,
 } from "@/components/patterns/section-tabs";
 import { requireUser } from "@/lib/session";
 import { userCan } from "@/config/permissions";
+import { resolveActiveScope } from "@/features/scope/active-scope";
+import {
+  listScopeDivisions,
+  readActiveScopeCookie,
+} from "@/features/scope/get-active-scope";
+import { ActiveScopeBar } from "@/features/scope/components/active-scope-bar";
 
 export default async function MaterialsLayout({
   children,
@@ -22,9 +29,24 @@ export default async function MaterialsLayout({
   }
   tabs.push({ label: "Consumables", disabled: true });
 
+  const [divisions, cookie] = await Promise.all([
+    listScopeDivisions(),
+    readActiveScopeCookie(),
+  ]);
+  const scope = resolveActiveScope({ divisions, cookie });
+
   return (
     <div className="space-y-4">
       <SectionTabs tabs={tabs} />
+      {scope ? (
+        <Suspense fallback={null}>
+          <ActiveScopeBar
+            divisions={divisions}
+            initialDivisionSlug={scope.divisionSlug}
+            initialSegment={scope.segment}
+          />
+        </Suspense>
+      ) : null}
       {children}
     </div>
   );

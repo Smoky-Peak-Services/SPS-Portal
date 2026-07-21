@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { listDivisionsForMaterials } from "@/features/materials/actions";
-import { resolvePageScope } from "@/features/pricing/scope-page";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { AttributeForm } from "@/features/materials/components/attribute-form";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Panel } from "@/components/patterns/panel";
@@ -15,14 +15,8 @@ export default async function NewAttributePage({
 }) {
   await requireDesktopSurface("/materials/attributes/new");
   await requireArea("materials");
-  const params = await searchParams;
-
+  const { divisionId, segment } = await getActiveScope(await searchParams);
   const divisions = await listDivisionsForMaterials();
-  const { divisionId, segment } = resolvePageScope({
-    divisionId: params.divisionId,
-    segment: params.segment,
-    divisions,
-  });
 
   return (
     <div className="space-y-6">

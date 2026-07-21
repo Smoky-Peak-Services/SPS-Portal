@@ -3,11 +3,8 @@ import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { canForceDelete } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
-import {
-  listAttributes,
-  listDivisionsForMaterials,
-} from "@/features/materials/actions";
-import { resolvePageScope } from "@/features/pricing/scope-page";
+import { listAttributes } from "@/features/materials/actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { AttributeDeleteCell } from "@/features/materials/components/attribute-delete-cell";
 import { AttributeAssignmentIoToolbar } from "@/features/materials/components/attribute-assignment-io-toolbar";
 import { MaterialsAttributeListsIoClient } from "@/features/materials/components/materials-attribute-lists-io-client";
@@ -15,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
 import { Panel } from "@/components/patterns/panel";
-import { ScopeFilterBar } from "@/components/patterns/scope-filter-bar";
+import { EmptyState } from "@/components/patterns/empty-state";
 
 export default async function AttributesPage({
   searchParams,
@@ -24,14 +21,8 @@ export default async function AttributesPage({
 }) {
   await requireDesktopSurface("/materials/attributes");
   const user = await requireArea("materials");
-  const params = await searchParams;
-
-  const divisions = await listDivisionsForMaterials();
-  const { divisionId, segment } = resolvePageScope({
-    divisionId: params.divisionId,
-    segment: params.segment,
-    divisions,
-  });
+  const scope = await getActiveScope(await searchParams);
+  const { divisionId, segment } = scope;
 
   const attributes = await listAttributes({ divisionId, segment });
   const isAdmin = canForceDelete(user);
@@ -52,11 +43,6 @@ export default async function AttributesPage({
           </Button>
         }
       />
-      <ScopeFilterBar
-        divisions={divisions}
-        divisionId={divisionId}
-        segment={segment}
-      />
       {canIo ? (
         <Panel title="Attribute Excel">
           <div className="space-y-3">
@@ -73,30 +59,33 @@ export default async function AttributesPage({
           </div>
         </Panel>
       ) : null}
-      <DataTableShell>
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Slug</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Options</th>
-              <th className="px-4 py-3">Assignments</th>
-              <th className="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {attributes.length === 0 ? (
+      {attributes.length === 0 ? (
+        <EmptyState
+          title={`No attributes in the ${scope.divisionName} · ${segment} catalog yet.`}
+          description="Attributes are per-scope. Create one here or import an attribute-lists workbook for this scope."
+          action={
+            <Button asChild>
+              <Link href={`/materials/attributes/new?${scopeQuery}`}>
+                New attribute
+              </Link>
+            </Button>
+          }
+        />
+      ) : (
+        <DataTableShell>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  No attributes yet.
-                </td>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Slug</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Options</th>
+                <th className="px-4 py-3">Assignments</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-            ) : (
-              attributes.map((a) => (
+            </thead>
+            <tbody>
+              {attributes.map((a) => (
                 <tr key={a.id} className="border-b last:border-0">
                   <td className="px-4 py-3">
                     <Link
@@ -124,11 +113,11 @@ export default async function AttributesPage({
                     />
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </DataTableShell>
+              ))}
+            </tbody>
+          </table>
+        </DataTableShell>
+      )}
     </div>
   );
 }

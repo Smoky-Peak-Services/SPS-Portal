@@ -54,14 +54,25 @@ function emptyToNull(v: string | null | undefined) {
 }
 
 // ---------- Reads ----------
+// List/count reads are scope-filtered (prompt 15): every caller passes the
+// active { divisionId, segment } so each of the three catalogs only shows its
+// own rows. Units stay global — MaterialUnit is not scoped.
 
-export async function listMaterialCounts() {
+type MaterialsScope = {
+  divisionId: string;
+  segment: "COMMERCIAL" | "RESIDENTIAL" | "STR";
+};
+
+export async function listMaterialCounts(scope: MaterialsScope) {
   await requireMaterialsAccess();
+  const domainScope = { divisionId: scope.divisionId, segment: scope.segment };
   const [domains, categories, attributes, items, units] = await Promise.all([
-    prisma.materialDomain.count(),
-    prisma.materialCategory.count(),
-    prisma.materialAttribute.count(),
-    prisma.materialItem.count(),
+    prisma.materialDomain.count({ where: domainScope }),
+    prisma.materialCategory.count({ where: { domain: domainScope } }),
+    prisma.materialAttribute.count({ where: domainScope }),
+    prisma.materialItem.count({
+      where: { category: { domain: domainScope } },
+    }),
     prisma.materialUnit.count(),
   ]);
   return { domains, categories, attributes, items, units };
@@ -76,9 +87,10 @@ export async function listDivisionsForMaterials() {
   });
 }
 
-export async function listDomains() {
+export async function listDomains(scope: MaterialsScope) {
   await requireMaterialsAccess();
   return prisma.materialDomain.findMany({
+    where: { divisionId: scope.divisionId, segment: scope.segment },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     include: {
       division: { select: { id: true, name: true, slug: true } },
@@ -96,13 +108,14 @@ export async function getDomain(id: string) {
 }
 
 export async function listCategories(
-  domainId?: string,
-  opts?: { needsTaxReview?: boolean },
+  scope: MaterialsScope,
+  opts?: { domainId?: string; needsTaxReview?: boolean },
 ) {
   await requireMaterialsAccess();
   return prisma.materialCategory.findMany({
     where: {
-      ...(domainId ? { domainId } : {}),
+      domain: { divisionId: scope.divisionId, segment: scope.segment },
+      ...(opts?.domainId ? { domainId: opts.domainId } : {}),
       ...(opts?.needsTaxReview ? { taxReviewed: false } : {}),
     },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -153,17 +166,15 @@ export async function getCategory(id: string) {
   });
 }
 
-export async function listAttributes(opts?: {
-  activeOnly?: boolean;
-  divisionId?: string;
-  segment?: "COMMERCIAL" | "RESIDENTIAL" | "STR";
-}) {
+export async function listAttributes(
+  scope: MaterialsScope & { activeOnly?: boolean },
+) {
   await requireMaterialsAccess();
   return prisma.materialAttribute.findMany({
     where: {
-      ...(opts?.activeOnly ? { isActive: true } : {}),
-      ...(opts?.divisionId ? { divisionId: opts.divisionId } : {}),
-      ...(opts?.segment ? { segment: opts.segment } : {}),
+      divisionId: scope.divisionId,
+      segment: scope.segment,
+      ...(scope.activeOnly ? { isActive: true } : {}),
     },
     orderBy: { name: "asc" },
     include: {
@@ -209,10 +220,15 @@ export async function listUnits() {
   });
 }
 
-export async function listItems(categoryId?: string) {
+export async function listItems(scope: MaterialsScope, categoryId?: string) {
   await requireMaterialsAccess();
   return prisma.materialItem.findMany({
-    where: categoryId ? { categoryId } : undefined,
+    where: {
+      category: {
+        domain: { divisionId: scope.divisionId, segment: scope.segment },
+      },
+      ...(categoryId ? { categoryId } : {}),
+    },
     orderBy: { name: "asc" },
     include: {
       unit: true,

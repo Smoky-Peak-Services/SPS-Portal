@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import {
   getCategory,
@@ -7,6 +7,7 @@ import {
   listDomains,
   listStripeTaxCodes,
 } from "@/features/materials/actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { CategoryForm } from "@/features/materials/components/category-form";
 import { AssignmentPanel } from "@/features/materials/components/assignment-panel";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -15,24 +16,41 @@ import { Button } from "@/components/ui/button";
 
 export default async function CategoryDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ divisionId?: string; segment?: string }>;
 }) {
   const { id } = await params;
   await requireDesktopSurface(`/materials/categories/${id}`);
-  const [category, domains, taxCodes] = await Promise.all([
+  const [category, taxCodes] = await Promise.all([
     getCategory(id),
-    listDomains(),
     listStripeTaxCodes(),
   ]);
   if (!category) notFound();
 
-  // Attributes are per-scope: only offer this category's scope for assignment.
-  const attributes = await listAttributes({
-    activeOnly: true,
+  const recordScope = {
     divisionId: category.domain.divisionId,
     segment: category.domain.segment,
-  });
+  };
+
+  // Keep the layout scope switcher truthful: viewing a record from another
+  // scope re-points the URL scope at the record's own scope.
+  const active = await getActiveScope(await searchParams);
+  if (
+    active.divisionId !== recordScope.divisionId ||
+    active.segment !== recordScope.segment
+  ) {
+    redirect(
+      `/materials/categories/${id}?divisionId=${encodeURIComponent(recordScope.divisionId)}&segment=${encodeURIComponent(recordScope.segment)}`,
+    );
+  }
+
+  // Domain picker and assignable attributes stay within the category's scope.
+  const [domains, attributes] = await Promise.all([
+    listDomains(recordScope),
+    listAttributes({ ...recordScope, activeOnly: true }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -47,7 +65,9 @@ export default async function CategoryDetailPage({
               <Link href="/materials/categories">Categories</Link>
             </Button>
             <Button asChild variant="outline" size="sm">
-              <Link href={`/materials/items/new?categoryId=${category.id}`}>
+              <Link
+                href={`/materials/items/new?categoryId=${category.id}&divisionId=${encodeURIComponent(recordScope.divisionId)}&segment=${encodeURIComponent(recordScope.segment)}`}
+              >
                 New item in category
               </Link>
             </Button>

@@ -4,16 +4,23 @@ import { requireArea } from "@/lib/session";
 import { canForceDelete } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
 import { listDomains } from "@/features/materials/actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { DomainDeleteCell } from "@/features/materials/components/domain-delete-cell";
 import { DomainIoToolbar } from "@/features/materials/components/domain-io-toolbar";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
+import { EmptyState } from "@/components/patterns/empty-state";
 
-export default async function DomainsPage() {
+export default async function DomainsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ divisionId?: string; segment?: string }>;
+}) {
   await requireDesktopSurface("/materials/domains");
   const user = await requireArea("materials");
-  const domains = await listDomains();
+  const scope = await getActiveScope(await searchParams);
+  const domains = await listDomains(scope);
   const isAdmin = canForceDelete(user);
   const canIo = userCan(user, "materials.import_export");
 
@@ -21,7 +28,7 @@ export default async function DomainsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Domains"
-        description="Top-level material taxonomy scoped by division and segment."
+        description={`Top-level material taxonomy for ${scope.divisionName} · ${scope.segment}.`}
         actions={
           <Button asChild>
             <Link href="/materials/domains/new">New domain</Link>
@@ -29,30 +36,31 @@ export default async function DomainsPage() {
         }
       />
       {canIo ? <DomainIoToolbar isAdmin={isAdmin} /> : null}
-      <DataTableShell>
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Division</th>
-              <th className="px-4 py-3">Segment</th>
-              <th className="px-4 py-3">Categories</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {domains.length === 0 ? (
+      {domains.length === 0 ? (
+        <EmptyState
+          title={`No domains in the ${scope.divisionName} · ${scope.segment} catalog yet.`}
+          description="Create the first domain for this scope, or import a domains workbook."
+          action={
+            <Button asChild>
+              <Link href="/materials/domains/new">New domain</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <DataTableShell>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  No domains yet.
-                </td>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Division</th>
+                <th className="px-4 py-3">Segment</th>
+                <th className="px-4 py-3">Categories</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-            ) : (
-              domains.map((d) => (
+            </thead>
+            <tbody>
+              {domains.map((d) => (
                 <tr key={d.id} className="border-b last:border-0">
                   <td className="px-4 py-3">
                     <Link
@@ -81,11 +89,11 @@ export default async function DomainsPage() {
                     )}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </DataTableShell>
+              ))}
+            </tbody>
+          </table>
+        </DataTableShell>
+      )}
     </div>
   );
 }

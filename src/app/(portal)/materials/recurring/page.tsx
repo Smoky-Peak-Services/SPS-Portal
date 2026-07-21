@@ -4,14 +4,12 @@ import { userCan } from "@/config/permissions";
 import {
   getRecurringForScope,
   getServicePlansForScope,
-  listRecurringScopes,
 } from "@/features/pricing/actions";
 import { RecurringFeesTable } from "@/features/pricing/components/recurring-fees-table";
 import { ServicePlanRatesTable } from "@/features/pricing/components/service-plan-rates-table";
-import { resolvePageScope } from "@/features/pricing/scope-page";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Panel } from "@/components/patterns/panel";
-import { ScopeFilterBar } from "@/components/patterns/scope-filter-bar";
 
 /**
  * Lives under Catalog chrome (`/materials/recurring`) but keeps `requireArea("pricing")`
@@ -29,20 +27,13 @@ export default async function RecurringFeesPage({
   await requireDesktopSurface("/materials/recurring");
   const user = await requireArea("pricing");
   const canWrite = userCan(user, "pricing.write");
-  const params = await searchParams;
+  const scope = await getActiveScope(await searchParams);
+  const { divisionId, segment, divisionName } = scope;
 
-  const { divisions } = await listRecurringScopes();
-  const { divisionId, segment } = resolvePageScope({
-    divisionId: params.divisionId,
-    segment: params.segment,
-    divisions,
-  });
+  const isCabin = scope.divisionSlug === "cabin-services";
 
-  const selectedDivision = divisions.find((d) => d.id === divisionId);
-  const isCabin = selectedDivision?.slug === "cabin-services";
-
-  if (isCabin && divisionId) {
-    const scope = await getServicePlansForScope(divisionId, segment);
+  if (isCabin) {
+    const plans = await getServicePlansForScope(divisionId, segment);
     return (
       <div className="space-y-6">
         <PageHeader
@@ -50,13 +41,7 @@ export default async function RecurringFeesPage({
           description="Cabin Services plan rates: monthly Maintenance, Inspection, and Full-Service packages by bedroom tier. Base package rates feed calculateAdjustedPackageRate."
         />
 
-        <ScopeFilterBar
-          divisions={divisions}
-          divisionId={divisionId}
-          segment={segment}
-        />
-
-        {scope.plans.length === 0 ? (
+        {plans.plans.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No service plan rates for this scope. Seed with{" "}
             <code className="text-xs">npm run db:seed</code> or{" "}
@@ -64,19 +49,17 @@ export default async function RecurringFeesPage({
           </p>
         ) : (
           <Panel
-            title={`${scope.division?.name ?? "Division"} · ${segment}`}
-            description={`${scope.plans.length} plan rows`}
+            title={`${divisionName} · ${segment}`}
+            description={`${plans.plans.length} plan rows`}
           >
-            <ServicePlanRatesTable plans={scope.plans} canWrite={canWrite} />
+            <ServicePlanRatesTable plans={plans.plans} canWrite={canWrite} />
           </Panel>
         )}
       </div>
     );
   }
 
-  const scope = divisionId
-    ? await getRecurringForScope(divisionId, segment)
-    : { items: [], division: null };
+  const recurring = await getRecurringForScope(divisionId, segment);
 
   return (
     <div className="space-y-6">
@@ -85,25 +68,19 @@ export default async function RecurringFeesPage({
         description="SMA tiers, SVM, Bank of Hours, and monthly services. Engines: calculateAnnualSmaPrice / resolveMonthlyServiceRate. Bank of Hours sell rate tracks Tech 1&2 × 0.90."
       />
 
-      <ScopeFilterBar
-        divisions={divisions}
-        divisionId={divisionId}
-        segment={segment}
-      />
-
-      {scope.items.length === 0 ? (
+      {recurring.items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No recurring fees for this scope. IS-Residential has no recurring
-          pricing yet. Seed IS-Commercial with{" "}
+          No recurring fees for the {divisionName} · {segment} scope.
+          IS-Residential has no recurring pricing yet. Seed IS-Commercial with{" "}
           <code className="text-xs">npm run db:seed</code> or{" "}
           <code className="text-xs">scripts/run-seed-recurring-fees.ts</code>.
         </p>
       ) : (
         <Panel
-          title={`${scope.division?.name ?? "Division"} · ${segment}`}
-          description={`${scope.items.length} items`}
+          title={`${divisionName} · ${segment}`}
+          description={`${recurring.items.length} items`}
         >
-          <RecurringFeesTable items={scope.items} canWrite={canWrite} />
+          <RecurringFeesTable items={recurring.items} canWrite={canWrite} />
         </Panel>
       )}
     </div>

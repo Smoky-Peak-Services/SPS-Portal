@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { operationalDivisionSlugs } from "@/config/company";
 import { resolveStorageScope } from "@/features/materials/scope";
 import { assertCapability, requireArea, type SessionUser } from "@/lib/session";
 import {
@@ -28,19 +27,6 @@ function revalidateComplexity() {
 
 function revalidateRecurring() {
   revalidatePath("/materials/recurring");
-}
-
-export async function listLaborRateScopes() {
-  await requireArea("pricing");
-  const divisions = await prisma.division.findMany({
-    where: { slug: { in: [...operationalDivisionSlugs()] } },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true },
-  });
-  const configs = await prisma.laborRateConfig.findMany({
-    select: { divisionId: true, segment: true },
-  });
-  return { divisions, configs };
 }
 
 export async function getLaborRatesForScope(
@@ -126,20 +112,6 @@ export async function updateLaborPosition(raw: unknown) {
   return { ok: true as const };
 }
 
-export async function listComplexityScopes() {
-  await requireArea("pricing");
-  const divisions = await prisma.division.findMany({
-    where: { slug: { in: [...operationalDivisionSlugs()] } },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true },
-  });
-  const scopes = await prisma.complexityMultiplier.findMany({
-    distinct: ["divisionId", "segment"],
-    select: { divisionId: true, segment: true },
-  });
-  return { divisions, scopes };
-}
-
 export async function getComplexityForScope(
   divisionId: string,
   segment: "COMMERCIAL" | "RESIDENTIAL" | "STR",
@@ -179,20 +151,6 @@ export async function updateComplexityMultiplier(raw: unknown) {
   });
   revalidateComplexity();
   return { ok: true as const };
-}
-
-export async function listRecurringScopes() {
-  await requireArea("pricing");
-  const divisions = await prisma.division.findMany({
-    where: { slug: { in: [...operationalDivisionSlugs()] } },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true },
-  });
-  const scopes = await prisma.recurringFeeItem.findMany({
-    distinct: ["divisionId", "segment"],
-    select: { divisionId: true, segment: true },
-  });
-  return { divisions, scopes };
 }
 
 export async function getRecurringForScope(

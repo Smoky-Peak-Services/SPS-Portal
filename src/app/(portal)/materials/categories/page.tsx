@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { listCategories } from "@/features/materials/actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { CategoryDeleteCell } from "@/features/materials/components/category-delete-cell";
 import { CategoryTaxIoToolbar } from "@/features/materials/components/category-tax-io-toolbar";
 import { MarkTaxReviewedButton } from "@/features/materials/components/mark-tax-reviewed-button";
@@ -10,17 +11,23 @@ import { canForceDelete } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
+import { EmptyState } from "@/components/patterns/empty-state";
 
 export default async function CategoriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ taxReview?: string }>;
+  searchParams: Promise<{
+    taxReview?: string;
+    divisionId?: string;
+    segment?: string;
+  }>;
 }) {
   await requireDesktopSurface("/materials/categories");
   const user = await requireArea("materials");
-  const { taxReview } = await searchParams;
-  const needsTaxReview = taxReview === "1";
-  const categories = await listCategories(undefined, { needsTaxReview });
+  const params = await searchParams;
+  const needsTaxReview = params.taxReview === "1";
+  const scope = await getActiveScope(params);
+  const categories = await listCategories(scope, { needsTaxReview });
   const isAdmin = canForceDelete(user);
   const canIo = userCan(user, "materials.import_export");
 
@@ -30,8 +37,8 @@ export default async function CategoriesPage({
         title="Categories"
         description={
           needsTaxReview
-            ? "Showing categories that still need tax review."
-            : "All categories."
+            ? `Categories in ${scope.divisionName} · ${scope.segment} that still need tax review.`
+            : `All categories in ${scope.divisionName} · ${scope.segment}.`
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -53,33 +60,42 @@ export default async function CategoriesPage({
         }
       />
       {canIo ? <CategoryTaxIoToolbar isAdmin={isAdmin} /> : null}
-      <DataTableShell>
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Domain</th>
-              <th className="px-4 py-3">Tax</th>
-              <th className="px-4 py-3">Items</th>
-              <th className="px-4 py-3">Attrs</th>
-              <th className="px-4 py-3 text-right">Tax review</th>
-              <th className="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categories.length === 0 ? (
+      {categories.length === 0 ? (
+        <EmptyState
+          title={
+            needsTaxReview
+              ? `No categories awaiting tax review in ${scope.divisionName} · ${scope.segment}.`
+              : `No categories in the ${scope.divisionName} · ${scope.segment} catalog yet.`
+          }
+          description={
+            needsTaxReview
+              ? undefined
+              : "Create a category under one of this scope's domains."
+          }
+          action={
+            needsTaxReview ? undefined : (
+              <Button asChild>
+                <Link href="/materials/categories/new">New category</Link>
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <DataTableShell>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  {needsTaxReview
-                    ? "No categories awaiting tax review."
-                    : "No categories yet."}
-                </td>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Domain</th>
+                <th className="px-4 py-3">Tax</th>
+                <th className="px-4 py-3">Items</th>
+                <th className="px-4 py-3">Attrs</th>
+                <th className="px-4 py-3 text-right">Tax review</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-            ) : (
-              categories.map((c) => (
+            </thead>
+            <tbody>
+              {categories.map((c) => (
                 <tr key={c.id} className="border-b last:border-0">
                   <td className="px-4 py-3">
                     <Link
@@ -132,11 +148,11 @@ export default async function CategoriesPage({
                     )}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </DataTableShell>
+              ))}
+            </tbody>
+          </table>
+        </DataTableShell>
+      )}
     </div>
   );
 }

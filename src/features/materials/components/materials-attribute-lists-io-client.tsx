@@ -18,6 +18,8 @@ export function MaterialsAttributeListsIoClient({
   divisionId,
   segment,
   divisions,
+  defaultDivisionId,
+  defaultSegment,
 }: {
   isAdmin: boolean;
   /** Fixed scope (e.g. from the attributes page filter). */
@@ -25,6 +27,9 @@ export function MaterialsAttributeListsIoClient({
   segment?: Segment;
   /** When provided (import/export hub), render an embedded scope selector. */
   divisions?: ScopeDivisionOption[];
+  /** Active-scope default selection for the embedded selector (prompt 15). */
+  defaultDivisionId?: string;
+  defaultSegment?: Segment;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<AttributeListsImportPreview | null>(
@@ -37,8 +42,8 @@ export function MaterialsAttributeListsIoClient({
     divisionId: string;
     segment: Segment;
   }>({
-    divisionId: divisionId ?? divisions?.[0]?.id ?? "",
-    segment: segment ?? "COMMERCIAL",
+    divisionId: divisionId ?? defaultDivisionId ?? divisions?.[0]?.id ?? "",
+    segment: segment ?? defaultSegment ?? "COMMERCIAL",
   });
 
   const effDivisionId = divisionId ?? pickedScope.divisionId;

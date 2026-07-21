@@ -1,17 +1,13 @@
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { userCan } from "@/config/permissions";
-import {
-  getLaborRatesForScope,
-  listLaborRateScopes,
-} from "@/features/pricing/actions";
+import { getLaborRatesForScope } from "@/features/pricing/actions";
 import { LaborRateConfigForm } from "@/features/pricing/components/labor-rate-config-form";
 import { LaborPositionsTable } from "@/features/pricing/components/labor-positions-table";
-import { resolvePageScope } from "@/features/pricing/scope-page";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Panel } from "@/components/patterns/panel";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
-import { ScopeFilterBar } from "@/components/patterns/scope-filter-bar";
 
 export default async function LaborRatesPage({
   searchParams,
@@ -21,18 +17,11 @@ export default async function LaborRatesPage({
   await requireDesktopSurface("/pricing/labor-rates");
   const user = await requireArea("pricing");
   const canWrite = userCan(user, "pricing.write");
-  const params = await searchParams;
+  const { divisionId, segment, divisionName } = await getActiveScope(
+    await searchParams,
+  );
 
-  const { divisions } = await listLaborRateScopes();
-  const { divisionId, segment } = resolvePageScope({
-    divisionId: params.divisionId,
-    segment: params.segment,
-    divisions,
-  });
-
-  const scope = divisionId
-    ? await getLaborRatesForScope(divisionId, segment)
-    : { config: null, positions: [], division: null };
+  const scope = await getLaborRatesForScope(divisionId, segment);
 
   return (
     <div className="space-y-6">
@@ -41,22 +30,16 @@ export default async function LaborRatesPage({
         description="Division + segment rate cards. Quoted blend uses INSTALL positions; service tickets use the SERVICE technician. No Excel — edit inline."
       />
 
-      <ScopeFilterBar
-        divisions={divisions}
-        divisionId={divisionId}
-        segment={segment}
-      />
-
       {!scope.config ? (
         <p className="text-sm text-muted-foreground">
-          No labor rate config for this scope yet. Seed IS-Commercial with{" "}
-          <code className="text-xs">npm run db:seed</code> (or{" "}
-          <code className="text-xs">scripts/run-seed-labor-rates.ts</code>).
+          No labor rate config for the {divisionName} · {segment} scope yet.
+          Seed all scopes with <code className="text-xs">npm run db:seed</code>{" "}
+          (or <code className="text-xs">scripts/run-seed-labor-rates.ts</code>).
         </p>
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            {scope.division?.name ?? "Division"} · {segment}
+            {divisionName} · {segment}
           </p>
           <Panel
             title="Rate multipliers"

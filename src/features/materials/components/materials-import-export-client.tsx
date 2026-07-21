@@ -25,13 +25,23 @@ type ScopeDivision = {
 export function MaterialsImportExportClient({
   divisions,
   isAdmin,
+  defaultDivisionId,
+  defaultSegment,
 }: {
   divisions: ScopeDivision[];
   isAdmin: boolean;
+  /** Active-scope defaults (prompt 15); falls back to the first division. */
+  defaultDivisionId?: string;
+  defaultSegment?: Segment;
 }) {
-  const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
+  const defaultDivision =
+    divisions.find((d) => d.id === defaultDivisionId) ?? divisions[0];
+  const [divisionId, setDivisionId] = useState(defaultDivision?.id ?? "");
   const [segment, setSegment] = useState<Segment>(
-    (divisions[0]?.scopes[0]?.segment as Segment) ?? "COMMERCIAL",
+    defaultSegment &&
+      defaultDivision?.scopes.some((s) => s.segment === defaultSegment)
+      ? defaultSegment
+      : ((defaultDivision?.scopes[0]?.segment as Segment) ?? "COMMERCIAL"),
   );
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<MaterialsImportPreview | null>(null);

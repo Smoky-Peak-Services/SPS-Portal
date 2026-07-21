@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import {
   getItem,
@@ -7,6 +7,7 @@ import {
   listStripeTaxCodes,
   listUnits,
 } from "@/features/materials/actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { ItemForm } from "@/features/materials/components/item-form";
 import { resolveItemTaxClassification } from "@/features/materials/tax";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -15,18 +16,39 @@ import { Button } from "@/components/ui/button";
 
 export default async function EditItemPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ divisionId?: string; segment?: string }>;
 }) {
   const { id } = await params;
   await requireDesktopSurface(`/materials/items/${id}`);
-  const [item, categories, units, taxCodes] = await Promise.all([
+  const [item, units, taxCodes] = await Promise.all([
     getItem(id),
-    listCategories(),
     listUnits(),
     listStripeTaxCodes(),
   ]);
   if (!item) notFound();
+
+  const recordScope = {
+    divisionId: item.category.domain.divisionId,
+    segment: item.category.domain.segment,
+  };
+
+  // Keep the layout scope switcher truthful: viewing a record from another
+  // scope re-points the URL scope at the record's own scope.
+  const active = await getActiveScope(await searchParams);
+  if (
+    active.divisionId !== recordScope.divisionId ||
+    active.segment !== recordScope.segment
+  ) {
+    redirect(
+      `/materials/items/${id}?divisionId=${encodeURIComponent(recordScope.divisionId)}&segment=${encodeURIComponent(recordScope.segment)}`,
+    );
+  }
+
+  // Category picker stays within the item's scope.
+  const categories = await listCategories(recordScope);
 
   const tax = resolveItemTaxClassification(item, item.category);
 

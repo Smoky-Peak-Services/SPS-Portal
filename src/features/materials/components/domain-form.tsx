@@ -16,6 +16,9 @@ type Division = {
 
 type DomainFormProps = {
   divisions: Division[];
+  /** Active-scope defaults for create mode (prompt 15). */
+  defaultDivisionId?: string;
+  defaultSegment?: Segment;
   initial?: {
     id: string;
     divisionId: string;
@@ -34,18 +37,28 @@ const SEGMENT_OPTIONS: { value: Segment; label: string; company: string }[] = [
   { value: "STR", label: "STR", company: "str" },
 ];
 
-export function DomainForm({ divisions, initial }: DomainFormProps) {
+export function DomainForm({
+  divisions,
+  defaultDivisionId,
+  defaultSegment,
+  initial,
+}: DomainFormProps) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [divisionId, setDivisionId] = useState(
-    initial?.divisionId ?? divisions[0]?.id ?? "",
+    initial?.divisionId ?? defaultDivisionId ?? divisions[0]?.id ?? "",
   );
 
   const division = divisions.find((d) => d.id === divisionId);
   const allowedSegments = SEGMENT_OPTIONS.filter((s) =>
     (division?.segments ?? []).includes(s.company),
   );
+  const defaultSegmentValue =
+    initial?.segment ??
+    (defaultSegment && allowedSegments.some((s) => s.value === defaultSegment)
+      ? defaultSegment
+      : allowedSegments[0]?.value);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -111,7 +124,7 @@ export function DomainForm({ divisions, initial }: DomainFormProps) {
           id="segment"
           name="segment"
           required
-          defaultValue={initial?.segment ?? allowedSegments[0]?.value}
+          defaultValue={defaultSegmentValue}
           className="flex h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
         >
           {allowedSegments.map((s) => (

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { canForceDelete } from "@/features/materials/authz";
 import { getAttribute } from "@/features/materials/actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { AttributeForm } from "@/features/materials/components/attribute-form";
 import { AttributeDeleteCell } from "@/features/materials/components/attribute-delete-cell";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -12,14 +13,28 @@ import { Button } from "@/components/ui/button";
 
 export default async function AttributeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ divisionId?: string; segment?: string }>;
 }) {
   const { id } = await params;
   await requireDesktopSurface(`/materials/attributes/${id}`);
   const user = await requireArea("materials");
   const attribute = await getAttribute(id);
   if (!attribute) notFound();
+
+  // Keep the layout scope switcher truthful: viewing a record from another
+  // scope re-points the URL scope at the record's own scope.
+  const active = await getActiveScope(await searchParams);
+  if (
+    active.divisionId !== attribute.divisionId ||
+    active.segment !== attribute.segment
+  ) {
+    redirect(
+      `/materials/attributes/${id}?divisionId=${encodeURIComponent(attribute.divisionId)}&segment=${encodeURIComponent(attribute.segment)}`,
+    );
+  }
 
   const isAdmin = canForceDelete(user);
   const usageCount =

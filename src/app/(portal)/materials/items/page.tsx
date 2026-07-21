@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { listItems } from "@/features/materials/actions";
+import { getActiveScope } from "@/features/scope/get-active-scope";
 import { ItemDeleteCell } from "@/features/materials/components/item-delete-cell";
 import { MaterialsImportExportClient } from "@/features/materials/components/materials-import-export-client";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,17 @@ import { listImportExportScopes } from "@/features/materials/io-actions";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
 import { Panel } from "@/components/patterns/panel";
+import { EmptyState } from "@/components/patterns/empty-state";
 
-export default async function ItemsPage() {
+export default async function ItemsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ divisionId?: string; segment?: string }>;
+}) {
   await requireDesktopSurface("/materials/items");
   const user = await requireArea("materials");
-  const items = await listItems();
+  const scope = await getActiveScope(await searchParams);
+  const items = await listItems(scope);
   const canIo = userCan(user, "materials.import_export");
   const isAdmin = canForceDelete(user);
   const divisions = canIo ? await listImportExportScopes() : [];
@@ -25,7 +32,7 @@ export default async function ItemsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Items"
-        description="Catalog line items within a category. Tax classification resolves item → category."
+        description={`Catalog line items in ${scope.divisionName} · ${scope.segment}. Tax classification resolves item → category.`}
         actions={
           <Button asChild>
             <Link href="/materials/items/new">New item</Link>
@@ -40,32 +47,35 @@ export default async function ItemsPage() {
           <MaterialsImportExportClient
             divisions={divisions}
             isAdmin={isAdmin}
+            defaultDivisionId={scope.divisionId}
+            defaultSegment={scope.segment}
           />
         </Panel>
       ) : null}
-      <DataTableShell>
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Category</th>
-              <th className="px-4 py-3">Unit</th>
-              <th className="px-4 py-3">Tax (resolved)</th>
-              <th className="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
+      {items.length === 0 ? (
+        <EmptyState
+          title={`No items in the ${scope.divisionName} · ${scope.segment} catalog yet.`}
+          description="Create an item under one of this scope's categories, or import a catalog workbook."
+          action={
+            <Button asChild>
+              <Link href="/materials/items/new">New item</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <DataTableShell>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
               <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  No items yet.
-                </td>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Category</th>
+                <th className="px-4 py-3">Unit</th>
+                <th className="px-4 py-3">Tax (resolved)</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-            ) : (
-              items.map((item) => {
+            </thead>
+            <tbody>
+              {items.map((item) => {
                 const tax = resolveItemTaxClassification(item, item.category);
                 return (
                   <tr key={item.id} className="border-b last:border-0">
@@ -102,11 +112,11 @@ export default async function ItemsPage() {
                     </td>
                   </tr>
                 );
-              })
-            )}
-          </tbody>
-        </table>
-      </DataTableShell>
+              })}
+            </tbody>
+          </table>
+        </DataTableShell>
+      )}
     </div>
   );
 }
