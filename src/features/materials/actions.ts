@@ -13,6 +13,7 @@ import {
 } from "@/features/materials/authz";
 import { isCoreCategoryAttributeSlug } from "./attribute-list-defs";
 import { ensureCoreAssignmentsForCategory } from "./ensure-core-assignments";
+import { operationalDivisionSlugs, isOperationalDivisionSlug } from "@/config/company";
 import { slugify } from "./slug";
 import { deriveTaxProfileFromStripeCode } from "./tax";
 import { assertItemAttributeValues } from "./validation";
@@ -66,6 +67,7 @@ export async function listMaterialCounts() {
 export async function listDivisionsForMaterials() {
   await requireMaterialsAccess();
   return prisma.division.findMany({
+    where: { slug: { in: [...operationalDivisionSlugs()] } },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true, segments: true },
   });
@@ -239,10 +241,23 @@ export async function getItem(id: string) {
 
 // ---------- Domain writes ----------
 
+async function assertOperationalDivision(divisionId: string) {
+  const division = await prisma.division.findUnique({
+    where: { id: divisionId },
+    select: { slug: true },
+  });
+  if (!division || !isOperationalDivisionSlug(division.slug)) {
+    throw new Error(
+      "Catalog domains must belong to an operational division (not the legal entity)",
+    );
+  }
+}
+
 export async function createDomain(raw: unknown) {
   const user = await requireMaterialsAccess();
   assertCatalogWrite(user);
   const data = createDomainSchema.parse(raw);
+  await assertOperationalDivision(data.divisionId);
   const slug = data.slug?.trim() || slugify(data.name);
   const domain = await prisma.materialDomain.create({
     data: {
@@ -263,6 +278,7 @@ export async function updateDomain(raw: unknown) {
   const user = await requireMaterialsAccess();
   assertCatalogWrite(user);
   const data = updateDomainSchema.parse(raw);
+  await assertOperationalDivision(data.divisionId);
   const slug = data.slug?.trim() || slugify(data.name);
   const domain = await prisma.materialDomain.update({
     where: { id: data.id },

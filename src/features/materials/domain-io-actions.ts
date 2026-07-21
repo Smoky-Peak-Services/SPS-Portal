@@ -7,6 +7,7 @@ import {
   requireMaterialsAccess,
 } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
+import { operationalDivisionSlugs } from "@/config/company";
 import {
   parseDomainFlatWorkbookBuffer,
   planDomainFlatImport,
@@ -47,6 +48,7 @@ async function loadSnapshot(): Promise<ExistingDomainSnapshot> {
       },
     }),
     prisma.division.findMany({
+      where: { slug: { in: [...operationalDivisionSlugs()] } },
       select: { id: true, name: true, slug: true },
     }),
   ]);

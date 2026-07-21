@@ -18,7 +18,7 @@ Smoky Peak Services LLC is a multi-division contractor and short-term-rental ser
 
 **Current state (2026-07-21): dashboard shell + materials catalog + pricing (labor rates + complexity multipliers + recurring fees/SMA, IS-Commercial seed + pure engines).** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume Quote/Job/ServiceTicket entities exist until they're rebuilt.
 
-Divisions as currently modeled in `src/config/company.ts` (the single source of truth for company/division/branding — edit only that file for those changes):
+Divisions as currently modeled in `src/config/company.ts` (the single source of truth for company/division/branding — edit only that file for those changes). **`company.divisions` lists operational divisions only** (Integrated Systems, Cabin Services). Smoky Peak Services LLC is the legal entity / brand, not a catalog or pricing scope — do not add it as a `Division` row for materials or labor rates.
 
 - **Integrated Systems** — low-voltage, access control, security, structured cabling.
 - **Cabin Services** — STR property maintenance and quick-turn support.

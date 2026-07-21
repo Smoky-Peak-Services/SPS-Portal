@@ -9,7 +9,7 @@ import {
   requireMaterialsAccess,
 } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
-import { divisionCode } from "@/config/company";
+import { divisionCode, isOperationalDivisionSlug, operationalDivisionSlugs } from "@/config/company";
 import {
   parseWorkbookBuffer,
   planImport,
@@ -172,6 +172,11 @@ async function buildPreview(
     select: { id: true, slug: true, name: true, segments: true },
   });
   if (!division) throw new Error("Division not found");
+  if (!isOperationalDivisionSlug(division.slug)) {
+    throw new Error(
+      "Catalog import requires an operational division (not the legal entity)",
+    );
+  }
   if (!divisionAllowsSegment(division.segments, segment)) {
     throw new Error(
       `Segment ${segment} is not enabled for division ${division.name}`,
@@ -431,6 +436,7 @@ export async function listImportExportScopes() {
   const user = await requireMaterialsAccess();
   assertImportExport(user);
   const divisions = await prisma.division.findMany({
+    where: { slug: { in: [...operationalDivisionSlugs()] } },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true, segments: true },
   });

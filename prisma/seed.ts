@@ -51,7 +51,9 @@ async function setCredentialPassword(userId: string, password: string) {
 }
 
 async function ensureAdminMemberships(userId: string) {
-  const divisions = await prisma.division.findMany();
+  const divisions = await prisma.division.findMany({
+    where: { slug: { in: company.divisions.map((d) => d.slug) } },
+  });
   for (const div of divisions) {
     await prisma.divisionMembership.upsert({
       where: { userId_divisionId: { userId, divisionId: div.id } },
@@ -78,8 +80,55 @@ async function main() {
     console.log(`  ✓ ${d.slug}`);
   }
 
+  // Legal entity was never an operational division — drop legacy catalog placeholder.
+  const legacyLegal = await prisma.division.findUnique({
+    where: { slug: "smoky-peak-services" },
+    include: {
+      _count: {
+        select: {
+          materialDomains: true,
+          laborRateConfigs: true,
+          laborPositions: true,
+          complexityMultipliers: true,
+          recurringFeeItems: true,
+        },
+      },
+    },
+  });
+  if (legacyLegal) {
+    const c = legacyLegal._count;
+    const hasCatalog =
+      c.materialDomains +
+        c.laborRateConfigs +
+        c.laborPositions +
+        c.complexityMultipliers +
+        c.recurringFeeItems >
+      0;
+    if (hasCatalog) {
+      console.warn(
+        "  ! smoky-peak-services still has catalog rows — not deleted",
+      );
+    } else {
+      await prisma.divisionMembership.deleteMany({
+        where: { divisionId: legacyLegal.id },
+      });
+      await prisma.division.delete({ where: { id: legacyLegal.id } });
+      try {
+        await prismaPii.ingestKey.deleteMany({
+          where: { divisionId: legacyLegal.id },
+        });
+        await prismaPii.division.delete({ where: { id: legacyLegal.id } });
+      } catch {
+        // PII may be unconfigured or already cleaned
+      }
+      console.log("  ✓ removed legacy smoky-peak-services (legal entity)");
+    }
+  }
+
   console.log("Seeding ingest keys…");
-  const divisions = await prisma.division.findMany();
+  const divisions = await prisma.division.findMany({
+    where: { slug: { in: company.divisions.map((d) => d.slug) } },
+  });
   for (const div of divisions) {
     const existingKey = await prismaPii.ingestKey.findFirst({
       where: { divisionId: div.id, revokedAt: null },

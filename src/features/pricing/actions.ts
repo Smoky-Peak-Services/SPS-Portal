@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { operationalDivisionSlugs } from "@/config/company";
 import {
   assertCapability,
   requireArea,
@@ -34,6 +35,7 @@ function revalidateRecurring() {
 export async function listLaborRateScopes() {
   await requireArea("pricing");
   const divisions = await prisma.division.findMany({
+    where: { slug: { in: [...operationalDivisionSlugs()] } },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true },
   });
@@ -107,6 +109,7 @@ export async function updateLaborPosition(raw: unknown) {
 export async function listComplexityScopes() {
   await requireArea("pricing");
   const divisions = await prisma.division.findMany({
+    where: { slug: { in: [...operationalDivisionSlugs()] } },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true },
   });
@@ -157,6 +160,7 @@ export async function updateComplexityMultiplier(raw: unknown) {
 export async function listRecurringScopes() {
   await requireArea("pricing");
   const divisions = await prisma.division.findMany({
+    where: { slug: { in: [...operationalDivisionSlugs()] } },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true },
   });

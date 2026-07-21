@@ -96,13 +96,6 @@ export const company: Company = {
   },
   divisions: [
     {
-      slug: "smoky-peak-services",
-      name: "Smoky Peak Services",
-      segments: ["commercial", "residential", "str"],
-      color: "slate",
-      code: "SPS",
-    },
-    {
       slug: "integrated-systems",
       name: "Integrated Systems",
       segments: ["commercial", "residential"],
@@ -133,7 +126,7 @@ export const company: Company = {
     ],
     disqualifyBudgets: ["Under $1k"],
     timelines: ["ASAP", "2-4 weeks", "1-3 months", "Just exploring"],
-    defaultLeadDivisionSlug: "smoky-peak-services",
+    defaultLeadDivisionSlug: "integrated-systems",
   },
   retention: {
     customerArchiveYears: 5,
@@ -149,6 +142,15 @@ export function isFeatureEnabled(flag: FeatureFlag): boolean {
 
 export function getDivision(slug: string): DivisionConfig | undefined {
   return company.divisions.find((d) => d.slug === slug);
+}
+
+/** Slugs of operational divisions (catalog/pricing). Legal entity is not a division. */
+export function operationalDivisionSlugs(): readonly string[] {
+  return company.divisions.map((d) => d.slug);
+}
+
+export function isOperationalDivisionSlug(slug: string): boolean {
+  return company.divisions.some((d) => d.slug === slug);
 }
 
 export function divisionName(slug: string): string {
