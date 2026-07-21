@@ -69,7 +69,7 @@ async function loadExistingSnapshot(
   divisionId: string,
   segment: Segment,
 ): Promise<ExistingSnapshot> {
-  const [units, domains] = await Promise.all([
+  const [units, domains, taxCodes] = await Promise.all([
     prisma.materialUnit.findMany({
       select: { id: true, code: true },
     }),
@@ -92,6 +92,9 @@ async function loadExistingSnapshot(
                 name: true,
                 laborUnits: true,
                 laborUnitNotes: true,
+                stripeTaxCodeId: true,
+                laborInstallTaxCodeId: true,
+                laborServiceTaxCodeId: true,
                 unit: { select: { code: true } },
               },
             },
@@ -99,6 +102,7 @@ async function loadExistingSnapshot(
         },
       },
     }),
+    prisma.stripeTaxCode.findMany({ select: { id: true } }),
   ]);
 
   const categories: ExistingSnapshot["categories"] = [];
@@ -123,6 +127,9 @@ async function loadExistingSnapshot(
           unitCode: item.unit.code,
           laborUnits: item.laborUnits.toString(),
           laborUnitNotes: item.laborUnitNotes,
+          stripeTaxCodeId: item.stripeTaxCodeId,
+          laborInstallTaxCodeId: item.laborInstallTaxCodeId,
+          laborServiceTaxCodeId: item.laborServiceTaxCodeId,
         });
       }
     }
@@ -138,6 +145,7 @@ async function loadExistingSnapshot(
     })),
     categories,
     items,
+    validTaxCodeIds: new Set(taxCodes.map((t) => t.id)),
   };
 }
 
@@ -354,6 +362,15 @@ export async function commitMaterialsImport(
           name: item.name,
           laborUnits: new Prisma.Decimal(item.laborUnits),
           laborUnitNotes: item.laborUnitNotes,
+          ...(item.stripeTaxCodeId !== undefined
+            ? { stripeTaxCodeId: item.stripeTaxCodeId }
+            : {}),
+          ...(item.laborInstallTaxCodeId !== undefined
+            ? { laborInstallTaxCodeId: item.laborInstallTaxCodeId }
+            : {}),
+          ...(item.laborServiceTaxCodeId !== undefined
+            ? { laborServiceTaxCodeId: item.laborServiceTaxCodeId }
+            : {}),
         },
       });
       itemsCreated += 1;
@@ -368,6 +385,15 @@ export async function commitMaterialsImport(
           unitId,
           laborUnits: new Prisma.Decimal(item.laborUnits),
           laborUnitNotes: item.laborUnitNotes,
+          ...(item.stripeTaxCodeId !== undefined
+            ? { stripeTaxCodeId: item.stripeTaxCodeId }
+            : {}),
+          ...(item.laborInstallTaxCodeId !== undefined
+            ? { laborInstallTaxCodeId: item.laborInstallTaxCodeId }
+            : {}),
+          ...(item.laborServiceTaxCodeId !== undefined
+            ? { laborServiceTaxCodeId: item.laborServiceTaxCodeId }
+            : {}),
         },
       });
       itemsUpdated += 1;

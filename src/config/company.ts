@@ -170,20 +170,20 @@ const DIVISION_THEMES: Record<DivisionColor, DivisionTheme> = {
   blue: {
     dot: "bg-sky-400",
     border: "border-l-sky-400",
-    text: "text-sky-700",
-    badge: "border-sky-500/30 bg-sky-500/15 text-sky-800",
+    text: "text-sky-300",
+    badge: "border-sky-500/30 bg-sky-500/15 text-sky-300",
   },
   green: {
     dot: "bg-emerald-400",
     border: "border-l-emerald-400",
-    text: "text-emerald-700",
-    badge: "border-emerald-500/30 bg-emerald-500/15 text-emerald-800",
+    text: "text-emerald-300",
+    badge: "border-emerald-500/30 bg-emerald-500/15 text-emerald-300",
   },
   slate: {
     dot: "bg-slate-400",
     border: "border-l-slate-400",
-    text: "text-slate-700",
-    badge: "border-slate-500/30 bg-slate-500/15 text-slate-800",
+    text: "text-slate-300",
+    badge: "border-slate-500/30 bg-slate-500/15 text-slate-300",
   },
 };
 

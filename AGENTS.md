@@ -138,19 +138,38 @@ Admin UI: `/materials` (desktop-only, `requireArea("materials")` — admin + sta
 
 ### Import / export (Excel)
 
-Round-trip Excel for a **Division + Segment** scope via `/materials/import-export` and `GET /api/materials/export`:
+Scoped round-trips live on each list page **and** `/materials/import-export`. Hub page `/materials` has **Export everything** (`GET /api/materials/export-everything`) — export-only multi-sheet audit/backup (Domains + Categories tax + Stripe tax reference + catalog sheets prefixed by scope code + attribute lists + Attribute Assignments). Import stays per-section so one bad edit cannot cascade.
 
-- Workbook: one sheet per domain name; category blocks = title row → literal header `description | unit | laborUnits | laborUnitNotes` → items → blank separator. Empty categories (header, zero items) are valid.
-- Scope code (e.g. `IS_COM`) is derived from `company.divisions[].code` + segment abbrev; filename `catalog_{SCOPE}_{YYYY-MM-DD}.xlsx` only pre-fills a guess.
-- Matching uses whitespace-normalized names (`normalizeName` / slugify). Item uniqueness is `@@unique([categoryId, name])`.
-- Upsert only: create missing domains/categories/units/items; update item when unit/laborUnits/laborUnitNotes differ; **never delete** rows absent from the file.
-- **Layout gate:** a sheet with no category title→`description` header match is skipped (sheet-level warning) and does **not** create a domain. If zero sheets match, preview/commit report a clear “doesn't look like a materials catalog export” result (blocks commit). This prevents attribute-list workbooks from creating garbage domains.
-- Flow: `previewMaterialsImport` (admin/staff, no writes) → `commitMaterialsImport` (**admin only**, re-parses file, single `$transaction`).
-- Fixture for ground-truth counts (5 domains / 115 categories / 102 items): `claude/prompts/samples/catalog_IS_COM_2026-07-08.xlsx` — drop the file there when available; unit tests use a synthetic workbook until then (`npm run test:materials-io`). Wrong-file regression uses a synthetic attribute-lists shape (same idea as `attribute-lists-2026-06-24.xlsx`).
+**Item catalog** (`io.ts`, `/materials/items` + hub, `GET /api/materials/export`):
+
+- Workbook: one sheet per domain name; category blocks = title row → header `description | unit | laborUnits | laborUnitNotes | stripeTaxCodeId | laborInstallTaxCodeId | laborServiceTaxCodeId` → items → blank separator. Empty categories are valid. Legacy files without tax columns leave item tax overrides untouched.
+- Item tax FKs: blank cell → set null; invalid id → flag, leave DB; do **not** write item `taxProfile` (stays null / inherit).
+- Scope code (e.g. `IS_COM`) from `company.divisions[].code` + segment; filename `catalog_{SCOPE}_{YYYY-MM-DD}.xlsx`.
+- Matching: `normalizeName` / slugify. Upsert only; **never delete** rows absent from the file.
+- **Layout gate:** sheet with no category title→`description` header match is skipped. Zero matched sheets → “doesn't look like a materials catalog export” (blocks commit).
+- Flow: `previewMaterialsImport` → `commitMaterialsImport` (**admin / force_delete**, re-parse, `$transaction`).
+- Tests: `npm run test:materials-io`.
+
+**Categories tax / linkage** (flat, `/materials/categories`, `GET /api/materials/categories/tax-export`):
+
+- Sheet `Categories`: `domain | category | slug | taxProfile | taxReviewed | stripeTaxCodeId | stripeTaxCodeName | laborInstallTaxCodeId | laborInstallTaxCodeName | laborServiceTaxCodeId | laborServiceTaxCodeName`.
+- `slug`, `taxProfile`, `*Name` — export-only. **Import ignores `taxProfile`**; after writing `stripeTaxCodeId`, set `taxProfile = deriveTaxProfileFromStripeCode(...)` (`txcd_00000000`/blank → REAL_PROPERTY; else TPP).
+- Match existing `(domain, category)` only — **never create**. Unresolved rows reported and skipped.
+- `taxReviewed`: blank → leave + warn; only true/false apply. Tax code FKs: **blank → null**; invalid id → flag, leave DB.
+- Re-export before import (stale blanks wipe overrides). Sheet `Stripe Tax Code Reference` lists commonly used codes.
+- Tests: `npm run test:materials-category-tax-io`.
+
+**Domains** (flat, `/materials/domains`, `GET /api/materials/domains/export`): `division | segment | name | slug | sortOrder`. Additive create/update; never deletes.
+
+**Attribute assignments** (flat, `/materials/attributes`, `GET /api/materials/attributes/assignments-export`):
+
+- Sheet `Attribute Assignments`: `domain | category | attribute | isRequired | isFilterable | isVariantDefining | defaultOption | sortOrder`.
+- `attribute` matches slug or name; `defaultOption` by option label (invalid → flag, leave FK). Upsert only; never delete missing assignments.
+- Tests: `npm run test:materials-assignment-io`.
 
 ### Attribute list import / export (Excel)
 
-Same page (`/materials/import-export`, second section) and `GET /api/materials/attributes/export`. Pure logic in `attribute-io.ts` / `attribute-io-actions.ts` (not overloaded into catalog `io.ts`).
+Same hub page (`/materials/import-export`, second section) and on `/materials/attributes`; `GET /api/materials/attributes/export`. Pure logic in `attribute-io.ts` / `attribute-io-actions.ts` (not overloaded into catalog `io.ts`).
 
 - **Canonical attributes** live in `src/features/materials/attribute-list-defs.ts` (SELECT picklists: Jacket Color, Cable Jacket Rating, Plastics Color, Hardware Finish, Power Type, Voltage, Amp Rating, POE Class, Box Length, Patch Cable Length, Manufacturer, Attachment Type; plus TEXT `part_number`). Apply with `npm run sync:attribute-lists` (also run from `prisma/seed.ts`). Sync hard-deletes `vendor`, deactivates legacy `color`, renames `length_feet` → `patch_cable_length`, and deactivates stale options. After sync/seed, `ensureCoreAssignmentsForAllCategories` assigns manufacturer + part_number on every category (`npm run ensure:core-assignments`).
 - Workbook: index sheet `Attribute Lists` (`list_key | list_name | filter_mode`) + one sheet per `list_key` (`label | sort_order | tags | rfq_contact | rfq_email`).

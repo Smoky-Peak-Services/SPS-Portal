@@ -201,6 +201,99 @@ describe("parseWorkbookBuffer + planImport", () => {
     assert.equal(plan.categoryCreates.length, 0);
     assert.equal(plan.itemCreates.length, 0);
   });
+
+  it("parses item tax columns and plans blank→null / invalid skip", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ac = wb.addWorksheet("Access Control");
+    ac.addRow(["Card Reader"]);
+    ac.addRow([
+      "description",
+      "unit",
+      "laborUnits",
+      "laborUnitNotes",
+      "stripeTaxCodeId",
+      "laborInstallTaxCodeId",
+      "laborServiceTaxCodeId",
+    ]);
+    ac.addRow(["Reader A", "EACH", "0.25", "", "txcd_99999999", "", ""]);
+    ac.addRow(["Reader B", "EACH", "0.1", "", "txcd_bogus", "txcd_20020010", ""]);
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const parsed = await parseWorkbookBuffer(buffer);
+    assert.equal(parsed.domains[0]!.categories[0]!.items[0]!.stripeTaxCodeId, "txcd_99999999");
+    assert.equal(parsed.domains[0]!.categories[0]!.items[0]!.laborInstallTaxCodeId, null);
+
+    const snapshot: ExistingSnapshot = {
+      units: [{ id: "u1", code: "EACH" }],
+      domains: [
+        {
+          id: "d1",
+          name: "Access Control",
+          slug: "access-control",
+          sortOrder: 0,
+        },
+      ],
+      categories: [
+        {
+          id: "c1",
+          domainId: "d1",
+          domainSlug: "access-control",
+          name: "Card Reader",
+          slug: "card-reader",
+          sortOrder: 0,
+        },
+      ],
+      items: [
+        {
+          id: "i1",
+          categoryId: "c1",
+          domainSlug: "access-control",
+          categorySlug: "card-reader",
+          name: "Reader A",
+          unitCode: "EACH",
+          laborUnits: "0.25",
+          laborUnitNotes: null,
+          stripeTaxCodeId: null,
+          laborInstallTaxCodeId: "txcd_20020010",
+          laborServiceTaxCodeId: null,
+        },
+        {
+          id: "i2",
+          categoryId: "c1",
+          domainSlug: "access-control",
+          categorySlug: "card-reader",
+          name: "Reader B",
+          unitCode: "EACH",
+          laborUnits: "0.1",
+          laborUnitNotes: null,
+          stripeTaxCodeId: "txcd_99999999",
+          laborInstallTaxCodeId: null,
+          laborServiceTaxCodeId: null,
+        },
+      ],
+      validTaxCodeIds: new Set(["txcd_99999999", "txcd_20020010"]),
+    };
+    const plan = planImport(snapshot, parsed);
+    const a = plan.itemUpdates.find((u) => u.name === "Reader A")!;
+    assert.ok(a);
+    assert.equal(a.stripeTaxCodeId, "txcd_99999999");
+    assert.equal(a.laborInstallTaxCodeId, null); // blank clears
+    const b = plan.itemUpdates.find((u) => u.name === "Reader B");
+    // bogus stripe skipped; install set; may still update
+    assert.ok(plan.warnings.some((w) => /Unknown stripeTaxCodeId/.test(w.message)));
+    assert.ok(b);
+    assert.equal(b!.stripeTaxCodeId, undefined); // invalid not applied
+    assert.equal(b!.laborInstallTaxCodeId, "txcd_20020010");
+  });
+
+  it("legacy headers without tax columns leave tax overrides untouched", async () => {
+    const parsed = await parseWorkbookBuffer(await syntheticWorkbookBuffer());
+    const snapshot = snapshotFromParsed(parsed);
+    snapshot.items[0]!.stripeTaxCodeId = "txcd_99999999";
+    snapshot.validTaxCodeIds = new Set(["txcd_99999999"]);
+    const plan = planImport(snapshot, parsed);
+    assert.equal(plan.itemUpdates.length, 0);
+    assert.equal(plan.unchangedItemCount, 2);
+  });
 });
 
 async function attributeListsShapedWorkbookBuffer(): Promise<Buffer> {
@@ -262,6 +355,9 @@ function snapshotFromParsed(parsed: ParsedWorkbook): ExistingSnapshot {
           unitCode: code,
           laborUnits: String(item.laborUnits),
           laborUnitNotes: item.laborUnitNotes,
+          stripeTaxCodeId: item.stripeTaxCodeId ?? null,
+          laborInstallTaxCodeId: item.laborInstallTaxCodeId ?? null,
+          laborServiceTaxCodeId: item.laborServiceTaxCodeId ?? null,
         });
       });
     });

@@ -85,6 +85,9 @@ export async function GET(req: NextRequest) {
         unitCode: item.unit.code,
         laborUnits: item.laborUnits.toString(),
         laborUnitNotes: item.laborUnitNotes,
+        stripeTaxCodeId: item.stripeTaxCodeId,
+        laborInstallTaxCodeId: item.laborInstallTaxCodeId,
+        laborServiceTaxCodeId: item.laborServiceTaxCodeId,
       })),
     })),
   }));

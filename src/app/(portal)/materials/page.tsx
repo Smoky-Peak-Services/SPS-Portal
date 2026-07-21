@@ -5,11 +5,13 @@ import { listMaterialCounts } from "@/features/materials/actions";
 import { PageHeader } from "@/components/patterns/page-header";
 import { MetricCard } from "@/components/patterns/metric-card";
 import { Button } from "@/components/ui/button";
+import { userCan } from "@/config/permissions";
 
 export default async function MaterialsHubPage() {
   await requireDesktopSurface("/materials");
-  await requireArea("materials");
+  const user = await requireArea("materials");
   const counts = await listMaterialCounts();
+  const canIo = userCan(user, "materials.import_export");
 
   const cards = [
     { href: "/materials/domains", label: "Domains", count: counts.domains },
@@ -32,9 +34,16 @@ export default async function MaterialsHubPage() {
         title="Materials catalog"
         description={`Back-office taxonomy for quoting. Units seeded: ${counts.units}.`}
         actions={
-          <Button asChild variant="outline">
-            <Link href="/materials/import-export">Import / export</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {canIo ? (
+              <Button asChild variant="outline">
+                <a href="/api/materials/export-everything">Export everything</a>
+              </Button>
+            ) : null}
+            <Button asChild variant="outline">
+              <Link href="/materials/import-export">Import / export</Link>
+            </Button>
+          </div>
         }
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -14,6 +14,8 @@
     "test:schema-guard": "tsx --test src/features/accounting/ops-pii-schema-guard.test.ts",
     "test:materials-io": "tsx --test src/features/materials/io.test.ts",
     "test:materials-attribute-io": "tsx --test src/features/materials/attribute-io.test.ts",
+    "test:materials-category-tax-io": "tsx --test src/features/materials/category-tax-io.test.ts",
+    "test:materials-assignment-io": "tsx --test src/features/materials/attribute-assignment-io.test.ts",
     "test:materials-tax": "tsx --test src/features/materials/tax.test.ts",
     "format": "prettier --write .",
     "db:generate": "prisma generate",

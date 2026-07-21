@@ -17,6 +17,9 @@ export const ITEM_HEADERS = [
   "unit",
   "laborUnits",
   "laborUnitNotes",
+  "stripeTaxCodeId",
+  "laborInstallTaxCodeId",
+  "laborServiceTaxCodeId",
 ] as const;
 
 export type RowWarning = {
@@ -30,6 +33,13 @@ export type ParsedItem = {
   unitCode: string;
   laborUnits: number;
   laborUnitNotes: string | null;
+  /**
+   * Tax override columns. `undefined` = column absent from that category's
+   * header (leave DB unchanged). Present blank → null; present value → id.
+   */
+  stripeTaxCodeId?: string | null;
+  laborInstallTaxCodeId?: string | null;
+  laborServiceTaxCodeId?: string | null;
   sheet: string;
   row: number;
   warnings: RowWarning[];
@@ -92,6 +102,9 @@ export type ExistingItem = {
   unitCode: string;
   laborUnits: string;
   laborUnitNotes: string | null;
+  stripeTaxCodeId: string | null;
+  laborInstallTaxCodeId: string | null;
+  laborServiceTaxCodeId: string | null;
 };
 
 export type ExistingSnapshot = {
@@ -99,10 +112,18 @@ export type ExistingSnapshot = {
   domains: ExistingDomain[];
   categories: ExistingCategory[];
   items: ExistingItem[];
+  /** Seeded StripeTaxCode ids — used to validate item tax FK columns. */
+  validTaxCodeIds?: Set<string>;
 };
 
 export type FieldChange = {
-  field: "unit" | "laborUnits" | "laborUnitNotes";
+  field:
+    | "unit"
+    | "laborUnits"
+    | "laborUnitNotes"
+    | "stripeTaxCodeId"
+    | "laborInstallTaxCodeId"
+    | "laborServiceTaxCodeId";
   from: string;
   to: string;
 };
@@ -121,6 +142,9 @@ export type PlannedItemCreate = {
   unitCode: string;
   laborUnits: number;
   laborUnitNotes: string | null;
+  stripeTaxCodeId?: string | null;
+  laborInstallTaxCodeId?: string | null;
+  laborServiceTaxCodeId?: string | null;
   sheet: string;
   row: number;
 };
@@ -132,6 +156,9 @@ export type PlannedItemUpdate = {
   unitCode: string;
   laborUnits: number;
   laborUnitNotes: string | null;
+  stripeTaxCodeId?: string | null;
+  laborInstallTaxCodeId?: string | null;
+  laborServiceTaxCodeId?: string | null;
   changes: FieldChange[];
   sheet: string;
   row: number;
@@ -156,6 +183,9 @@ export type ExportItem = {
   unitCode: string;
   laborUnits: string;
   laborUnitNotes: string | null;
+  stripeTaxCodeId?: string | null;
+  laborInstallTaxCodeId?: string | null;
+  laborServiceTaxCodeId?: string | null;
 };
 
 export type ExportCategory = {
@@ -192,6 +222,53 @@ function isBlankRow(cells: string[]): boolean {
 
 function isHeaderRow(cells: string[]): boolean {
   return cells[0]?.toLowerCase() === "description";
+}
+
+type ItemHeaderCols = {
+  description: number;
+  unit: number;
+  laborUnits: number;
+  laborUnitNotes: number;
+  stripeTaxCodeId?: number;
+  laborInstallTaxCodeId?: number;
+  laborServiceTaxCodeId?: number;
+};
+
+function parseItemHeaderCols(cells: string[]): ItemHeaderCols {
+  const idx = new Map<string, number>();
+  cells.forEach((c, i) => {
+    const k = c.toLowerCase();
+    if (k) idx.set(k, i);
+  });
+  return {
+    description: idx.get("description") ?? 0,
+    unit: idx.get("unit") ?? 1,
+    laborUnits: idx.get("laborunits") ?? 2,
+    laborUnitNotes: idx.get("laborunitnotes") ?? 3,
+    stripeTaxCodeId: idx.has("stripetaxcodeid")
+      ? idx.get("stripetaxcodeid")
+      : undefined,
+    laborInstallTaxCodeId: idx.has("laborinstalltaxcodeid")
+      ? idx.get("laborinstalltaxcodeid")
+      : undefined,
+    laborServiceTaxCodeId: idx.has("laborservicetaxcodeid")
+      ? idx.get("laborservicetaxcodeid")
+      : undefined,
+  };
+}
+
+/** Read tax FK cell: blank → null; only when column is present on header. */
+function readOptionalTaxCell(
+  cells: string[],
+  col: number | undefined,
+): string | null | undefined {
+  if (col === undefined) return undefined;
+  const raw = (cells[col] ?? "").trim();
+  return raw === "" ? null : raw;
+}
+
+function displayTaxCode(id: string | null | undefined): string {
+  return id?.trim() || "";
 }
 
 function notesEqual(
@@ -279,6 +356,7 @@ export function parseDomainSheet(
   const warnings: RowWarning[] = [];
   let current: ParsedCategory | null = null;
   let expectHeader = false;
+  let headerCols: ItemHeaderCols | null = null;
 
   for (let i = 0; i < aoa.length; i++) {
     const excelRow = i + 1;
@@ -286,6 +364,7 @@ export function parseDomainSheet(
     if (isBlankRow(cells)) {
       current = null;
       expectHeader = false;
+      headerCols = null;
       continue;
     }
 
@@ -298,6 +377,7 @@ export function parseDomainSheet(
         });
         continue;
       }
+      headerCols = parseItemHeaderCols(cells);
       expectHeader = false;
       continue;
     }
@@ -323,6 +403,7 @@ export function parseDomainSheet(
         });
         current = null;
         expectHeader = false;
+        headerCols = null;
         continue;
       }
       current = {
@@ -333,6 +414,7 @@ export function parseDomainSheet(
       };
       categories.push(current);
       expectHeader = false;
+      headerCols = null;
       continue;
     }
 
@@ -345,7 +427,14 @@ export function parseDomainSheet(
       continue;
     }
 
-    const rawDesc = cells[0] ?? "";
+    const cols = headerCols ?? {
+      description: 0,
+      unit: 1,
+      laborUnits: 2,
+      laborUnitNotes: 3,
+    };
+
+    const rawDesc = cells[cols.description] ?? "";
     const name = normalizeName(rawDesc);
     if (!name) {
       warnings.push({
@@ -357,7 +446,7 @@ export function parseDomainSheet(
     }
 
     const itemWarnings: RowWarning[] = [];
-    let unitCode = (cells[1] ?? "").trim().toUpperCase();
+    let unitCode = (cells[cols.unit] ?? "").trim().toUpperCase();
     if (!unitCode) {
       const w: RowWarning = {
         sheet,
@@ -369,7 +458,11 @@ export function parseDomainSheet(
       unitCode = "EACH";
     }
 
-    const labor = parseLaborUnits(cells[2] ?? "", sheet, excelRow);
+    const labor = parseLaborUnits(
+      cells[cols.laborUnits] ?? "",
+      sheet,
+      excelRow,
+    );
     if (labor.warning) {
       itemWarnings.push(labor.warning);
       warnings.push(labor.warning);
@@ -379,7 +472,16 @@ export function parseDomainSheet(
       name,
       unitCode,
       laborUnits: labor.value,
-      laborUnitNotes: notesStored(cells[3]),
+      laborUnitNotes: notesStored(cells[cols.laborUnitNotes]),
+      stripeTaxCodeId: readOptionalTaxCell(cells, cols.stripeTaxCodeId),
+      laborInstallTaxCodeId: readOptionalTaxCell(
+        cells,
+        cols.laborInstallTaxCodeId,
+      ),
+      laborServiceTaxCodeId: readOptionalTaxCell(
+        cells,
+        cols.laborServiceTaxCodeId,
+      ),
       sheet,
       row: excelRow,
       warnings: itemWarnings,
@@ -578,6 +680,26 @@ export function planImport(
   const plannedUnits = new Set<string>();
   const plannedDomains = new Map<string, PlannedDomainCreate>();
   const plannedCategories = new Map<string, PlannedCategoryCreate>();
+  const validTaxCodes = existing.validTaxCodeIds ?? new Set<string>();
+
+  function resolvePlannedTaxCode(
+    raw: string | null | undefined,
+    fieldLabel: string,
+    sheet: string,
+    row: number,
+  ): { apply: boolean; value?: string | null } {
+    if (raw === undefined) return { apply: false };
+    if (raw === null || raw === "") return { apply: true, value: null };
+    if (!validTaxCodes.has(raw)) {
+      warnings.push({
+        sheet,
+        row,
+        message: `Unknown ${fieldLabel} "${raw}" — left unchanged`,
+      });
+      return { apply: false };
+    }
+    return { apply: true, value: raw };
+  }
 
   function ensureUnit(code: string) {
     const upper = code.trim().toUpperCase();
@@ -652,19 +774,65 @@ export function planImport(
                 to: item.laborUnitNotes ?? "",
               });
             }
+
+            const update: PlannedItemUpdate = {
+              id: existingItem.id,
+              name: item.name,
+              domainSlug: resolvedDomainSlug,
+              categorySlug: existingCat.slug,
+              unitCode: newUnit,
+              laborUnits: item.laborUnits,
+              laborUnitNotes: item.laborUnitNotes,
+              changes,
+              sheet: item.sheet,
+              row: item.row,
+            };
+
+            const material = resolvePlannedTaxCode(
+              item.stripeTaxCodeId,
+              "stripeTaxCodeId",
+              item.sheet,
+              item.row,
+            );
+            if (material.apply) {
+              const from = displayTaxCode(existingItem.stripeTaxCodeId);
+              const to = displayTaxCode(material.value);
+              if (from !== to) {
+                update.stripeTaxCodeId = material.value!;
+                changes.push({ field: "stripeTaxCodeId", from, to });
+              }
+            }
+            const install = resolvePlannedTaxCode(
+              item.laborInstallTaxCodeId,
+              "laborInstallTaxCodeId",
+              item.sheet,
+              item.row,
+            );
+            if (install.apply) {
+              const from = displayTaxCode(existingItem.laborInstallTaxCodeId);
+              const to = displayTaxCode(install.value);
+              if (from !== to) {
+                update.laborInstallTaxCodeId = install.value!;
+                changes.push({ field: "laborInstallTaxCodeId", from, to });
+              }
+            }
+            const service = resolvePlannedTaxCode(
+              item.laborServiceTaxCodeId,
+              "laborServiceTaxCodeId",
+              item.sheet,
+              item.row,
+            );
+            if (service.apply) {
+              const from = displayTaxCode(existingItem.laborServiceTaxCodeId);
+              const to = displayTaxCode(service.value);
+              if (from !== to) {
+                update.laborServiceTaxCodeId = service.value!;
+                changes.push({ field: "laborServiceTaxCodeId", from, to });
+              }
+            }
+
             if (changes.length > 0) {
-              itemUpdates.push({
-                id: existingItem.id,
-                name: item.name,
-                domainSlug: resolvedDomainSlug,
-                categorySlug: existingCat.slug,
-                unitCode: newUnit,
-                laborUnits: item.laborUnits,
-                laborUnitNotes: item.laborUnitNotes,
-                changes,
-                sheet: item.sheet,
-                row: item.row,
-              });
+              itemUpdates.push(update);
             } else {
               unchangedItemCount += 1;
             }
@@ -672,7 +840,7 @@ export function planImport(
           }
         }
 
-        itemCreates.push({
+        const create: PlannedItemCreate = {
           domainSlug: resolvedDomainSlug,
           categorySlug: existingCat?.slug ?? catSlug,
           name: item.name,
@@ -681,7 +849,29 @@ export function planImport(
           laborUnitNotes: item.laborUnitNotes,
           sheet: item.sheet,
           row: item.row,
-        });
+        };
+        const material = resolvePlannedTaxCode(
+          item.stripeTaxCodeId,
+          "stripeTaxCodeId",
+          item.sheet,
+          item.row,
+        );
+        if (material.apply) create.stripeTaxCodeId = material.value!;
+        const install = resolvePlannedTaxCode(
+          item.laborInstallTaxCodeId,
+          "laborInstallTaxCodeId",
+          item.sheet,
+          item.row,
+        );
+        if (install.apply) create.laborInstallTaxCodeId = install.value!;
+        const service = resolvePlannedTaxCode(
+          item.laborServiceTaxCodeId,
+          "laborServiceTaxCodeId",
+          item.sheet,
+          item.row,
+        );
+        if (service.apply) create.laborServiceTaxCodeId = service.value!;
+        itemCreates.push(create);
       }
     }
   }
@@ -745,6 +935,9 @@ export function buildExportAoa(domains: ExportDomain[]): {
           item.unitCode,
           item.laborUnits,
           item.laborUnitNotes ?? "",
+          item.stripeTaxCodeId ?? "",
+          item.laborInstallTaxCodeId ?? "",
+          item.laborServiceTaxCodeId ?? "",
         ]);
       }
       if (i < cats.length - 1) {

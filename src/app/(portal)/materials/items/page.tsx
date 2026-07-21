@@ -3,13 +3,20 @@ import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { listItems } from "@/features/materials/actions";
 import { ItemDeleteCell } from "@/features/materials/components/item-delete-cell";
+import { MaterialsImportExportClient } from "@/features/materials/components/materials-import-export-client";
 import { Button } from "@/components/ui/button";
 import { resolveItemTaxClassification } from "@/features/materials/tax";
+import { canForceDelete } from "@/features/materials/authz";
+import { userCan } from "@/config/permissions";
+import { listImportExportScopes } from "@/features/materials/io-actions";
 
 export default async function ItemsPage() {
   await requireDesktopSurface("/materials/items");
-  await requireArea("materials");
+  const user = await requireArea("materials");
   const items = await listItems();
+  const canIo = userCan(user, "materials.import_export");
+  const isAdmin = canForceDelete(user);
+  const divisions = canIo ? await listImportExportScopes() : [];
 
   return (
     <div className="space-y-4">
@@ -27,6 +34,20 @@ export default async function ItemsPage() {
           <Link href="/materials/items/new">New item</Link>
         </Button>
       </div>
+      {canIo && divisions.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Catalog Excel includes tax override columns (
+            <code className="text-xs">stripeTaxCodeId</code>, labor install/service).
+            Blank tax cells clear overrides — re-export before import. Item taxProfile
+            stays inherited (not in the sheet).
+          </p>
+          <MaterialsImportExportClient
+            divisions={divisions}
+            isAdmin={isAdmin}
+          />
+        </div>
+      ) : null}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">

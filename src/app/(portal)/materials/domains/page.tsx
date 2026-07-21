@@ -2,8 +2,10 @@ import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { canForceDelete } from "@/features/materials/authz";
+import { userCan } from "@/config/permissions";
 import { listDomains } from "@/features/materials/actions";
 import { DomainDeleteCell } from "@/features/materials/components/domain-delete-cell";
+import { DomainIoToolbar } from "@/features/materials/components/domain-io-toolbar";
 import { Button } from "@/components/ui/button";
 
 export default async function DomainsPage() {
@@ -11,6 +13,7 @@ export default async function DomainsPage() {
   const user = await requireArea("materials");
   const domains = await listDomains();
   const isAdmin = canForceDelete(user);
+  const canIo = userCan(user, "materials.import_export");
 
   return (
     <div className="space-y-4">
@@ -28,6 +31,7 @@ export default async function DomainsPage() {
           <Link href="/materials/domains/new">New domain</Link>
         </Button>
       </div>
+      {canIo ? <DomainIoToolbar isAdmin={isAdmin} /> : null}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
