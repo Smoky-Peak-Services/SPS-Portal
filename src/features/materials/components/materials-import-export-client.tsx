@@ -118,13 +118,13 @@ export function MaterialsImportExportClient({
 
   return (
     <div className="space-y-6">
-      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <section className="space-y-3 rounded-lg border border-border bg-card p-4">
         <h2 className="text-lg font-medium">Scope</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="block text-sm">
-            <span className="text-slate-600">Division</span>
+            <span className="text-muted-foreground">Division</span>
             <select
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-2"
+              className="mt-1 w-full rounded border border-border px-2 py-2"
               value={divisionId}
               onChange={(e) => onDivisionChange(e.target.value)}
             >
@@ -136,9 +136,9 @@ export function MaterialsImportExportClient({
             </select>
           </label>
           <label className="block text-sm">
-            <span className="text-slate-600">Segment</span>
+            <span className="text-muted-foreground">Segment</span>
             <select
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-2"
+              className="mt-1 w-full rounded border border-border px-2 py-2"
               value={segment}
               onChange={(e) => {
                 setSegment(e.target.value as Segment);
@@ -154,7 +154,7 @@ export function MaterialsImportExportClient({
             </select>
           </label>
           <div className="text-sm">
-            <div className="text-slate-600">Scope code</div>
+            <div className="text-muted-foreground">Scope code</div>
             <div className="mt-2 font-mono text-base">{scopeCode}</div>
           </div>
         </div>
@@ -167,9 +167,9 @@ export function MaterialsImportExportClient({
         ) : null}
       </section>
 
-      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <section className="space-y-3 rounded-lg border border-border bg-card p-4">
         <h2 className="text-lg font-medium">Import</h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Upload a catalog workbook. Preview shows creates/updates only — missing
           rows are never deleted. Commit is admin-only and re-parses the file.
         </p>
@@ -196,7 +196,7 @@ export function MaterialsImportExportClient({
               Commit import
             </Button>
           ) : (
-            <p className="self-center text-sm text-slate-500">
+            <p className="self-center text-sm text-muted-foreground">
               Commit requires an admin account.
             </p>
           )}
@@ -207,14 +207,14 @@ export function MaterialsImportExportClient({
           </p>
         ) : null}
         {commitMessage ? (
-          <p className="text-sm text-teal-800">{commitMessage}</p>
+          <p className="text-sm text-primary">{commitMessage}</p>
         ) : null}
       </section>
 
       {preview ? (
-        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+        <section className="space-y-4 rounded-lg border border-border bg-card p-4">
           <h2 className="text-lg font-medium">Preview report</h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             File: {preview.filename}
             {preview.filenameGuess
               ? ` · filename suggests ${preview.filenameGuess.scopeCode}`
@@ -264,13 +264,13 @@ export function MaterialsImportExportClient({
               <h3 className="mb-2 font-medium">Item updates</h3>
               <ul className="max-h-48 space-y-1 overflow-auto text-sm">
                 {preview.plan.itemUpdates.map((u) => (
-                  <li key={u.id} className="border-b border-slate-100 py-1">
+                  <li key={u.id} className="border-b border-border py-1">
                     <span className="font-medium">{u.name}</span>
-                    <span className="text-slate-500">
+                    <span className="text-muted-foreground">
                       {" "}
                       ({u.sheet}:{u.row})
                     </span>
-                    <ul className="ml-4 text-slate-600">
+                    <ul className="ml-4 text-muted-foreground">
                       {u.changes.map((c) => (
                         <li key={c.field}>
                           {c.field}: {c.from || "∅"} → {c.to || "∅"}
@@ -327,8 +327,8 @@ export function MaterialsImportExportClient({
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded border border-slate-100 bg-slate-50 px-3 py-2">
-      <div className="text-xs uppercase text-slate-500">{label}</div>
+    <div className="rounded border border-border bg-muted/40 px-3 py-2">
+      <div className="text-xs uppercase text-muted-foreground">{label}</div>
       <div className="text-xl font-semibold">{value}</div>
     </div>
   );

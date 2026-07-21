@@ -178,7 +178,7 @@ export function ItemForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="max-w-2xl space-y-4 rounded-lg border border-slate-200 bg-white p-6"
+      className="max-w-2xl space-y-4 rounded-lg border border-border bg-card p-6"
     >
       <div className="space-y-2">
         <Label htmlFor="categoryId">Category</Label>
@@ -189,7 +189,7 @@ export function ItemForm({
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
           disabled={isEdit}
-          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm disabled:opacity-60"
+          className="flex h-10 w-full rounded-md border border-border bg-card px-3 text-sm disabled:opacity-60"
         >
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
@@ -198,7 +198,7 @@ export function ItemForm({
           ))}
         </select>
         {!isEdit && !defaultCategoryId ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             Tip: open a category and use &quot;New item in category&quot; so
             attribute fields load for that category.
           </p>
@@ -216,7 +216,7 @@ export function ItemForm({
             name="unitId"
             required
             defaultValue={initial?.unitId ?? units[0]?.id}
-            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+            className="flex h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
           >
             {units.map((u) => (
               <option key={u.id} value={u.id}>
@@ -293,7 +293,7 @@ export function ItemForm({
         codes={taxCodes}
         defaultValue={initial?.stripeTaxCodeId}
       />
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         Tax profile follows the resolved material Stripe code (item override or
         category): Nontaxable / blank → real property; any other code → TPP
         {initial?.stripeTaxCodeId
@@ -318,7 +318,7 @@ export function ItemForm({
         codes={taxCodes}
         defaultValue={initial?.laborServiceTaxCodeId}
       />
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         Leave blank to use the default derived from tax profile + install/service
         context. Set both to the same code only if this item&apos;s labor is
         always one type of work regardless of which job or ticket it&apos;s
@@ -347,7 +347,7 @@ export function ItemForm({
 
       {assignments.length > 0 ? (
         <div className="space-y-3 border-t pt-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Attributes
           </h2>
           {assignments.map((a) => {
@@ -363,7 +363,7 @@ export function ItemForm({
                   <select
                     name={`attr_${a.attributeId}_option`}
                     defaultValue={existing?.optionId ?? ""}
-                    className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                    className="flex h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
                   >
                     <option value="">—</option>
                     {a.attribute.options.map((o) => (
@@ -374,7 +374,7 @@ export function ItemForm({
                   </select>
                 ) : null}
                 {type === "MULTISELECT" ? (
-                  <div className="space-y-1 rounded-md border border-slate-200 p-2">
+                  <div className="space-y-1 rounded-md border border-border p-2">
                     {(() => {
                       let selected: string[] = [];
                       if (existing?.valueText) {

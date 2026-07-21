@@ -32,7 +32,7 @@ export default async function AttributeDetailPage({
         <div>
           <Link
             href="/materials/attributes"
-            className="text-sm text-slate-500 hover:underline"
+            className="text-sm text-muted-foreground hover:underline"
           >
             ← Attributes
           </Link>

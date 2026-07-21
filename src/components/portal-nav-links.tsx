@@ -39,7 +39,7 @@ export function PortalNavLinks({
     <>
       {sections.map((section) => (
         <div key={section.id} className="mb-6">
-          <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             {section.label}
           </div>
           <ul className="space-y-0.5">
@@ -54,11 +54,11 @@ export function PortalNavLinks({
                     href={item.href}
                     onClick={onNavigate}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100",
-                      active && "bg-teal-50 font-medium text-teal-900",
+                      "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground",
+                      active && "bg-accent font-medium text-primary",
                     )}
                   >
-                    <Icon className="h-4 w-4 shrink-0 opacity-70" />
+                    <Icon className="h-4 w-4 shrink-0 opacity-80" />
                     {item.label}
                   </Link>
                 </li>
@@ -68,7 +68,7 @@ export function PortalNavLinks({
         </div>
       ))}
       {footer.length > 0 ? (
-        <div className="space-y-0.5 border-t border-slate-100 pt-3">
+        <div className="space-y-0.5 border-t border-border pt-3">
           {footer.map((item) => {
             const Icon = ICONS[item.icon] ?? CircleUser;
             return (
@@ -76,9 +76,9 @@ export function PortalNavLinks({
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                className="mb-1 flex items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                className="mb-1 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground/80 hover:bg-accent"
               >
-                <Icon className="h-4 w-4 opacity-70" />
+                <Icon className="h-4 w-4 opacity-80" />
                 {item.label}
               </Link>
             );

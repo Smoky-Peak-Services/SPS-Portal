@@ -12,7 +12,7 @@ export default async function NewDomainPage() {
       <div>
         <Link
           href="/materials/domains"
-          className="text-sm text-slate-500 hover:underline"
+          className="text-sm text-muted-foreground hover:underline"
         >
           ← Domains
         </Link>

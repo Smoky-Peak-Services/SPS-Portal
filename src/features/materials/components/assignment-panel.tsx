@@ -107,26 +107,26 @@ export function AssignmentPanel({
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
+    <div className="space-y-4 rounded-lg border border-border bg-card p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Attribute assignments
         </h2>
-        <p className="text-sm text-slate-600">
-          <span className="font-medium text-teal-900">{assignedCount}</span>
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-primary">{assignedCount}</span>
           {" of "}
           <span className="font-medium">{totalCount}</span>
           {" attributes assigned"}
         </p>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         Tap a bubble to assign or remove. Manufacturer and Part Number are
         always assigned. Part Number required-ness follows the category
         checkbox above.
       </p>
 
       {availableAttributes.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           No active attributes yet. Create some under Materials → Attributes.
         </p>
       ) : (
@@ -142,8 +142,8 @@ export function AssignmentPanel({
                 className={cn(
                   "rounded-xl border p-3 transition-colors",
                   selected
-                    ? "border-teal-700 bg-teal-50"
-                    : "border-slate-200 bg-white hover:border-slate-300",
+                    ? "border-primary/50 bg-primary/10"
+                    : "border-border bg-card hover:border-border",
                 )}
               >
                 <button
@@ -166,12 +166,12 @@ export function AssignmentPanel({
                     <span
                       className={cn(
                         "block text-sm font-medium",
-                        selected ? "text-teal-950" : "text-slate-800",
+                        selected ? "text-foreground" : "text-foreground",
                       )}
                     >
                       {attr.name}
                     </span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
                       {attr.inputType}
                       {locked ? " · always assigned" : ""}
                       {thisBusy ? " · saving…" : ""}
@@ -181,8 +181,8 @@ export function AssignmentPanel({
                     className={cn(
                       "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold",
                       selected
-                        ? "border-teal-800 bg-teal-800 text-white"
-                        : "border-slate-300 bg-white text-slate-400",
+                        ? "border-primary bg-primary text-white"
+                        : "border-border bg-card text-muted-foreground",
                     )}
                     aria-hidden
                   >
@@ -191,15 +191,15 @@ export function AssignmentPanel({
                 </button>
 
                 {assignment || locked ? (
-                  <div className="mt-3 flex flex-wrap gap-1 border-t border-teal-100 pt-2">
+                  <div className="mt-3 flex flex-wrap gap-1 border-t border-primary/20 pt-2">
                     {locked ? (
                       <>
                         {attr.slug === "part_number" ? (
-                          <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] text-slate-500 ring-1 ring-slate-200">
+                          <span className="rounded-full bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground ring-1 ring-border">
                             Required controlled by category checkbox above
                           </span>
                         ) : (
-                          <span className="rounded-full bg-teal-800 px-2.5 py-0.5 text-[11px] font-medium text-white">
+                          <span className="rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-medium text-white">
                             Required
                           </span>
                         )}
@@ -215,8 +215,8 @@ export function AssignmentPanel({
                             className={cn(
                               "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
                               assignment.isFilterable
-                                ? "bg-teal-800 text-white"
-                                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
+                                ? "bg-primary text-white"
+                                : "bg-card text-muted-foreground ring-1 ring-border hover:bg-muted",
                             )}
                             aria-pressed={assignment.isFilterable}
                           >
@@ -252,8 +252,8 @@ export function AssignmentPanel({
                           className={cn(
                             "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
                             on
-                              ? "bg-teal-800 text-white"
-                              : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
+                              ? "bg-primary text-white"
+                              : "bg-card text-muted-foreground ring-1 ring-border hover:bg-muted",
                           )}
                           aria-pressed={on}
                         >

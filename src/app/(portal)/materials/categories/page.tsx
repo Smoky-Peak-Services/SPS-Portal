@@ -25,12 +25,12 @@ export default async function CategoriesPage({
         <div>
           <Link
             href="/materials"
-            className="text-sm text-slate-500 hover:underline"
+            className="text-sm text-muted-foreground hover:underline"
           >
             ← Materials
           </Link>
           <h1 className="text-2xl font-semibold">Categories</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {needsTaxReview
               ? "Showing categories that still need tax review."
               : "All categories."}{" "}
@@ -40,7 +40,7 @@ export default async function CategoriesPage({
                   ? "/materials/categories"
                   : "/materials/categories?taxReview=1"
               }
-              className="text-teal-800 hover:underline"
+              className="text-primary hover:underline"
             >
               {needsTaxReview ? "Show all" : "Needs tax review"}
             </Link>
@@ -50,9 +50,9 @@ export default async function CategoriesPage({
           <Link href="/materials/categories/new">New category</Link>
         </Button>
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-left text-sm">
-          <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Domain</th>
@@ -66,7 +66,7 @@ export default async function CategoriesPage({
           <tbody>
             {categories.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   {needsTaxReview
                     ? "No categories awaiting tax review."
                     : "No categories yet."}
@@ -78,7 +78,7 @@ export default async function CategoriesPage({
                   <td className="px-4 py-3">
                     <Link
                       href={`/materials/categories/${c.id}`}
-                      className="font-medium text-teal-900 hover:underline"
+                      className="font-medium text-primary hover:underline"
                     >
                       {c.name}
                     </Link>
@@ -88,7 +88,7 @@ export default async function CategoriesPage({
                       </span>
                     ) : null}
                     {c.laborInstallTaxCodeId || c.laborServiceTaxCodeId ? (
-                      <span className="ml-2 text-xs text-slate-500">
+                      <span className="ml-2 text-xs text-muted-foreground">
                         labor override
                       </span>
                     ) : null}
@@ -124,7 +124,7 @@ export default async function CategoriesPage({
                         isAdmin={isAdmin}
                       />
                     ) : (
-                      <span className="text-xs text-slate-400">—</span>
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
                 </tr>

@@ -53,13 +53,13 @@ export function StripeTaxCodeCombobox({
       <Label htmlFor={`${name}-search`}>{label}</Label>
       <input type="hidden" name={name} value={selected} />
       {selectedMeta ? (
-        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-          <div className="font-mono text-xs text-slate-600">{selectedMeta.id}</div>
+        <div className="rounded border border-border bg-muted/40 px-3 py-2 text-sm">
+          <div className="font-mono text-xs text-muted-foreground">{selectedMeta.id}</div>
           <div className="font-medium">{selectedMeta.name}</div>
           {allowClear ? (
             <button
               type="button"
-              className="mt-1 text-xs text-teal-800 hover:underline"
+              className="mt-1 text-xs text-primary hover:underline"
               onClick={() => {
                 setSelected("");
                 setQuery("");
@@ -86,15 +86,15 @@ export function StripeTaxCodeCombobox({
         }}
       />
       {open ? (
-        <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-slate-200 bg-white text-sm shadow-md">
+        <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-card text-sm shadow-md">
           {filtered.length === 0 ? (
-            <li className="px-3 py-2 text-slate-500">No matches</li>
+            <li className="px-3 py-2 text-muted-foreground">No matches</li>
           ) : (
             filtered.map((c) => (
               <li key={c.id}>
                 <button
                   type="button"
-                  className="w-full px-3 py-2 text-left hover:bg-teal-50"
+                  className="w-full px-3 py-2 text-left hover:bg-primary/10"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     setSelected(c.id);
@@ -102,9 +102,9 @@ export function StripeTaxCodeCombobox({
                     setOpen(false);
                   }}
                 >
-                  <div className="font-mono text-xs text-slate-500">{c.id}</div>
+                  <div className="font-mono text-xs text-muted-foreground">{c.id}</div>
                   <div className="font-medium">{c.name}</div>
-                  <div className="line-clamp-1 text-xs text-slate-500">
+                  <div className="line-clamp-1 text-xs text-muted-foreground">
                     {c.description}
                   </div>
                 </button>

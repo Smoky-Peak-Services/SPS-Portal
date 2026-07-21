@@ -82,7 +82,10 @@ What's actually here, in `src/`, post-reset (§2a) plus materials catalog:
   - `device-surface.ts`, `get-server-surface.ts`, `require-desktop.ts` — mobile vs. desktop routing (see §7).
 - **`config/`** — `company.ts` (company/division/feature-flag source of truth) and `permissions.ts` (roles + area access rules).
 - **`proxy.ts`** — the edge auth gate. This repo's equivalent of `middleware.ts` (Next 16 naming). Checks only for a session cookie's presence and redirects to `/sign-in`; it does not check roles. Update `PUBLIC_PREFIXES` here when adding a new unauthenticated route (e.g. a new public API endpoint).
-- **`components/ui/`** — shared UI primitives (shadcn/Radix style, kept minimal — currently badge, button, input, label, textarea).
+- **`components/ui/`** — shadcn primitives (`components.json`, dark tokens in `globals.css`). Prefer these over ad-hoc markup.
+- **`components/layout/`** — `AppLogo`, `AppSidebar`, `AppHeader` (portal chrome).
+- **`components/patterns/`** — reusable page building blocks: `PageHeader`, `Panel`, `MetricCard`, `DataTableShell`, `StatusBadge`, `EmptyState`. Use these before inventing new page chrome.
+- **Theme:** dark-only (`html.dark`). Brand assets in `public/brand/` (mark, logo-dark, PWA icons). Colors: teal/cyan primary — not purple.
 
 ---
 

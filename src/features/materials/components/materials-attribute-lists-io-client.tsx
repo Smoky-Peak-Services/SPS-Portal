@@ -59,11 +59,11 @@ export function MaterialsAttributeListsIoClient({
 
   return (
     <div className="space-y-4">
-      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <section className="space-y-3 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-medium">Attribute lists</h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Global picklists (`MaterialAttribute` / options). Upsert only —
               missing rows are never deleted. filter_mode, tags, and RFQ columns
               are ignored. Commit is admin-only.
@@ -103,7 +103,7 @@ export function MaterialsAttributeListsIoClient({
               Commit attribute import
             </Button>
           ) : (
-            <p className="self-center text-sm text-slate-500">
+            <p className="self-center text-sm text-muted-foreground">
               Commit requires an admin account.
             </p>
           )}
@@ -114,14 +114,14 @@ export function MaterialsAttributeListsIoClient({
           </p>
         ) : null}
         {commitMessage ? (
-          <p className="text-sm text-teal-800">{commitMessage}</p>
+          <p className="text-sm text-primary">{commitMessage}</p>
         ) : null}
       </section>
 
       {preview ? (
-        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+        <section className="space-y-4 rounded-lg border border-border bg-card p-4">
           <h3 className="font-medium">Attribute lists preview</h3>
-          <p className="text-sm text-slate-500">File: {preview.filename}</p>
+          <p className="text-sm text-muted-foreground">File: {preview.filename}</p>
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6 text-sm">
             <Stat
               label="New attributes"
@@ -165,11 +165,11 @@ export function MaterialsAttributeListsIoClient({
               <h4 className="mb-2 text-sm font-medium">Option updates</h4>
               <ul className="max-h-40 space-y-1 overflow-auto text-sm">
                 {preview.plan.optionUpdates.map((u) => (
-                  <li key={u.id} className="border-b border-slate-100 py-1">
+                  <li key={u.id} className="border-b border-border py-1">
                     <span className="font-medium">
                       {u.attributeSlug}/{u.value}
                     </span>
-                    <ul className="ml-4 text-slate-600">
+                    <ul className="ml-4 text-muted-foreground">
                       {u.changes.map((c) => (
                         <li key={c.field}>
                           {c.field}: {c.from || "∅"} → {c.to || "∅"}
@@ -228,8 +228,8 @@ export function MaterialsAttributeListsIoClient({
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded border border-slate-100 bg-slate-50 px-3 py-2">
-      <div className="text-xs uppercase text-slate-500">{label}</div>
+    <div className="rounded border border-border bg-muted/40 px-3 py-2">
+      <div className="text-xs uppercase text-muted-foreground">{label}</div>
       <div className="text-xl font-semibold">{value}</div>
     </div>
   );

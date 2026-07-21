@@ -82,7 +82,7 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
   return (
     <form
       onSubmit={onSubmit}
-      className="max-w-xl space-y-4 rounded-lg border border-slate-200 bg-white p-6"
+      className="max-w-xl space-y-4 rounded-lg border border-border bg-card p-6"
     >
       <div className="space-y-2">
         <Label htmlFor="domainId">Domain</Label>
@@ -91,7 +91,7 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
           name="domainId"
           required
           defaultValue={initial?.domainId ?? domains[0]?.id}
-          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+          className="flex h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
         >
           {domains.map((d) => (
             <option key={d.id} value={d.id}>
@@ -122,11 +122,11 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
         codes={taxCodes}
         defaultValue={initial?.stripeTaxCodeId}
       />
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         Tax profile is derived from this code: Nontaxable (
         <code className="text-[11px]">txcd_00000000</code>) or blank → real
         property; any other code → TPP. Currently:{" "}
-        <span className="font-medium text-slate-700">
+        <span className="font-medium text-foreground/90">
           {derivedProfile === "REAL_PROPERTY"
             ? "Real property"
             : "Tangible personal property"}
@@ -145,7 +145,7 @@ export function CategoryForm({ domains, taxCodes, initial }: Props) {
         codes={taxCodes}
         defaultValue={initial?.laborServiceTaxCodeId}
       />
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         Leave blank to use the default derived from tax profile + install/service
         context. Set both to the same code only if this category&apos;s labor is
         always one type of work regardless of which job or ticket it&apos;s

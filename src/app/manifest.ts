@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: `Internal operations hub for ${company.name}.`,
     start_url: "/",
     display: "standalone",
-    background_color: "#f8fafc",
+    background_color: "#0B1220",
     theme_color: company.brand.primary,
     icons: [
       { src: "/brand/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

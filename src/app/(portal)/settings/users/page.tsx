@@ -13,11 +13,11 @@ export default async function UsersSettingsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/" className="text-sm text-slate-500 hover:underline">
+        <Link href="/" className="text-sm text-muted-foreground hover:underline">
           ← Dashboard
         </Link>
         <h1 className="text-2xl font-semibold">Users & overrides</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Change a user&apos;s role or override individual capabilities.
         </p>
       </div>

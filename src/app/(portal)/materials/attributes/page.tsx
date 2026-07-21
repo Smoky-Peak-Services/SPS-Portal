@@ -18,12 +18,12 @@ export default async function AttributesPage() {
         <div>
           <Link
             href="/materials"
-            className="text-sm text-slate-500 hover:underline"
+            className="text-sm text-muted-foreground hover:underline"
           >
             ← Materials
           </Link>
           <h1 className="text-2xl font-semibold">Attributes</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Global definitions — assign them to categories separately.
           </p>
         </div>
@@ -31,9 +31,9 @@ export default async function AttributesPage() {
           <Link href="/materials/attributes/new">New attribute</Link>
         </Button>
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-left text-sm">
-          <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Slug</th>
@@ -46,7 +46,7 @@ export default async function AttributesPage() {
           <tbody>
             {attributes.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   No attributes yet.
                 </td>
               </tr>
@@ -56,12 +56,12 @@ export default async function AttributesPage() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/materials/attributes/${a.id}`}
-                      className="font-medium text-teal-900 hover:underline"
+                      className="font-medium text-primary hover:underline"
                     >
                       {a.name}
                     </Link>
                     {!a.isActive ? (
-                      <span className="ml-2 text-xs text-slate-400">
+                      <span className="ml-2 text-xs text-muted-foreground">
                         inactive
                       </span>
                     ) : null}

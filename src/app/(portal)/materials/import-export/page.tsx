@@ -17,12 +17,12 @@ export default async function MaterialsImportExportPage() {
       <div>
         <Link
           href="/materials"
-          className="text-sm text-slate-500 hover:underline"
+          className="text-sm text-muted-foreground hover:underline"
         >
           ← Materials
         </Link>
         <h1 className="text-2xl font-semibold">Import / export</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Excel round-trip for the item catalog (by division + segment) and
           global attribute picklists. Preview, then commit (admin). Missing rows
           are never deleted.
@@ -32,7 +32,7 @@ export default async function MaterialsImportExportPage() {
       <div className="space-y-2">
         <h2 className="text-xl font-medium">Item catalog</h2>
         {divisions.length === 0 ? (
-          <p className="text-sm text-slate-500">No divisions configured.</p>
+          <p className="text-sm text-muted-foreground">No divisions configured.</p>
         ) : (
           <MaterialsImportExportClient
             divisions={divisions}

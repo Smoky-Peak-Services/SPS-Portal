@@ -32,12 +32,12 @@ export default async function CategoryDetailPage({
         <div>
           <Link
             href="/materials/categories"
-            className="text-sm text-slate-500 hover:underline"
+            className="text-sm text-muted-foreground hover:underline"
           >
             ← Categories
           </Link>
           <h1 className="text-2xl font-semibold">{category.name}</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {category.domain.division.name} / {category.domain.name}
             {!category.taxReviewed ? (
               <span className="ml-2 text-amber-700">· needs tax review</span>

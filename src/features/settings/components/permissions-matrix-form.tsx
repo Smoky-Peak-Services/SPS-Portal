@@ -108,10 +108,10 @@ export function PermissionsMatrixForm({
         </Button>
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {message ? <p className="text-sm text-teal-800">{message}</p> : null}
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      {message ? <p className="text-sm text-primary">{message}</p> : null}
+      <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full min-w-[720px] text-left text-xs">
-          <thead className="border-b bg-slate-50 text-slate-500">
+          <thead className="border-b bg-muted/40 text-muted-foreground">
             <tr>
               <th className="px-3 py-2">Capability</th>
               {roles.map((r) => (
@@ -125,8 +125,8 @@ export function PermissionsMatrixForm({
             {capabilities.map((cap) => (
               <tr key={cap.id} className="border-b last:border-0">
                 <td className="px-3 py-2">
-                  <div className="font-medium text-slate-800">{cap.label}</div>
-                  <div className="font-mono text-[10px] text-slate-400">
+                  <div className="font-medium text-foreground">{cap.label}</div>
+                  <div className="font-mono text-[10px] text-muted-foreground">
                     {cap.id}
                   </div>
                 </td>

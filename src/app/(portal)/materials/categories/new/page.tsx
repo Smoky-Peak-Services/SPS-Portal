@@ -15,14 +15,14 @@ export default async function NewCategoryPage() {
       <div>
         <Link
           href="/materials/categories"
-          className="text-sm text-slate-500 hover:underline"
+          className="text-sm text-muted-foreground hover:underline"
         >
           ← Categories
         </Link>
         <h1 className="text-2xl font-semibold">New category</h1>
       </div>
       {domains.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Create a domain first, then add categories.
         </p>
       ) : (

@@ -86,7 +86,7 @@ export function DomainForm({ divisions, initial }: DomainFormProps) {
   return (
     <form
       onSubmit={onSubmit}
-      className="max-w-xl space-y-4 rounded-lg border border-slate-200 bg-white p-6"
+      className="max-w-xl space-y-4 rounded-lg border border-border bg-card p-6"
     >
       <div className="space-y-2">
         <Label htmlFor="divisionId">Division</Label>
@@ -96,7 +96,7 @@ export function DomainForm({ divisions, initial }: DomainFormProps) {
           required
           value={divisionId}
           onChange={(e) => setDivisionId(e.target.value)}
-          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+          className="flex h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
         >
           {divisions.map((d) => (
             <option key={d.id} value={d.id}>
@@ -112,7 +112,7 @@ export function DomainForm({ divisions, initial }: DomainFormProps) {
           name="segment"
           required
           defaultValue={initial?.segment ?? allowedSegments[0]?.value}
-          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+          className="flex h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
         >
           {allowedSegments.map((s) => (
             <option key={s.value} value={s.value}>

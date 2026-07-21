@@ -32,12 +32,12 @@ export default async function EditItemPage({
       <div>
         <Link
           href="/materials/items"
-          className="text-sm text-slate-500 hover:underline"
+          className="text-sm text-muted-foreground hover:underline"
         >
           ← Items
         </Link>
         <h1 className="text-2xl font-semibold">{item.name}</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Resolved tax: {tax.taxProfile ?? "unclassified"}
           {tax.stripeTaxCodeId
             ? ` · ${tax.stripeTaxCodeId}`

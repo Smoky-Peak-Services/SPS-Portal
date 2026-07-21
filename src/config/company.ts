@@ -41,7 +41,13 @@ export interface Company {
   timezone: string;
   accountDomain: string;
   rootAdminEmail: string;
-  brand: { logo: string; logoDark: string; primary: string; accent: string };
+  brand: {
+    logo: string;
+    logoDark: string;
+    mark: string;
+    primary: string;
+    accent: string;
+  };
   email: { fromName: string; fromAddress: string; support: string };
   contact: { email: string; phone: string };
   office: {
@@ -66,10 +72,11 @@ export const company: Company = {
   accountDomain: "smokypeak.tech",
   rootAdminEmail: "ryan.k@smokypeak.tech",
   brand: {
-    logo: "/brand/logo.svg",
-    logoDark: "/brand/logo-dark.svg",
-    primary: "#265157",
-    accent: "#5f9aa3",
+    logo: "/brand/logo-dark.png",
+    logoDark: "/brand/logo-dark.png",
+    mark: "/brand/mark.png",
+    primary: "#0D9488",
+    accent: "#2DD4BF",
   },
   email: {
     fromName: "Smoky Peak",

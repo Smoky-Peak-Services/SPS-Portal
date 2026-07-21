@@ -18,7 +18,7 @@ export default async function DomainsPage() {
         <div>
           <Link
             href="/materials"
-            className="text-sm text-slate-500 hover:underline"
+            className="text-sm text-muted-foreground hover:underline"
           >
             ← Materials
           </Link>
@@ -28,9 +28,9 @@ export default async function DomainsPage() {
           <Link href="/materials/domains/new">New domain</Link>
         </Button>
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-left text-sm">
-          <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Division</th>
@@ -43,7 +43,7 @@ export default async function DomainsPage() {
           <tbody>
             {domains.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   No domains yet.
                 </td>
               </tr>
@@ -53,7 +53,7 @@ export default async function DomainsPage() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/materials/domains/${d.id}`}
-                      className="font-medium text-teal-900 hover:underline"
+                      className="font-medium text-primary hover:underline"
                     >
                       {d.name}
                     </Link>
@@ -73,7 +73,7 @@ export default async function DomainsPage() {
                         isAdmin={isAdmin}
                       />
                     ) : (
-                      <span className="text-xs text-slate-400">—</span>
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
                 </tr>

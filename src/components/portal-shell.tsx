@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { PortalSidebar } from "@/components/portal-sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { useDeviceSurface } from "@/hooks/use-device-surface";
 
@@ -18,14 +18,14 @@ export function PortalShell({
   const surface = useDeviceSurface();
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex min-h-screen flex-col bg-background md:flex-row">
       <MobileNav
         capabilities={capabilities}
         userName={userName}
         pathname={pathname}
         surface={surface}
       />
-      <PortalSidebar
+      <AppSidebar
         capabilities={capabilities}
         userName={userName}
         pathname={pathname}

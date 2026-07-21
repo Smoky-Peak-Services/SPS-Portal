@@ -2,6 +2,9 @@ import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { listMaterialCounts } from "@/features/materials/actions";
+import { PageHeader } from "@/components/patterns/page-header";
+import { MetricCard } from "@/components/patterns/metric-card";
+import { Button } from "@/components/ui/button";
 
 export default async function MaterialsHubPage() {
   await requireDesktopSurface("/materials");
@@ -25,31 +28,25 @@ export default async function MaterialsHubPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Materials catalog</h1>
-        <p className="text-sm text-slate-500">
-          Back-office taxonomy for quoting. Units seeded: {counts.units}.
-        </p>
-      </div>
+      <PageHeader
+        title="Materials catalog"
+        description={`Back-office taxonomy for quoting. Units seeded: ${counts.units}.`}
+        actions={
+          <Button asChild variant="outline">
+            <Link href="/materials/import-export">Import / export</Link>
+          </Button>
+        }
+      />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <Link
-            key={c.href}
-            href={c.href}
-            className="rounded-lg border border-slate-200 bg-white p-4 hover:border-teal-300 hover:bg-teal-50/40"
-          >
-            <div className="text-sm text-slate-500">{c.label}</div>
-            <div className="mt-1 text-2xl font-semibold">{c.count}</div>
+          <Link key={c.href} href={c.href} className="block">
+            <MetricCard
+              label={c.label}
+              value={String(c.count)}
+              className="h-full hover:border-primary/40"
+            />
           </Link>
         ))}
-      </div>
-      <div>
-        <Link
-          href="/materials/import-export"
-          className="text-sm font-medium text-teal-800 hover:underline"
-        >
-          Import / export Excel (catalog + attribute lists) →
-        </Link>
       </div>
     </div>
   );

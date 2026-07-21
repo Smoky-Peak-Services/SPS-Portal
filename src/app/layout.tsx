@@ -2,6 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { company } from "@/config/company";
 import { PwaRegister } from "@/components/pwa-register";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: {
@@ -13,7 +18,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: company.shortName,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
   icons: {
     icon: [{ url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" }],
@@ -23,7 +28,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: company.brand.primary,
+  themeColor: "#0B1220",
+  colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -35,9 +41,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen antialiased">
-        {children}
+    <html lang="en" className={cn("dark font-sans", geist.variable)}>
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        <TooltipProvider delay={200}>{children}</TooltipProvider>
         <PwaRegister />
       </body>
     </html>

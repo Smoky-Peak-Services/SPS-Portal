@@ -29,14 +29,14 @@ export default async function NewItemPage({
       <div>
         <Link
           href="/materials/items"
-          className="text-sm text-slate-500 hover:underline"
+          className="text-sm text-muted-foreground hover:underline"
         >
           ← Items
         </Link>
         <h1 className="text-2xl font-semibold">New item</h1>
       </div>
       {categories.length === 0 || units.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Need at least one category and seeded units before creating items. Run{" "}
           <code className="text-xs">npm run db:seed</code> if units are missing.
         </p>

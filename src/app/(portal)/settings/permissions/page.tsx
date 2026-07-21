@@ -13,11 +13,11 @@ export default async function PermissionsSettingsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/" className="text-sm text-slate-500 hover:underline">
+        <Link href="/" className="text-sm text-muted-foreground hover:underline">
           ← Dashboard
         </Link>
         <h1 className="text-2xl font-semibold">Role permissions</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Toggle capabilities per role. Per-user overrides are on the Users
           page.
         </p>

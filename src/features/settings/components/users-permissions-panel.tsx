@@ -61,34 +61,34 @@ export function UsersPermissionsPanel({ users }: { users: UserRow[] }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-      <ul className="rounded-lg border border-slate-200 bg-white text-sm">
+      <ul className="rounded-lg border border-border bg-card text-sm">
         {users.map((u) => (
           <li key={u.id}>
             <button
               type="button"
-              className={`w-full px-3 py-2 text-left hover:bg-slate-50 ${
-                u.id === selectedId ? "bg-teal-50 font-medium" : ""
+              className={`w-full px-3 py-2 text-left hover:bg-muted ${
+                u.id === selectedId ? "bg-primary/10 font-medium" : ""
               }`}
               onClick={() => setSelectedId(u.id)}
             >
               <div>{u.name}</div>
-              <div className="text-xs text-slate-500">{u.email}</div>
+              <div className="text-xs text-muted-foreground">{u.email}</div>
             </button>
           </li>
         ))}
       </ul>
       {selected ? (
-        <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="space-y-4 rounded-lg border border-border bg-card p-4">
           <div>
             <h2 className="text-lg font-semibold">{selected.name}</h2>
-            <p className="text-sm text-slate-500">{selected.email}</p>
+            <p className="text-sm text-muted-foreground">{selected.email}</p>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium uppercase text-slate-500">
+            <label className="text-xs font-medium uppercase text-muted-foreground">
               Role
             </label>
             <select
-              className="flex h-10 w-full max-w-xs rounded-md border border-slate-300 px-3 text-sm"
+              className="flex h-10 w-full max-w-xs rounded-md border border-border px-3 text-sm"
               value={selected.role}
               disabled={pending}
               onChange={(e) => changeRole(e.target.value as AppRole)}
@@ -102,7 +102,7 @@ export function UsersPermissionsPanel({ users }: { users: UserRow[] }) {
           </div>
           <div>
             <h3 className="mb-2 text-sm font-semibold">Capability overrides</h3>
-            <p className="mb-3 text-xs text-slate-500">
+            <p className="mb-3 text-xs text-muted-foreground">
               Inherit uses the role matrix. Deny always wins over role allow.
             </p>
             <ul className="space-y-2">
@@ -115,7 +115,7 @@ export function UsersPermissionsPanel({ users }: { users: UserRow[] }) {
                   >
                     <div>
                       <div className="font-medium">{cap.label}</div>
-                      <div className="font-mono text-[10px] text-slate-400">
+                      <div className="font-mono text-[10px] text-muted-foreground">
                         {cap.id}
                       </div>
                     </div>

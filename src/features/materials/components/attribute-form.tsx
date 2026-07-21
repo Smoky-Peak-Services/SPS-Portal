@@ -95,7 +95,7 @@ export function AttributeForm({ initial, canForceDelete = false }: Props) {
     <div className="space-y-6">
       <form
         onSubmit={onSubmit}
-        className="max-w-xl space-y-4 rounded-lg border border-slate-200 bg-white p-6"
+        className="max-w-xl space-y-4 rounded-lg border border-border bg-card p-6"
       >
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
@@ -113,7 +113,7 @@ export function AttributeForm({ initial, canForceDelete = false }: Props) {
               name="inputType"
               defaultValue={initial?.inputType ?? "SELECT"}
               disabled={!!initial}
-              className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm disabled:opacity-60"
+              className="flex h-10 w-full rounded-md border border-border bg-card px-3 text-sm disabled:opacity-60"
             >
               <option value="SELECT">Select</option>
               <option value="MULTISELECT">Multi-select</option>
@@ -148,8 +148,8 @@ export function AttributeForm({ initial, canForceDelete = false }: Props) {
       {initial &&
       (initial.inputType === "SELECT" ||
         initial.inputType === "MULTISELECT") ? (
-        <div className="max-w-2xl space-y-3 rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <div className="max-w-2xl space-y-3 rounded-lg border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Options
           </h2>
           <ul>
@@ -161,7 +161,7 @@ export function AttributeForm({ initial, canForceDelete = false }: Props) {
               />
             ))}
             {initial.options.length === 0 ? (
-              <li className="py-2 text-sm text-slate-500">No options yet.</li>
+              <li className="py-2 text-sm text-muted-foreground">No options yet.</li>
             ) : null}
           </ul>
           <form onSubmit={onAddOption} className="grid gap-3 border-t pt-4">
