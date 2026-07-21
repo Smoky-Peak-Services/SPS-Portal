@@ -16,7 +16,7 @@ This is being built by one person (Ryan) with a real services company's operatio
 
 Smoky Peak Services LLC is a multi-division contractor and short-term-rental service company. This portal is its internal ERP: staff/admin operations, field jobs, scheduling, and (eventually) estimating, billing, and job costing.
 
-**Current state (2026-07-21): dashboard shell + materials catalog (CRUD + Excel import/export) + pricing labor rates (IS-Commercial seed + pure engines).** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume Quote/Job/ServiceTicket entities exist until they're rebuilt.
+**Current state (2026-07-21): dashboard shell + materials catalog + pricing (labor rates + complexity multipliers + recurring fees/SMA, IS-Commercial seed + pure engines).** A full jobs/tickets/schedule/CRM buildout existed and was deliberately reverted — see §2a. Don't assume Quote/Job/ServiceTicket entities exist until they're rebuilt.
 
 Divisions as currently modeled in `src/config/company.ts` (the single source of truth for company/division/branding — edit only that file for those changes):
 
@@ -69,8 +69,8 @@ On 2026-07-19 the jobs/tickets/schedule/CRM buildout was reverted back to a dash
 
 What's actually here, in `src/`, post-reset (§2a) plus materials catalog:
 
-- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account`, dashboard (`page.tsx`), `materials` (admin catalog CRUD), `pricing` (labor rates).
-- **`features/<domain>/`** — where the real logic lives, one folder per domain. Today: `materials` (catalog EAV), `pricing` (labor rates + engines), `accounting` (schema-guard test), `auth`, `cron`, `ingress`. Jobs/tickets/schedule/crm were removed in the reset (§2a) and return later (quoting next). Domain shape:
+- **`app/(portal)/<area>/`** — pages (App Router, server components). Keep thin: call a feature function, render the result. Areas today: `account`, dashboard (`page.tsx`), `materials` (admin catalog CRUD), `pricing` (labor rates + complexity + recurring/SMA).
+- **`features/<domain>/`** — where the real logic lives, one folder per domain. Today: `materials` (catalog EAV), `pricing` (labor rates + complexity + recurring fees/SMA engines), `accounting` (schema-guard test), `auth`, `cron`, `ingress`. Jobs/tickets/schedule/crm were removed in the reset (§2a) and return later (quoting next). Domain shape:
   - `actions.ts` — `"use server"` Server Actions. Every exported action follows the same order: `requireUser()`/`requireArea(area)` first, then `schema.parse(raw)`, then the Prisma call(s), then `revalidatePath(...)` for every route that shows the changed data.
   - `schemas.ts` — Zod schemas shared between the server action and the client form.
   - `components/` — feature-specific UI.
@@ -99,7 +99,7 @@ This is the single most important — and most fragile — architectural decisio
 |---|---|---|
 | Schema | `prisma/schema.prisma` | `prisma/pii/schema.prisma` |
 | Client | `src/lib/prisma.ts` → `prisma` | `src/lib/prisma-pii.ts` → `prismaPii` |
-| Owns | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`), pricing labor (`LaborRateConfig`, `LaborPosition`) | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
+| Owns | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`), pricing (`LaborRateConfig`, `LaborPosition`, `ComplexityMultiplier`, `RecurringFeeItem`) | `Division` (replicated), `Lead`, `Activity`, `IngestKey` |
 | Deferred | Field Ops / work-order models | CRM `Customer`, `Contact`, `ServiceLocation` |
 | Env vars | `OPS_DATABASE_URL`, `OPS_DIRECT_URL` | `PII_DATABASE_URL`, `PII_DIRECT_URL` |
 | Generate | `npm run db:generate` | `npm run db:generate:pii` |
@@ -202,6 +202,24 @@ Feature code: `src/features/pricing/`. Admin UI: `/pricing/labor-rates` (desktop
   - Cost basis uses `actualCostOfLabor` for every `LaborRateType` (sheet has no AH/holiday cost) — off-hours margin looks inflated until the sheet gains cost multipliers.
 - Seed: `scripts/seed-labor-rates.ts` / `db:seed` upserts IS-Commercial only (`integrated-systems` + `COMMERCIAL`) from sheet literals in `is-com-rates.ts` (fixture CSV: `claude/prompts/samples/is-com-hourly-labor-rates.csv`).
 - Tests: `npm run test:pricing-labor`. No Excel IO for five rows.
+
+### Pricing — complexity multipliers (prompt 10)
+
+- **`ComplexityMultiplier`**: scoped by `(divisionId, Segment)`; categories `STRUCTURAL | ACCESS | COMPLIANCE`; `modificationRate` is a **decimal** (0.08 = 8%), not an integer percent.
+- **Hours only:** `calculateAdjustedLaborHours` adds `Σ (baseHours × rate)` — never multiplies billable dollars, cost, or project price. Additive, not compounded; no cap.
+- `totalHours` is what later quoting passes into `distributeQuotedLabor`. After Hours Required Installation (+20% hours) may intentionally stack with `LaborRateType.AFTER_HOURS`.
+- Admin: `/pricing/complexity` (same `pricing.access` / `pricing.write`). Seed: `scripts/seed-complexity-multipliers.ts` (10 IS-COM rows). Tests: `npm run test:pricing-complexity`.
+
+### Pricing — recurring fees + SMA (prompt 11)
+
+Admin UI: `/pricing/recurring` (desktop-only, same `pricing.access` / `pricing.write`).
+
+- **`RecurringFeeItem`**: scoped by `(divisionId, Segment)`, unique SKU in scope. Enums: `BillingCycle`, `RecurringFeeUnit`, `RecurringFeeType` (`SMA_BASE_TIER | SMA_SVM | SMA_BANK_OF_HOURS | MONTHLY_SERVICE`), `RateValueType` (`CURRENCY | PERCENT`). Money/percent columns `Decimal(12,4)` so SVM percents fit (`0.1560`).
+- **Two CSV deviations (locked):** drop duplicate Monthly Monitoring `$18.99` (seed only `$39.99` / `$51.99` / `$46.79`); Bank of Hours sell rate is **live** `LAB-COM-T12-SIS.standardBillingRate × 0.90` — seed stores `0` placeholders; engine never reads BOH dollar columns.
+- **SMA engine** (`sma.ts`): `Total = base tier + SVM + Bank of Hours`. `selectSmaBaseTier` bounds TR1 `[500,5000]`, TR2 `(5000,10000]`, … TR5 `(30000,∞)`; exact edge → lower tier; below `$500` → none (Zod rejects). SVM applies to **material value only** (never labor). `SmaPurchaseType { DIRECT, SMA_BUNDLED }` selects **both** the base-tier column and the SVM % together (confirm with Ryan if those should ever diverge).
+- **Monthly engine** (`monthly-service.ts`): `resolveMonthlyServiceRate(item, customerHasActiveSma)` — bundled vs direct only; **no SVM parameter** on the type. Separate code path from SMA.
+- Seed: 11 IS-COM rows (`is-com-recurring.ts` / `scripts/seed-recurring-fees.ts`). Tests: `npm run test:pricing-recurring` (worked: DIRECT `$12k` + 10 BOH → `$3,738.46`; BUNDLED → `$3,421.26`).
+- Non-goals: no customer/SMA-contract/subscription/invoice; no Stripe; no proration/forfeiture enforcement.
 
 ---
 

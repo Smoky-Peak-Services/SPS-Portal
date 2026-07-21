@@ -1,0 +1,180 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import type { ComplexityCategory } from "@prisma/client";
+import { updateComplexityMultiplier } from "@/features/pricing/actions";
+import { AFTER_HOURS_COMPLEXITY_SLUG } from "@/features/pricing/is-com-complexity";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+type Row = {
+  id: string;
+  name: string;
+  slug: string;
+  category: ComplexityCategory;
+  modificationRate: { toString(): string };
+  description: string;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export function ComplexityMultipliersTable({
+  multipliers,
+  canWrite,
+}: {
+  multipliers: Row[];
+  canWrite: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        Multipliers adjust labor <strong className="text-foreground">hours</strong> only
+        (never dollars). Additive, not compounded.{" "}
+        <strong className="text-foreground">After Hours Required Installation</strong>{" "}
+        (+20% hours) may stack with the after-hours <em>rate type</em> (higher $/hr) by
+        design — choose both deliberately.
+      </p>
+      <div className="space-y-3">
+        {multipliers.map((m) => (
+          <ComplexityEditCard key={m.id} row={m} canWrite={canWrite} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ComplexityEditCard({
+  row,
+  canWrite,
+}: {
+  row: Row;
+  canWrite: boolean;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const isAfterHours = row.slug === AFTER_HOURS_COMPLEXITY_SLUG;
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!canWrite) return;
+    const fd = new FormData(e.currentTarget);
+    setError(null);
+    start(async () => {
+      try {
+        await updateComplexityMultiplier({
+          id: row.id,
+          name: fd.get("name"),
+          category: fd.get("category"),
+          modificationRate: fd.get("modificationRate"),
+          description: fd.get("description"),
+          isActive: fd.get("isActive") === "on",
+          sortOrder: fd.get("sortOrder"),
+        });
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Save failed");
+      }
+    });
+  }
+
+  if (!canWrite) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-4 text-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <div className="font-medium">{row.name}</div>
+            <div className="font-mono text-xs text-muted-foreground">
+              {row.slug} · {row.category} · rate {row.modificationRate.toString()}
+              {!row.isActive ? " · inactive" : ""}
+            </div>
+          </div>
+          {isAfterHours ? (
+            <span className="text-xs text-amber-700">
+              Stacks with AFTER_HOURS rate type
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">{row.description}</p>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="space-y-3 rounded-lg border border-border bg-card p-4"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          name="name"
+          defaultValue={row.name}
+          disabled={pending}
+          required
+          className="min-w-[12rem] flex-1"
+        />
+        <select
+          name="category"
+          defaultValue={row.category}
+          disabled={pending}
+          className="flex h-9 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          <option value="STRUCTURAL">STRUCTURAL</option>
+          <option value="ACCESS">ACCESS</option>
+          <option value="COMPLIANCE">COMPLIANCE</option>
+        </select>
+        <Input
+          name="modificationRate"
+          type="number"
+          step="0.0001"
+          min="0"
+          max="1"
+          defaultValue={row.modificationRate.toString()}
+          disabled={pending}
+          required
+          className="w-28"
+          title="Decimal rate (0.08 = 8%)"
+        />
+        <Input
+          name="sortOrder"
+          type="number"
+          step="1"
+          defaultValue={row.sortOrder}
+          disabled={pending}
+          required
+          className="w-20"
+        />
+        <label className="flex items-center gap-1.5 text-xs">
+          <input
+            type="checkbox"
+            name="isActive"
+            defaultChecked={row.isActive}
+            disabled={pending}
+          />
+          Active
+        </label>
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? "…" : "Save"}
+        </Button>
+      </div>
+      <div className="font-mono text-xs text-muted-foreground">
+        {row.slug}
+        {isAfterHours ? " · stacks with AFTER_HOURS rate type" : ""}
+      </div>
+      <textarea
+        name="description"
+        defaultValue={row.description}
+        disabled={pending}
+        required
+        rows={3}
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+      />
+      {error ? (
+        <p className="text-xs text-red-700" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </form>
+  );
+}

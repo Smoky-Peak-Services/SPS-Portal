@@ -54,6 +54,36 @@ enum LaborRateType {
   HOLIDAY
 }
 
+/// Complexity multiplier category (prompt 10).
+enum ComplexityCategory {
+  STRUCTURAL
+  ACCESS
+  COMPLIANCE
+}
+
+/// Recurring fee / SMA catalog (prompt 11).
+enum BillingCycle {
+  ANNUAL
+  MONTHLY
+}
+
+enum RecurringFeeUnit {
+  YEAR
+  MONTH
+}
+
+enum RecurringFeeType {
+  SMA_BASE_TIER
+  SMA_SVM
+  SMA_BANK_OF_HOURS
+  MONTHLY_SERVICE
+}
+
+enum RateValueType {
+  CURRENCY
+  PERCENT
+}
+
 // ---------- Better-Auth core ----------
 
 model User {
@@ -129,10 +159,12 @@ model Division {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships       DivisionMembership[]
-  materialDomains   MaterialDomain[]
-  laborRateConfigs  LaborRateConfig[]
-  laborPositions    LaborPosition[]
+  memberships             DivisionMembership[]
+  materialDomains         MaterialDomain[]
+  laborRateConfigs        LaborRateConfig[]
+  laborPositions          LaborPosition[]
+  complexityMultipliers   ComplexityMultiplier[]
+  recurringFeeItems       RecurringFeeItem[]
 
   @@map("division")
 }
@@ -467,4 +499,57 @@ model LaborPosition {
   @@index([divisionId])
   @@index([divisionId, segment, context])
   @@map("labor_position")
+}
+
+/// Hours-only complexity adders (prompt 10). Never multiply dollars — only baseHours.
+model ComplexityMultiplier {
+  id               String              @id @default(cuid())
+  divisionId       String
+  division         Division            @relation(fields: [divisionId], references: [id])
+  segment          Segment
+  name             String
+  slug             String
+  category         ComplexityCategory
+  modificationRate Decimal             @db.Decimal(5, 4)
+  description      String              @db.Text
+  isActive         Boolean             @default(true)
+  sortOrder        Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@unique([divisionId, segment, slug])
+  @@index([divisionId])
+  @@index([divisionId, segment])
+  @@map("complexity_multiplier")
+}
+
+/// Recurring fee catalog (prompt 11). SMA tiers/SVM/BOH vs MONTHLY_SERVICE are separate engines.
+/// PERCENT rows (SVM) store rates as decimals (0.1560); CURRENCY as dollars.
+/// Bank of Hours dollar columns are placeholders — sell rate is derived live from Tech 1&2.
+model RecurringFeeItem {
+  id                 String            @id @default(cuid())
+  divisionId         String
+  division           Division          @relation(fields: [divisionId], references: [id])
+  segment            Segment
+  sku                String
+  description        String
+  unit               RecurringFeeUnit
+  baseCost           Decimal           @db.Decimal(12, 4)
+  directPurchaseRate Decimal           @db.Decimal(12, 4)
+  smaBundledRate     Decimal           @db.Decimal(12, 4)
+  billingCycle       BillingCycle
+  feeType            RecurringFeeType
+  valueType          RateValueType
+  systemValueMin     Decimal?          @db.Decimal(12, 2)
+  systemValueMax     Decimal?          @db.Decimal(12, 2)
+  notes              String            @db.Text
+  isActive           Boolean           @default(true)
+  sortOrder          Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([divisionId, segment, sku])
+  @@index([divisionId])
+  @@index([divisionId, segment, feeType])
+  @@map("recurring_fee_item")
 }

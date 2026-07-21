@@ -10,6 +10,8 @@ import { seedCapabilities } from "../src/config/capabilities";
 import { ensureCoreAssignmentsForAllCategories } from "../src/features/materials/ensure-core-assignments";
 import { deriveTaxProfileFromStripeCode } from "../src/features/materials/tax";
 import { seedLaborRates } from "../scripts/seed-labor-rates";
+import { seedComplexityMultipliers } from "../scripts/seed-complexity-multipliers";
+import { seedRecurringFees } from "../scripts/seed-recurring-fees";
 
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -208,6 +210,14 @@ async function main() {
   console.log("Seeding IS-Commercial labor rates…");
   await seedLaborRates(prisma);
   console.log("  ✓ LaborRateConfig + 5 LaborPosition rows");
+
+  console.log("Seeding IS-Commercial complexity multipliers…");
+  await seedComplexityMultipliers(prisma);
+  console.log("  ✓ 10 ComplexityMultiplier rows");
+
+  console.log("Seeding IS-Commercial recurring fees…");
+  await seedRecurringFees(prisma);
+  console.log("  ✓ 11 RecurringFeeItem rows");
 
   console.log("Seeding role capabilities…");
   await seedCapabilities(prisma);
