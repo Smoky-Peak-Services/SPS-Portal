@@ -44,6 +44,7 @@ export default async function ComplexityMultipliersPage({
           description={`${scope.multipliers.length} multipliers`}
         >
           <ComplexityMultipliersTable
+            key={`${divisionId}:${segment}`}
             multipliers={scope.multipliers}
             canWrite={canWrite}
           />

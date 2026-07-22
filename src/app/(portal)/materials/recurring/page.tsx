@@ -52,7 +52,11 @@ export default async function RecurringFeesPage({
             title={`${divisionName} · ${segment}`}
             description={`${plans.plans.length} plan rows`}
           >
-            <ServicePlanRatesTable plans={plans.plans} canWrite={canWrite} />
+            <ServicePlanRatesTable
+              key={`${divisionId}:${segment}`}
+              plans={plans.plans}
+              canWrite={canWrite}
+            />
           </Panel>
         )}
       </div>
@@ -80,7 +84,11 @@ export default async function RecurringFeesPage({
           title={`${divisionName} · ${segment}`}
           description={`${recurring.items.length} items`}
         >
-          <RecurringFeesTable items={recurring.items} canWrite={canWrite} />
+          <RecurringFeesTable
+            key={`${divisionId}:${segment}`}
+            items={recurring.items}
+            canWrite={canWrite}
+          />
         </Panel>
       )}
     </div>

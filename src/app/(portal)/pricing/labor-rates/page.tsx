@@ -43,15 +43,22 @@ export default async function LaborRatesPage({
           </p>
           <Panel
             title="Rate multipliers"
-            description="These drive every position's rates. Base × Burden = Cost; Cost × Standard billing = Standard rate; After-hours, Holiday, and Discounted multiply the Standard rate. Saving recomputes all positions in this scope."
+            description={`These apply only to ${divisionName} · ${segment}. Base × Burden = Cost; Cost × Standard billing = Standard rate; After-hours, Holiday, and Discounted multiply the Standard rate. Saving recomputes positions in this scope only — other rate sheets are untouched.`}
           >
-            <LaborRateConfigForm config={scope.config} canWrite={canWrite} />
+            {/* key forces a remount on scope change so uncontrolled inputs
+                don't keep the previous sheet's defaultValue. */}
+            <LaborRateConfigForm
+              key={scope.config.id}
+              config={scope.config}
+              canWrite={canWrite}
+            />
           </Panel>
           <DataTableShell
             title="Positions"
             description="Base is the only manual rate (today an average of what the role is paid; later derived from employee profiles). Cost / Std / AH / Hol are computed from Base × the multipliers above. INSTALL roles feed the quoted blend engine; SERVICE is service-ticket only."
           >
             <LaborPositionsTable
+              key={scope.config.id}
               positions={scope.positions}
               multipliers={{
                 burdenMultiplier: Number(scope.config.burdenMultiplier),
