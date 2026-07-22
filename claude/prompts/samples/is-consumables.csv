@@ -1,0 +1,34 @@
+Shop Supply Labor Rate Input,,,,,,,,,
+Labor Rate:,$62.94,,,,,,,,
+,,,,,,,,,
+Item Description,SKU,Category,Unit of Measure,Waste Factor Percentage,Base Cost,Markup Percentage,Billing Rate,Supplier,Labor Rate
+Zip Ties (100 pack),CON-ZT-PK-EA-SIS,Fasteners,Pack,10.0%,$5.00,50.0%,$7.50,,$62.94
+Electrical Tape (Roll),CON-ET-RL-EA-SIS,Tape,Roll,5.0%,$2.50,50.0%,$3.75,,$62.94
+Velcro One-Wrap (Roll),CON-VOW-RL-EA-SIS,Fasteners,Roll,5.0%,$15.00,50.0%,$22.50,Amazon,$62.94
+J-Hooks (2 inch),CON-JH-EA-EA-SIS,Support,Each,2.0%,$1.20,50.0%,$1.80,,$62.94
+Drywall Anchors (100 pack),CON-DA-PK-EA-SIS,Hardware,Pack,15.0%,$8.00,50.0%,$12.00,,$62.94
+"Screws (Various sizes, box)",CON-SCR-BX-EA-SIS,Hardware,Box,10.0%,$12.00,50.0%,$18.00,,$62.94
+RJ45 Connectors (100 pack),CON-RJ45-PK-EA-SIS,Connectors,Pack,20.0%,$25.00,50.0%,$37.50,,$62.94
+Cable Labels (Sheet),CON-CL-SH-EA-SIS,Labeling,Sheet,10.0%,$2.00,50.0%,$3.00,Amazon,$62.94
+"Cable Labels 1/2"" Tape Cartridge",CON-CL12-CT-EA-SIS,Labeling,Cartridge,10.0%,$26.00,50.0%,$39.00,Amazon,$62.94
+"Cable Labels 3/4"" Tape Cartridge ",CON-CL34-CT-EA-SIS,Labeling,Cartridge,10.0%,$28.00,50.0%,$42.00,Amazon,$62.94
+"Cable Labels 1"" Tape Cartridge ",CON-CL1-CT-EA-SIS,Labeling,Cartridge,10.0%,$30.00,50.0%,$45.00,Amazon,$62.94
+Pull String (Bucket),CON-PS-BK-EA-SIS,Tools,Bucket,5.0%,$50.00,50.0%,$75.00,,$62.94
+Firestop Sealant Putty (Tube),CON-FS-TB-EA-SIS,Safety,Tube,10.0%,$26.00,50.0%,$39.00,,$62.94
+Firestop Sealant Caulk (Tube),CON-FSC-TB-EA-SIS,Safety,Tube,15.0%,$18.00,50.0%,$27.00,,$62.94
+Fish Tape (Replacement),CON-FT-EA-EA-SIS,Tools,Each,0.0%,$30.00,50.0%,$45.00,,$62.94
+Drill Bits (Set),CON-DB-ST-EA-SIS,Tools,Set,5.0%,$25.00,50.0%,$37.50,,$62.94
+Wire Nuts (100 pack),CON-WN-PK-EA-SIS,Connectors,Pack,10.0%,$6.00,50.0%,$9.00,,$62.94
+Heat Shrink Tubing (Assorted),CON-HST-BX-EA-SIS,Protection,Box,15.0%,$14.00,50.0%,$21.00,Amazon,$62.94
+BNC Connectors (50 pack),CON-BNC-PK-EA-SIS,Connectors,Pack,10.0%,$40.00,50.0%,$60.00,,$62.94
+F-Type Connectors (50 pack),CON-FTC-PK-EA-SIS,Connectors,Pack,10.0%,$15.00,50.0%,$22.50,,$62.94
+Faceplates (Single Gang),CON-FP-EA-EA-SIS,Hardware,Each,2.0%,$1.50,50.0%,$2.25,,$62.94
+Blank Inserts (Bag),CON-BI-BG-EA-SIS,Hardware,Bag,5.0%,$5.00,50.0%,$7.50,,$62.94
+Cleaning Wipes (Canister),CON-CW-CN-EA-SIS,Cleaning,Canister,5.0%,$8.00,50.0%,$12.00,Amazon,$62.94
+,,,,,,,,,
+Notes,,,,,,,,,
+1. Shop supplies and consumables are items that are typically not itemized individually on client proposals due to low unit cost.,,,,,,,,,
+"2. The waste factor percentage accounts for expected material loss, damage, or off-cuts during standard installation.",,,,,,,,,
+3. Base cost is the standard purchase price from approved vendors and is subject to change based on market conditions.,,,,,,,,,
+4. Billing rate includes the standard markup percentage applied to the base cost to cover procurement and handling.,,,,,,,,,
+5. The labor rate applied to consumables is linked to the Tech 1 and 2 hourly rate from the Hourly Labor Rates tab.,,,,,,,,,
