@@ -184,6 +184,7 @@ model Division {
   recurringFeeItems     RecurringFeeItem[]
   servicePlanRates      ServicePlanRate[]
   consumableItems       ConsumableItem[]
+  equipmentItems        EquipmentItem[]
 
   @@map("division")
 }
@@ -648,4 +649,27 @@ model ConsumableItem {
   @@unique([divisionId, sku])
   @@index([divisionId])
   @@map("consumable_item")
+}
+
+/// Specialized equipment, rentals, lifts (prompt 18). One list per division —
+/// shared across segments. Sell price is always cost × EQUIPMENT_MARKUP (1.15);
+/// markup is a code constant, never stored or editable.
+model EquipmentItem {
+  id         String   @id @default(cuid())
+  divisionId String
+  division   Division @relation(fields: [divisionId], references: [id])
+  name       String
+  sku        String?
+  unit       String?
+  cost       Decimal  @db.Decimal(12, 2)
+  supplier   String?
+  notes      String?
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([divisionId, name])
+  @@index([divisionId])
+  @@map("equipment_item")
 }

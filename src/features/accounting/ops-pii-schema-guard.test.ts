@@ -59,6 +59,7 @@ describe("ops-pii schema guard", () => {
     assert.match(schema, /enum ServicePlanType \{/);
     assert.match(schema, /model RecurringFeeItem \{/);
     assert.match(schema, /model ConsumableItem \{/);
+    assert.match(schema, /model EquipmentItem \{/);
     assert.match(schema, /enum RecurringFeeType \{/);
     assert.equal(schema.includes("isConsumable"), false);
     assert.match(schema, /enum BillingCycle \{/);

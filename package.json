@@ -22,6 +22,7 @@
     "test:pricing-recurring": "tsx --test src/features/pricing/recurring.test.ts",
     "test:pricing-plans": "tsx --test src/features/pricing/service-plans.test.ts",
     "test:consumables": "tsx --test src/features/consumables/consumables.test.ts",
+    "test:equipment": "tsx --test src/features/equipment/equipment.test.ts",
     "test:scope": "tsx --test src/features/materials/scope.test.ts",
     "test:active-scope": "tsx --test src/features/scope/active-scope.test.ts",
     "seed:consumables": "tsx --env-file=.env.local scripts/run-seed-consumables.ts",

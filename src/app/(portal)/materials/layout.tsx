@@ -28,6 +28,7 @@ export default async function MaterialsLayout({
     tabs.push({ label: "Catalog I/O", href: "/materials/import-export" });
   }
   tabs.push({ label: "Consumables", href: "/materials/consumables" });
+  tabs.push({ label: "Equipment & Tools", href: "/materials/equipment" });
 
   const [divisions, cookie] = await Promise.all([
     listScopeDivisions(),
