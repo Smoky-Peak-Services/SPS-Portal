@@ -212,8 +212,9 @@ Separate from materials — shop supplies shared by a division (IS Commercial an
 
 Specialized equipment, rentals, lifts — shared by a division (IS Commercial and Residential share one list; Cabin has its own). Model: `EquipmentItem` scoped by **`divisionId` only** (no segment). Feature: `src/features/equipment/`. UI: `/materials/equipment` (Catalog tab; `requireArea("materials")`).
 
-- Sell price = `cost × EQUIPMENT_MARKUP` where `EQUIPMENT_MARKUP = 1.15` (hard-baked constant — never stored, never editable per item). Example: `$475 → $546.25`.
-- Fields: `name` (unique per division), optional `sku`/`unit`/`supplier`/`notes`, required `cost`.
+- Catalog rows are **picklist placeholders** (e.g. Scissor Lift Rental) — **no stored cost** on the item. Cost is entered later on the quote or service ticket.
+- At use time, sell = `cost × EQUIPMENT_MARKUP` where `EQUIPMENT_MARKUP = 1.15` (hard-baked constant — never stored, never editable). Example: `$475 → $546.25`. Helper: `sellPriceFromCost` in `schemas.ts` (for future quote/ticket lines).
+- Fields: `name` (unique per division), optional `sku`/`unit`/`supplier`/`notes`.
 - **No seed**, no Excel IO, no labor/tax/attributes, no quote consumption yet.
 - Tests: `npm run test:equipment`.
 

@@ -26,7 +26,6 @@ function equipmentWriteData(data: {
   name: string;
   sku?: string | null;
   unit?: string | null;
-  cost: number;
   supplier?: string | null;
   notes?: string | null;
   isActive: boolean;
@@ -36,7 +35,6 @@ function equipmentWriteData(data: {
     name: data.name,
     sku: data.sku ?? null,
     unit: data.unit ?? null,
-    cost: new Prisma.Decimal(data.cost),
     supplier: data.supplier ?? null,
     notes: data.notes ?? null,
     isActive: data.isActive,

@@ -7,7 +7,6 @@ import {
   deleteEquipment,
   updateEquipment,
 } from "@/features/equipment/actions";
-import { sellPriceFromCost } from "@/features/equipment/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,23 +16,17 @@ type Row = {
   name: string;
   sku: string | null;
   unit: string | null;
-  cost: { toString(): string };
   supplier: string | null;
   notes: string | null;
   isActive: boolean;
   sortOrder: number;
 };
 
-function money(n: number): string {
-  return `$${n.toFixed(2)}`;
-}
-
 function readForm(fd: FormData) {
   return {
     name: fd.get("name"),
     sku: fd.get("sku"),
     unit: fd.get("unit"),
-    cost: fd.get("cost"),
     supplier: fd.get("supplier"),
     notes: fd.get("notes"),
     isActive: fd.get("isActive") === "on",
@@ -57,11 +50,14 @@ export function EquipmentTable({
   return (
     <div className="space-y-4">
       <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        One equipment &amp; tools list for all of{" "}
+        One equipment &amp; tools picklist for all of{" "}
         <strong className="text-foreground">{divisionName}</strong> (shared
-        across its segments). Sell price is always{" "}
-        <strong className="text-foreground">cost × 1.15</strong> — markup is
-        fixed in code, not editable per item.
+        across its segments). Catalog items are placeholders (e.g. Scissor Lift
+        Rental) —{" "}
+        <strong className="text-foreground">
+          cost is entered on the quote or service ticket
+        </strong>
+        , then sell = cost × 1.15 (fixed in code, not editable here).
       </p>
 
       {canWrite ? <AddEquipmentForm divisionId={divisionId} /> : null}
@@ -91,7 +87,6 @@ function AddEquipmentForm({ divisionId }: { divisionId: string }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [costPreview, setCostPreview] = useState("");
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -101,7 +96,6 @@ function AddEquipmentForm({ divisionId }: { divisionId: string }) {
       try {
         await createEquipment({ divisionId, ...readForm(fd) });
         setOpen(false);
-        setCostPreview("");
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Create failed");
@@ -116,12 +110,6 @@ function AddEquipmentForm({ divisionId }: { divisionId: string }) {
       </Button>
     );
   }
-
-  const costNum = Number(costPreview);
-  const sellPreview =
-    costPreview !== "" && Number.isFinite(costNum)
-      ? sellPriceFromCost(costNum)
-      : null;
 
   return (
     <form
@@ -142,14 +130,10 @@ function AddEquipmentForm({ divisionId }: { divisionId: string }) {
       </div>
       <EquipmentFields
         pending={pending}
-        costValue={costPreview}
-        onCostChange={setCostPreview}
-        sellPreview={sellPreview}
         defaults={{
           name: "",
           sku: "",
           unit: "EACH",
-          cost: "",
           supplier: "",
           notes: "",
           sortOrder: "0",
@@ -176,12 +160,6 @@ function EquipmentEditCard({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [costPreview, setCostPreview] = useState(row.cost.toString());
-
-  const costNum = Number(costPreview);
-  const sellPreview = Number.isFinite(costNum)
-    ? sellPriceFromCost(costNum)
-    : sellPriceFromCost(Number(row.cost.toString()));
 
   function onSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -201,9 +179,7 @@ function EquipmentEditCard({
   function onDelete() {
     if (!canDelete) return;
     if (
-      !window.confirm(
-        `Delete "${row.name}"? This cannot be undone.`,
-      )
+      !window.confirm(`Delete "${row.name}"? This cannot be undone.`)
     ) {
       return;
     }
@@ -251,14 +227,10 @@ function EquipmentEditCard({
       </div>
       <EquipmentFields
         pending={pending || !canWrite}
-        costValue={costPreview}
-        onCostChange={setCostPreview}
-        sellPreview={sellPreview}
         defaults={{
           name: row.name,
           sku: row.sku ?? "",
           unit: row.unit ?? "",
-          cost: row.cost.toString(),
           supplier: row.supplier ?? "",
           notes: row.notes ?? "",
           sortOrder: String(row.sortOrder),
@@ -273,21 +245,14 @@ function EquipmentEditCard({
 
 function EquipmentFields({
   pending,
-  costValue,
-  onCostChange,
-  sellPreview,
   defaults,
   readOnly = false,
 }: {
   pending: boolean;
-  costValue: string;
-  onCostChange: (v: string) => void;
-  sellPreview: number | null;
   defaults: {
     name: string;
     sku: string;
     unit: string;
-    cost: string;
     supplier: string;
     notes: string;
     sortOrder: string;
@@ -326,28 +291,6 @@ function EquipmentFields({
           placeholder="EACH"
         />
       </Field>
-      <Field label="Cost" htmlFor="eq-cost" required>
-        <Input
-          id="eq-cost"
-          name="cost"
-          type="number"
-          step="0.01"
-          min="0"
-          required
-          disabled={disabled}
-          value={costValue}
-          onChange={(e) => onCostChange(e.target.value)}
-        />
-      </Field>
-      <Field label="Sell (cost + 15%)" htmlFor="eq-sell">
-        <Input
-          id="eq-sell"
-          readOnly
-          disabled
-          value={sellPreview != null ? money(sellPreview) : "—"}
-          className="bg-muted/50"
-        />
-      </Field>
       <Field label="Supplier" htmlFor="eq-supplier">
         <Input
           id="eq-supplier"
@@ -378,7 +321,11 @@ function EquipmentFields({
           Active
         </label>
       </div>
-      <Field label="Notes" htmlFor="eq-notes" className="sm:col-span-2 lg:col-span-3">
+      <Field
+        label="Notes"
+        htmlFor="eq-notes"
+        className="sm:col-span-2 lg:col-span-3"
+      >
         <Input
           id="eq-notes"
           name="notes"

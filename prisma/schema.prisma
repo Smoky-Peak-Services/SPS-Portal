@@ -652,8 +652,9 @@ model ConsumableItem {
 }
 
 /// Specialized equipment, rentals, lifts (prompt 18). One list per division —
-/// shared across segments. Sell price is always cost × EQUIPMENT_MARKUP (1.15);
-/// markup is a code constant, never stored or editable.
+/// shared across segments. Catalog rows are picklist placeholders (no stored
+/// price); cost is entered on the quote/ticket and sell = cost × EQUIPMENT_MARKUP
+/// (1.15) at use time — markup is a code constant, never stored or editable.
 model EquipmentItem {
   id         String   @id @default(cuid())
   divisionId String
@@ -661,7 +662,6 @@ model EquipmentItem {
   name       String
   sku        String?
   unit       String?
-  cost       Decimal  @db.Decimal(12, 2)
   supplier   String?
   notes      String?
   isActive   Boolean  @default(true)

@@ -1,9 +1,12 @@
 import { z } from "zod";
 
-/** Hard-baked pass-through markup — not stored, not editable (prompt 18). */
+/**
+ * Hard-baked pass-through markup for use-time pricing on quotes/tickets —
+ * not stored on the catalog item, not editable (prompt 18).
+ */
 export const EQUIPMENT_MARKUP = 1.15;
 
-/** Sell = round(cost × 1.15). e.g. 475 → 546.25 */
+/** Sell = round(cost × 1.15) when cost is entered on a quote/ticket. e.g. 475 → 546.25 */
 export function sellPriceFromCost(cost: number): number {
   return Math.round(cost * EQUIPMENT_MARKUP * 100) / 100;
 }
@@ -39,7 +42,6 @@ const equipmentFields = {
   name: z.string().trim().min(1).max(240),
   sku: optionalSku,
   unit: optionalNullableString,
-  cost: z.coerce.number().nonnegative(),
   supplier: optionalNullableString,
   notes: optionalNullableString,
   isActive: z.coerce.boolean(),

@@ -8,9 +8,9 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { Panel } from "@/components/patterns/panel";
 
 /**
- * Equipment & Tools are division-scoped (prompt 18): IS-Commercial and
- * IS-Residential share one list; Cabin has its own. Segment is ignored for
- * the query — only divisionId matters.
+ * Equipment & Tools are division-scoped picklist placeholders (prompt 18):
+ * IS-Commercial and IS-Residential share one list; Cabin has its own.
+ * Cost is entered later on quotes/tickets — not stored on the catalog row.
  */
 export default async function EquipmentPage({
   searchParams,
@@ -29,7 +29,7 @@ export default async function EquipmentPage({
     <div className="space-y-6">
       <PageHeader
         title="Equipment & Tools"
-        description={`Specialized equipment and tools for ${scope.divisionName} (shared across segments). Sell price is always cost × 1.15.`}
+        description={`Picklist of specialized equipment and tools for ${scope.divisionName} (shared across segments). Cost is entered on the quote or ticket; sell = cost × 1.15 at use time.`}
       />
 
       <Panel
@@ -37,7 +37,7 @@ export default async function EquipmentPage({
         description={
           items.length === 0
             ? "Empty list — add equipment or tools for this division"
-            : `${items.length} items · sell = cost × 15%`
+            : `${items.length} placeholders · pricing at use time`
         }
       >
         <EquipmentTable
