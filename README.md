@@ -58,10 +58,18 @@ npm run typecheck
 
 ```powershell
 powershell -File scripts/sync-vercel-env.ps1 -EnvFile .env.vercel `
-  -Keys OPS_DATABASE_URL,OPS_DIRECT_URL,BETTER_AUTH_SECRET,BETTER_AUTH_URL,NEXT_PUBLIC_APP_URL
+  -Keys OPS_DATABASE_URL,OPS_DIRECT_URL,BETTER_AUTH_SECRET,BETTER_AUTH_URL,NEXT_PUBLIC_APP_URL,CLIENT_DB_SECRET_ARN,AWS_ROLE_ARN,AWS_REGION
 ```
 
-Until `CLIENT_DB_SECRET_ARN` is wired, PII-backed features (lead ingest) need `PII_DATABASE_URL` locally; on Vercel without that wiring, lead ingest returns `503` / `pii_unconfigured`.
+### Vercel PII (Secrets Manager + OIDC)
+
+Production portal resolves Neon PII via `CLIENT_DB_SECRET_ARN` (same `sps/clients-db/*` secret as the original SPS Portal) using Vercel OIDC (`AWS_ROLE_ARN`, `AWS_REGION=us-east-2`). Do **not** set raw `PII_DATABASE_URL` on Vercel.
+
+1. Enable OIDC on the Portal 2.0 Vercel project and ensure the role trust for `AWS_ROLE_ARN` includes this project (extend the existing v1 role trust if it is project-scoped).
+2. Set `CLIENT_DB_SECRET_ARN`, `AWS_ROLE_ARN`, and `AWS_REGION` on Vercel (copy values from the original portal `.env.vercel`).
+3. Smoke: `POST /api/v1/leads` with a valid ingest key/secret should not return `503` / `pii_unconfigured`.
+
+Locally, keep using `PII_DATABASE_URL` / `PII_DIRECT_URL` for seed and migrate. `isPiiConfigured()` is true when either the local URL or the ARN is set.
 
 ## PWA
 

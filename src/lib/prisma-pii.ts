@@ -1,8 +1,9 @@
 /**
  * PII-tier database client.
- * Local: requires PII_DATABASE_URL.
- * Vercel: CLIENT_DB_SECRET_ARN (Secrets Manager) is planned but not wired yet —
- * until then, callers must gate on isPiiConfigured() and degrade gracefully.
+ * Local / seed / migrate: PII_DATABASE_URL (wins even if CLIENT_DB_SECRET_ARN is also set).
+ * Vercel production: CLIENT_DB_SECRET_ARN → Secrets Manager via Vercel OIDC (AWS_ROLE_ARN).
+ * Never fall back to OPS_DATABASE_URL. Callers must gate on isPiiConfigured() and degrade
+ * gracefully when neither path is set.
  */
 import { PrismaClient } from "../../prisma/generated/pii";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -17,9 +18,15 @@ function normalizeSsl(url: string) {
   );
 }
 
-/** True when a dedicated PII database URL is present and can be used. */
+/**
+ * True when a dedicated PII database can be resolved:
+ * PII_DATABASE_URL (local) or CLIENT_DB_SECRET_ARN (Vercel / Secrets Manager).
+ */
 export function isPiiConfigured(): boolean {
-  return !!(process.env.PII_DATABASE_URL ?? "").trim();
+  return !!(
+    (process.env.PII_DATABASE_URL ?? "").trim() ||
+    (process.env.CLIENT_DB_SECRET_ARN ?? "").trim()
+  );
 }
 
 /** @deprecated Prefer isPiiConfigured(). */
@@ -28,15 +35,39 @@ export function isPiiDatabaseSplit(): boolean {
 }
 
 async function resolvePiiUrl(): Promise<string> {
+  // Local / seed / Prisma CLI: direct URL wins when set.
   const direct = (process.env.PII_DATABASE_URL ?? "").trim();
   if (direct) {
     return direct;
   }
 
+  const arn = process.env.CLIENT_DB_SECRET_ARN?.trim();
+  if (arn) {
+    const roleArn = process.env.AWS_ROLE_ARN?.trim();
+    if (!roleArn) {
+      throw new Error(
+        "CLIENT_DB_SECRET_ARN is set but AWS_ROLE_ARN is missing (required for Vercel OIDC).",
+      );
+    }
+    const { SecretsManagerClient, GetSecretValueCommand } = await import(
+      "@aws-sdk/client-secrets-manager"
+    );
+    const { awsCredentialsProvider } = await import("@vercel/functions/oidc");
+    const sm = new SecretsManagerClient({
+      region: process.env.AWS_REGION?.trim() || "us-east-2",
+      credentials: awsCredentialsProvider({ roleArn }),
+    });
+    const res = await sm.send(new GetSecretValueCommand({ SecretId: arn }));
+    if (!res.SecretString) {
+      throw new Error("CLIENT_DB secret has no string value");
+    }
+    return res.SecretString.trim();
+  }
+
   // Do NOT fall back to OPS_DATABASE_URL — that silently queries the wrong DB
   // (no customer/lead tables) and produces P2021 500s on Vercel.
   throw new Error(
-    "PII database is not configured. Set PII_DATABASE_URL (local) or wire CLIENT_DB_SECRET_ARN (Vercel).",
+    "PII database is not configured. Set PII_DATABASE_URL (local) or CLIENT_DB_SECRET_ARN + AWS_ROLE_ARN (Vercel).",
   );
 }
 

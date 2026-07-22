@@ -117,7 +117,7 @@ This is the single most important — and most fragile — architectural decisio
 
 **The rule: never add a PII-identity column (name, email, phone, street address) to the ops schema.** This is mechanically enforced by `src/features/accounting/ops-pii-schema-guard.test.ts` (`npm run test:schema-guard`), which greps the ops schema for forbidden field names and asserts PII still owns lead ingest (and not deferred CRM models). Run it after touching either schema. When ops rows later need customer display data, batch-fetch from `prismaPii` and merge in memory — don't add a cross-DB relation.
 
-**The PII database is not guaranteed to be configured.** On Vercel, PII access is meant to go through AWS Secrets Manager (`CLIENT_DB_SECRET_ARN`), which per the README is **not wired yet**. Because of this, `isPiiConfigured()` (in `prisma-pii.ts`) must be checked before relying on `prismaPii`, and every caller must degrade gracefully — never let a missing PII config throw and 500 the page. `src/features/ingress/lead-handler.ts` returns a `503` with `reason: "pii_unconfigured"` rather than throwing; match it in new code.
+**The PII database is not guaranteed to be configured in every environment.** Local uses `PII_DATABASE_URL`. Vercel production uses `CLIENT_DB_SECRET_ARN` (Secrets Manager secret `sps/clients-db/*`, plain Neon pooled URL) plus `AWS_ROLE_ARN` / `AWS_REGION` for Vercel OIDC — same ARNs as the original SPS Portal. `isPiiConfigured()` (in `prisma-pii.ts`) is true when either path is set; callers must still check it and degrade gracefully — never let a missing PII config throw and 500 the page. `src/features/ingress/lead-handler.ts` returns a `503` with `reason: "pii_unconfigured"` rather than throwing; match it in new code. Never resolve PII via `OPS_DATABASE_URL`.
 
 **Public lead intake** (`POST /api/v1/leads`, handled by `handleLeadIngest` in `src/features/ingress/lead-handler.ts`) writes directly into the PII database. It authenticates via a per-division `IngestKey` (hashed, checked against `x-ingest-key`) or a shared server secret (`INGEST_SERVER_SECRET` against `x-ingest-secret`) — treat this endpoint as public-internet-facing and validate accordingly; `proxy.ts` already restricts it to `POST`/`OPTIONS`.
 
@@ -302,13 +302,13 @@ Navigation visibility is driven by `src/config/nav.ts` (`capabilities` + `surfac
 Four files, four purposes (see `README.md` for the full table):
 
 - `.env.local` — local secrets, gitignored. Includes `PII_*` and seed vars. Never commit.
-- `.env.vercel` — synced to Vercel, gitignored. Must **not** contain raw `PII_DATABASE_URL`, `STRIPE_SECRET_KEY`, or Upstash credentials yet.
+- `.env.vercel` — synced to Vercel, gitignored. Must **not** contain raw `PII_DATABASE_URL`, `STRIPE_SECRET_KEY`, or Upstash credentials yet. Includes `CLIENT_DB_SECRET_ARN`, `AWS_ROLE_ARN`, `AWS_REGION` for PII via Secrets Manager.
 - `.env.vercel.example` — key-name template, safe to commit.
 - `.env.example` — documented key names, safe to commit.
 
-Key naming: `OPS_DATABASE_URL`/`OPS_DIRECT_URL` (ops DB), `PII_DATABASE_URL`/`PII_DIRECT_URL` (PII DB, local-only until `CLIENT_DB_SECRET_ARN` is wired), `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`, `INGEST_SERVER_SECRET` (optional shared secret for the lead-ingest endpoint), `SEED_ADMIN_*` (local seed only). Never invent a new env var name without checking `.env.example` first — the naming convention (`OPS_` / `PII_` prefix) is how the two-database split stays legible in config.
+Key naming: `OPS_DATABASE_URL`/`OPS_DIRECT_URL` (ops DB), `PII_DATABASE_URL`/`PII_DIRECT_URL` (PII DB, local/seed/migrate only), `CLIENT_DB_SECRET_ARN`/`AWS_ROLE_ARN`/`AWS_REGION` (Vercel portal → Secrets Manager for PII; reuse original portal ARNs), `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`, `INGEST_SERVER_SECRET` (optional shared secret for the lead-ingest endpoint), `SEED_ADMIN_*` (local seed only). Never invent a new env var name without checking `.env.example` first — the naming convention (`OPS_` / `PII_` prefix) is how the two-database split stays legible in config.
 
-Secrets never live in code or get committed in an env file. Production secrets are meant to move to AWS Secrets Manager as the PII wiring completes — don't work around that by hardcoding a fallback.
+Secrets never live in code or get committed in an env file. Production PII connection strings live in AWS Secrets Manager (`sps/clients-db/*`); the portal only stores the ARN and assumes `AWS_ROLE_ARN` via Vercel OIDC.
 
 ---
 
