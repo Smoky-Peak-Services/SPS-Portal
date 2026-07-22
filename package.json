@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:schema-guard": "tsx --test src/features/accounting/ops-pii-schema-guard.test.ts",
+    "test:ingress": "tsx --test src/features/ingress/lead-handler.test.ts",
     "test:materials-io": "tsx --test src/features/materials/io.test.ts",
     "test:materials-attribute-io": "tsx --test src/features/materials/attribute-io.test.ts",
     "test:materials-category-tax-io": "tsx --test src/features/materials/category-tax-io.test.ts",

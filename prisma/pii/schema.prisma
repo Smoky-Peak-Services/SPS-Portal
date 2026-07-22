@@ -54,22 +54,26 @@ model Division {
 }
 
 model Lead {
-  id         String     @id @default(cuid())
-  divisionId String
-  division   Division   @relation(fields: [divisionId], references: [id])
-  name       String
-  email      String?
-  phone      String?
-  company    String?
-  message    String?
-  source     LeadSource @default(WEBSITE)
-  status     LeadStatus @default(INQUIRY)
-  budget     String?
-  timeline   String?
-  closedAt   DateTime?
-  activities Activity[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id          String     @id @default(cuid())
+  divisionId  String
+  /// Org Division FK (ops-replicated). Named to avoid clash with form `division` text.
+  orgDivision Division   @relation(fields: [divisionId], references: [id])
+  name        String
+  email       String?
+  phone       String?
+  /// Form "Division" / inquiry-type selection (not the org FK).
+  division    String?
+  /// Submitter company name. Ingest defaults blank/missing to "Residential".
+  company     String?
+  message     String?
+  source      LeadSource @default(WEBSITE)
+  status      LeadStatus @default(INQUIRY)
+  budget      String?
+  timeline    String?
+  closedAt    DateTime?
+  activities  Activity[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@index([divisionId])
   @@index([status])
