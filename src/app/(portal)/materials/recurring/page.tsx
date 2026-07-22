@@ -15,9 +15,9 @@ import { Panel } from "@/components/patterns/panel";
  * Lives under Catalog chrome (`/materials/recurring`) but keeps `requireArea("pricing")`
  * — visual placement must not silently widen materials-only access.
  *
- * Per prompt 14 the content is scope-shaped: IS-Commercial shows RecurringFeeItem
- * (SMA + monthly services); Cabin Services shows ServicePlanRate tiers; IS-Residential
- * has no recurring pricing yet (empty state).
+ * Scope-shaped: Cabin uses ServicePlanRate tiers; IS Commercial / Residential
+ * (and any other non-Cabin scope) use RecurringFeeItem with full create/edit/delete
+ * so empty sheets (e.g. Residential) can be built from the UI.
  */
 export default async function RecurringFeesPage({
   searchParams,
@@ -69,28 +69,25 @@ export default async function RecurringFeesPage({
     <div className="space-y-6">
       <PageHeader
         title="Recurring fees"
-        description="SMA tiers, SVM, Bank of Hours, and monthly services. Engines: calculateAnnualSmaPrice / resolveMonthlyServiceRate. Bank of Hours sell rate tracks Tech 1&2 × 0.90."
+        description="SMA tiers, SVM, Bank of Hours, and monthly services — editable per scope. Add rows to build sheets that were not seeded (e.g. Residential). Engines: calculateAnnualSmaPrice / resolveMonthlyServiceRate."
       />
 
-      {recurring.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No recurring fees for the {divisionName} · {segment} scope.
-          IS-Residential has no recurring pricing yet. Seed IS-Commercial with{" "}
-          <code className="text-xs">npm run db:seed</code> or{" "}
-          <code className="text-xs">scripts/run-seed-recurring-fees.ts</code>.
-        </p>
-      ) : (
-        <Panel
-          title={`${divisionName} · ${segment}`}
-          description={`${recurring.items.length} items`}
-        >
-          <RecurringFeesTable
-            key={`${divisionId}:${segment}`}
-            items={recurring.items}
-            canWrite={canWrite}
-          />
-        </Panel>
-      )}
+      <Panel
+        title={`${divisionName} · ${segment}`}
+        description={
+          recurring.items.length === 0
+            ? "Empty sheet — add fees below"
+            : `${recurring.items.length} items`
+        }
+      >
+        <RecurringFeesTable
+          key={`${divisionId}:${segment}`}
+          items={recurring.items}
+          canWrite={canWrite}
+          divisionId={divisionId}
+          segment={segment}
+        />
+      </Panel>
     </div>
   );
 }

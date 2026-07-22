@@ -7,6 +7,9 @@ import { resolveStorageScope } from "@/features/materials/scope";
 import { assertCapability, requireArea, type SessionUser } from "@/lib/session";
 import { recomputeRates, type LaborRateMultipliers } from "./recompute";
 import {
+  createRecurringFeeItemSchema,
+  deleteRecurringFeeItemSchema,
+  unitForBillingCycle,
   updateComplexityMultiplierSchema,
   updateLaborPositionSchema,
   updateLaborRateConfigSchema,
@@ -244,34 +247,116 @@ export async function getRecurringForScope(
   return { items, division };
 }
 
+function toNullableDecimal(v: number | null | undefined) {
+  if (v === undefined || v === null) return null;
+  return new Prisma.Decimal(v);
+}
+
+function recurringFeeMoneyData(data: {
+  baseCost: number;
+  directPurchaseRate: number;
+  smaBundledRate: number;
+  systemValueMin?: number | null;
+  systemValueMax?: number | null;
+}) {
+  return {
+    baseCost: new Prisma.Decimal(data.baseCost),
+    directPurchaseRate: new Prisma.Decimal(data.directPurchaseRate),
+    smaBundledRate: new Prisma.Decimal(data.smaBundledRate),
+    systemValueMin: toNullableDecimal(data.systemValueMin ?? null),
+    systemValueMax: toNullableDecimal(data.systemValueMax ?? null),
+  };
+}
+
+export async function createRecurringFeeItem(raw: unknown) {
+  const user = await requireArea("pricing");
+  assertPricingWrite(user);
+  const data = createRecurringFeeItemSchema.parse(raw);
+
+  const division = await prisma.division.findUnique({
+    where: { id: data.divisionId },
+    select: { id: true, slug: true },
+  });
+  if (!division) {
+    throw new Error("Division not found");
+  }
+  const { storageSegment } = resolveStorageScope(division.slug, data.segment);
+
+  try {
+    await prisma.recurringFeeItem.create({
+      data: {
+        divisionId: division.id,
+        segment: storageSegment,
+        sku: data.sku,
+        description: data.description,
+        unit: unitForBillingCycle(data.billingCycle),
+        billingCycle: data.billingCycle,
+        feeType: data.feeType,
+        valueType: data.valueType,
+        notes: data.notes,
+        isActive: data.isActive,
+        sortOrder: data.sortOrder,
+        ...recurringFeeMoneyData(data),
+      },
+    });
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      throw new Error(
+        `SKU "${data.sku}" already exists in this scope — pick a unique SKU`,
+      );
+    }
+    throw err;
+  }
+
+  revalidateRecurring();
+  return { ok: true as const };
+}
+
 export async function updateRecurringFeeItem(raw: unknown) {
   const user = await requireArea("pricing");
   assertPricingWrite(user);
   const data = updateRecurringFeeItemSchema.parse(raw);
 
-  const toNullableDecimal = (v: number | null | undefined) => {
-    if (v === undefined || v === null) return null;
-    return new Prisma.Decimal(v);
-  };
+  try {
+    await prisma.recurringFeeItem.update({
+      where: { id: data.id },
+      data: {
+        sku: data.sku,
+        description: data.description,
+        unit: unitForBillingCycle(data.billingCycle),
+        billingCycle: data.billingCycle,
+        feeType: data.feeType,
+        valueType: data.valueType,
+        notes: data.notes,
+        isActive: data.isActive,
+        sortOrder: data.sortOrder,
+        ...recurringFeeMoneyData(data),
+      },
+    });
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      throw new Error(
+        `SKU "${data.sku}" already exists in this scope — pick a unique SKU`,
+      );
+    }
+    throw err;
+  }
 
-  await prisma.recurringFeeItem.update({
-    where: { id: data.id },
-    data: {
-      description: data.description,
-      baseCost: new Prisma.Decimal(data.baseCost),
-      directPurchaseRate: new Prisma.Decimal(data.directPurchaseRate),
-      smaBundledRate: new Prisma.Decimal(data.smaBundledRate),
-      notes: data.notes,
-      isActive: data.isActive,
-      sortOrder: data.sortOrder,
-      ...(data.systemValueMin !== undefined
-        ? { systemValueMin: toNullableDecimal(data.systemValueMin) }
-        : {}),
-      ...(data.systemValueMax !== undefined
-        ? { systemValueMax: toNullableDecimal(data.systemValueMax) }
-        : {}),
-    },
-  });
+  revalidateRecurring();
+  return { ok: true as const };
+}
+
+export async function deleteRecurringFeeItem(raw: unknown) {
+  const user = await requireArea("pricing");
+  assertPricingWrite(user);
+  const data = deleteRecurringFeeItemSchema.parse(raw);
+  await prisma.recurringFeeItem.delete({ where: { id: data.id } });
   revalidateRecurring();
   return { ok: true as const };
 }
