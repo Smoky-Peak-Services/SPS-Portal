@@ -205,7 +205,7 @@ Separate from materials — shop supplies shared by a division (IS Commercial an
 
 - Sell price = `baseCost × (1 + markupPct)` when not market-rate (`isMarketRate`); never store sell.
 - Labor rate/cost are **derived** from the active scope's blended INSTALL rate via `blendedInstallRate` → `distributeQuotedLabor(1h)` — not stored (ignore sheet Labor Rate columns).
-- Seed: `scripts/seed-consumables.ts` / `npm run seed:consumables` from `claude/prompts/samples/{is,cabin}-consumables.csv` (~23 IS + ~35 Cabin). Cabin `CON-MR16-DLW-AMZ` sheet sale anomaly is flagged in UI, not auto-corrected.
+- Seed: `scripts/seed-consumables.ts` / `npm run seed:consumables` from `claude/prompts/samples/{is,cabin}-consumables.csv` (~23 IS + ~35 Cabin).
 - **Hard separation:** `MaterialItem.isConsumable` and material pricing columns (`baseCost`/`markupPct`/`wasteFactorPct`) were removed — a consumable is only a consumable by living in this catalog.
 
 ### Pricing — labor rates (prompt 09, generalized in 14)

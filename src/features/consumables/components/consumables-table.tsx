@@ -7,10 +7,7 @@ import {
   deleteConsumable,
   updateConsumable,
 } from "@/features/consumables/actions";
-import {
-  CONSUMABLE_PRICE_ANOMALY_SKUS,
-  sellPriceFrom,
-} from "@/features/consumables/schemas";
+import { sellPriceFrom } from "@/features/consumables/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -231,7 +228,6 @@ function ConsumableEditCard({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [isMarketRate, setIsMarketRate] = useState(row.isMarketRate);
-  const anomaly = CONSUMABLE_PRICE_ANOMALY_SKUS.has(row.sku);
 
   const base = row.baseCost == null ? null : Number(row.baseCost);
   const markup = Number(row.markupPct);
@@ -294,12 +290,6 @@ function ConsumableEditCard({
             Labor {money(blendedLaborRate)}/hr → cost {money(laborCost)}
           </span>
         </div>
-        {anomaly ? (
-          <p className="mt-2 text-xs text-amber-700">
-            Review: sheet sale price looks wrong vs cost × markup (imported
-            as-is).
-          </p>
-        ) : null}
       </div>
     );
   }
@@ -309,13 +299,6 @@ function ConsumableEditCard({
       onSubmit={onSubmit}
       className="space-y-3 rounded-lg border border-border bg-card p-4"
     >
-      {anomaly ? (
-        <p className="rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-          Review this row: Cabin sheet sale was $0.80 against $2.65 cost (other
-          bulbs sell at cost × 1.3). Imported as-is — confirm before relying on
-          it.
-        </p>
-      ) : null}
       <ConsumableFields
         pending={pending}
         isMarketRate={isMarketRate}

@@ -4,7 +4,7 @@ import { IS_COM_LABOR_POSITIONS } from "@/features/pricing/is-com-rates";
 import { IS_RES_LABOR_POSITIONS } from "@/features/pricing/is-res-rates";
 import { CABIN_LABOR_POSITIONS } from "@/features/pricing/cabin-rates";
 import { blendedInstallRate } from "@/features/pricing/blended-rate";
-import { CONSUMABLE_PRICE_ANOMALY_SKUS, sellPriceFrom } from "./schemas";
+import { sellPriceFrom } from "./schemas";
 
 describe("consumable sellPriceFrom", () => {
   it("IS markup 50%: $5 → $7.50", () => {
@@ -51,11 +51,5 @@ describe("blendedInstallRate for consumable labor reference", () => {
     const rate = blendedInstallRate(install, "STANDARD");
     // 100h → $4,921.00 ⇒ 1h → $49.21
     assert.equal(rate, 49.21);
-  });
-});
-
-describe("price anomaly flag", () => {
-  it("flags the Cabin MR16 daylight bulb SKU", () => {
-    assert.ok(CONSUMABLE_PRICE_ANOMALY_SKUS.has("CON-MR16-DLW-AMZ"));
   });
 });

@@ -122,7 +122,6 @@ function parseCabinConsumables(csvPath: string): SeedRow[] {
     const isMarket = cost === "MARKET" || sale === "MARKET";
     const baseCost = isMarket ? null : cost;
     // Cabin default markup 30%; derive from sale/cost when both look sane.
-    // Anomalous rows (e.g. CON-MR16-DLW-AMZ sale $0.80 vs cost $2.65) keep 0.30.
     let markupPct = 0.3;
     if (
       !isMarket &&
@@ -210,11 +209,6 @@ export async function seedConsumables(prisma: PrismaClient): Promise<void> {
   console.log(
     `  Consumables: IS ${isRows.length} rows, Cabin ${cabinRows.length} rows`,
   );
-  if (cabinRows.some((r) => r.sku === "CON-MR16-DLW-AMZ")) {
-    console.log(
-      "  Review: Cabin CON-MR16-DLW-AMZ has anomalous sheet sale ($0.80 vs $2.65 cost) — imported as-is",
-    );
-  }
 
   await upsertDivisionRows(prisma, "integrated-systems", isRows);
   await upsertDivisionRows(prisma, "cabin-services", cabinRows);

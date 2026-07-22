@@ -92,9 +92,6 @@ export function sellPriceFrom(
   return Math.round(baseCost * (1 + markupPct) * 100) / 100;
 }
 
-/** Cabin sheet anomaly: sale $0.80 vs cost $2.65 (should be ~$3.45 at 30%). */
-export const CONSUMABLE_PRICE_ANOMALY_SKUS = new Set(["CON-MR16-DLW-AMZ"]);
-
 export const DEFAULT_MARKUP_BY_DIVISION_SLUG: Record<string, number> = {
   "integrated-systems": 0.5,
   "cabin-services": 0.3,
