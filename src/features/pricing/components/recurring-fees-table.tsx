@@ -39,7 +39,6 @@ type Row = {
 const FEE_TYPES: { value: RecurringFeeType; label: string }[] = [
   { value: "SMA_BASE_TIER", label: "SMA base tier" },
   { value: "SMA_SVM", label: "SMA SVM %" },
-  { value: "SMA_BANK_OF_HOURS", label: "SMA bank of hours" },
   { value: "MONTHLY_SERVICE", label: "Monthly service" },
 ];
 
@@ -100,11 +99,11 @@ export function RecurringFeesTable({
     <div className="space-y-4">
       <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         Add and edit fees for this scope only. SMA annual price = base tier +
-        SVM (on <strong className="text-foreground">material value only</strong>
-        ) + Bank of Hours. Monthly services use a separate flat rate path (no
-        SVM). <strong className="text-foreground">Bank of Hours</strong> sell
-        rate is derived live from Tech 1&amp;2 × 0.90 — stored dollar columns
-        are placeholders for that fee type.
+        SVM (on{" "}
+        <strong className="text-foreground">material value only</strong>).
+        Monthly services use a separate flat rate path (no SVM). Bank of Hours
+        (pre-purchased discounted service hours) is deferred — not part of this
+        catalog yet.
       </p>
 
       {canWrite ? (
@@ -250,7 +249,6 @@ function RecurringFeeEditCard({
   const [error, setError] = useState<string | null>(null);
   const [feeType, setFeeType] = useState<RecurringFeeType>(row.feeType);
   const [valueType, setValueType] = useState<RateValueType>(row.valueType);
-  const isBoh = feeType === "SMA_BANK_OF_HOURS";
   const isTier = feeType === "SMA_BASE_TIER";
 
   function onFeeTypeChange(next: RecurringFeeType) {
@@ -308,11 +306,6 @@ function RecurringFeeEditCard({
               {!row.isActive ? " · inactive" : ""}
             </div>
           </div>
-          {isBoh ? (
-            <span className="text-xs text-amber-700">
-              Derived from Tech 1&amp;2 × 0.90
-            </span>
-          ) : null}
         </div>
         <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
           <span>Base {formatRate(row.valueType, row.baseCost.toString())}</span>
@@ -360,7 +353,6 @@ function RecurringFeeEditCard({
           systemValueMax: row.systemValueMax?.toString() ?? "",
         }}
         showTierBounds={isTier}
-        bohHint={isBoh}
         showStoredHint
       />
 
@@ -409,7 +401,6 @@ function FeeFieldGrid({
   onValueTypeChange,
   defaults,
   showTierBounds,
-  bohHint,
   showStoredHint,
 }: {
   pending: boolean;
@@ -420,7 +411,6 @@ function FeeFieldGrid({
   onValueTypeChange: (v: RateValueType) => void;
   defaults: FeeDefaults;
   showTierBounds: boolean;
-  bohHint?: boolean;
   showStoredHint?: boolean;
 }) {
   return (
@@ -536,11 +526,6 @@ function FeeFieldGrid({
             />
             Active
           </label>
-          {bohHint ? (
-            <span className="ml-3 text-xs text-amber-700">
-              BOH sell rate derived live
-            </span>
-          ) : null}
         </div>
       </div>
 

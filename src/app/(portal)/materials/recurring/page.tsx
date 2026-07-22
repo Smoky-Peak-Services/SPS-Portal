@@ -69,7 +69,7 @@ export default async function RecurringFeesPage({
     <div className="space-y-6">
       <PageHeader
         title="Recurring fees"
-        description="SMA tiers, SVM, Bank of Hours, and monthly services — editable per scope. Add rows to build sheets that were not seeded (e.g. Residential). Engines: calculateAnnualSmaPrice / resolveMonthlyServiceRate."
+        description="SMA tiers, SVM, and monthly services — editable per scope. Add rows to build sheets that were not seeded (e.g. Residential). Bank of Hours is deferred. Engines: calculateAnnualSmaPrice / resolveMonthlyServiceRate."
       />
 
       <Panel

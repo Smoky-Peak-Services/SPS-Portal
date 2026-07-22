@@ -1,9 +1,9 @@
 /**
  * Canonical IS-Commercial recurring fee literals (prompt 11 /
- * is-com-recurring-fee-structure.csv), with Ryan's two CSV corrections:
+ * is-com-recurring-fee-structure.csv), with Ryan's locked corrections:
  * 1. Drop duplicate Monthly Monitoring $18.99 — only $39.99 / $51.99 / $46.79.
- * 2. Bank of Hours CSV dollars are placeholders — sell rate is live
- *    Tech1&2.standardBillingRate × 0.90 (prompt 09 LAB-COM-T12-SIS).
+ * 2. Bank of Hours is deferred (pre-purchase service hours at a discounted
+ *    rate) — not in the base catalog; do not seed SMA_BANK_OF_HOURS rows.
  */
 import type {
   BillingCycle,
@@ -14,8 +14,6 @@ import type {
 
 export const IS_COM_RECURRING_MARKUP = 1.3;
 export const IS_COM_SMA_BUNDLE_FACTOR = 0.9;
-/** Bank of Hours discount off Tech 1&2 standard billing rate. */
-export const IS_COM_BOH_RATE_FACTOR = 0.9;
 
 export type IsComRecurringFeeSeed = {
   sku: string;
@@ -131,23 +129,6 @@ export const IS_COM_RECURRING_FEES: IsComRecurringFeeSeed[] = [
     sortOrder: 5,
   },
   {
-    sku: "REC-LAB-BOH-ANN",
-    description: "SMA Bank of Hours",
-    unit: "YEAR",
-    // Placeholders only — engine never reads these columns.
-    baseCost: 0,
-    directPurchaseRate: 0,
-    smaBundledRate: 0,
-    billingCycle: "ANNUAL",
-    feeType: "SMA_BANK_OF_HOURS",
-    valueType: "CURRENCY",
-    systemValueMin: null,
-    systemValueMax: null,
-    notes:
-      "Bank of Hours available for pre purchase to cover labor costs for covered service items in SMA Contracts. Sell rate is derived live: Tech 1&2 standardBillingRate × 0.90 (ignore CSV dollar columns). Unused hours do not roll over at renewal (informational; enforcement is contract-lifecycle work).",
-    sortOrder: 6,
-  },
-  {
     sku: "REC-MON-MON",
     description: "Monthly Monitoring Service",
     unit: "MONTH",
@@ -161,7 +142,7 @@ export const IS_COM_RECURRING_FEES: IsComRecurringFeeSeed[] = [
     systemValueMax: null,
     notes:
       "24/7 system monitoring provided through a 3rd party monitoring company",
-    sortOrder: 7,
+    sortOrder: 6,
   },
   {
     sku: "REC-CLD-STG-MON",
@@ -177,7 +158,7 @@ export const IS_COM_RECURRING_FEES: IsComRecurringFeeSeed[] = [
     systemValueMax: null,
     notes:
       "1TB cloud storage backup. Use for System images, evidence locked footage, or additional recording space",
-    sortOrder: 8,
+    sortOrder: 7,
   },
   {
     sku: "REC-CLD-ACP-MON",
@@ -192,7 +173,7 @@ export const IS_COM_RECURRING_FEES: IsComRecurringFeeSeed[] = [
     systemValueMin: null,
     systemValueMax: null,
     notes: "Cloud hosting for Access Control System. Per door rate",
-    sortOrder: 9,
+    sortOrder: 8,
   },
   {
     sku: "REC-CLD-VMS-MON",
@@ -208,6 +189,6 @@ export const IS_COM_RECURRING_FEES: IsComRecurringFeeSeed[] = [
     systemValueMax: null,
     notes:
       "Cloud hosting for Video Management System. Per camera rate. Each camera include 45 days of recording storage at 15FPS 1080P",
-    sortOrder: 10,
+    sortOrder: 9,
   },
 ];

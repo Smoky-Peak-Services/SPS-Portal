@@ -3,8 +3,9 @@ import { Prisma } from "@prisma/client";
 import { IS_COM_RECURRING_FEES } from "../src/features/pricing/is-com-recurring";
 
 /**
- * Upsert IS-Commercial recurring fee catalog (10 rows).
- * No $18.99 monitoring; BOH money columns are zero placeholders.
+ * Upsert IS-Commercial recurring fee catalog (10 rows: 5 SMA tiers + SVM +
+ * 4 monthly services). Bank of Hours is deferred — any leftover
+ * SMA_BANK_OF_HOURS rows are deleted so re-seed cannot resurrect them.
  */
 export async function seedRecurringFees(prisma: PrismaClient): Promise<void> {
   const division = await prisma.division.findUnique({
@@ -18,6 +19,11 @@ export async function seedRecurringFees(prisma: PrismaClient): Promise<void> {
   }
 
   const segment = "COMMERCIAL" as const;
+
+  // Remove deferred Bank of Hours catalog rows (all scopes).
+  await prisma.recurringFeeItem.deleteMany({
+    where: { feeType: "SMA_BANK_OF_HOURS" },
+  });
 
   for (const row of IS_COM_RECURRING_FEES) {
     await prisma.recurringFeeItem.upsert({

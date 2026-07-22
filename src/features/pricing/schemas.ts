@@ -87,17 +87,12 @@ export type SmaPurchaseType = z.infer<typeof smaPurchaseTypeSchema>;
 export const recurringFeeTypeSchema = z.enum([
   "SMA_BASE_TIER",
   "SMA_SVM",
-  "SMA_BANK_OF_HOURS",
   "MONTHLY_SERVICE",
 ]);
 
 export const billingCycleSchema = z.enum(["ANNUAL", "MONTHLY"]);
 
-const SMA_FEE_TYPES = new Set([
-  "SMA_BASE_TIER",
-  "SMA_SVM",
-  "SMA_BANK_OF_HOURS",
-]);
+const SMA_FEE_TYPES = new Set(["SMA_BASE_TIER", "SMA_SVM"]);
 
 /** feeType ↔ billingCycle: SMA* → ANNUAL, MONTHLY_SERVICE → MONTHLY. */
 export function refineFeeTypeBillingCycle(
@@ -177,10 +172,8 @@ export const calculateAnnualSmaPriceInputSchema = z
   .object({
     systemMaterialValue: z.number().finite().nonnegative(),
     purchaseType: smaPurchaseTypeSchema,
-    bankOfHoursQty: z.number().finite().nonnegative(),
     tiers: z.array(smaBaseTierSchema).min(1),
     svm: smaSvmSchema,
-    tech12StandardRate: z.number().finite().positive(),
   })
   .superRefine((input, ctx) => {
     const tier = selectSmaBaseTier(input.systemMaterialValue, input.tiers);

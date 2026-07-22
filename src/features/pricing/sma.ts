@@ -1,7 +1,10 @@
 /**
  * Module A — annual SMA engine (prompt 11).
  *
- * Total Annual SMA Price = Base Rate + System Value Modifier + Bank of Hours
+ * Total Annual SMA Price = Base Rate + System Value Modifier
+ *
+ * Bank of Hours (pre-purchased discounted service hours) is deferred — not
+ * priced here until that catalog piece is rebuilt.
  *
  * SVM is applied to systemMaterialValue (material value only) — never total
  * project value including labor.
@@ -10,8 +13,7 @@
  * MONTHLY_SERVICE rows.
  *
  * purchaseType (DIRECT | SMA_BUNDLED) selects both the base-tier column and the
- * SVM % together (prompt 11 modeled semantics — confirm with Ryan if base and
- * SVM should ever use different columns independently).
+ * SVM % together.
  */
 import {
   calculateAnnualSmaPriceInputSchema,
@@ -20,16 +22,11 @@ import {
   type SmaSvmInput,
 } from "./schemas";
 import { selectSmaBaseTier } from "./sma-tier";
-import { IS_COM_BOH_RATE_FACTOR } from "./is-com-recurring";
 import { roundMoney } from "./rate-for";
 
 export { selectSmaBaseTier } from "./sma-tier";
 
 export type SmaBaseTierSelection = SmaBaseTierInput | null;
-
-export function bankOfHoursHourlyRate(tech12StandardRate: number): number {
-  return roundMoney(tech12StandardRate * IS_COM_BOH_RATE_FACTOR);
-}
 
 export type AnnualSmaPriceResult = {
   purchaseType: SmaPurchaseType;
@@ -39,9 +36,6 @@ export type AnnualSmaPriceResult = {
   svmPct: number;
   /** Material value × SVM % — material only, not labor. */
   svmAmount: number;
-  bankOfHoursQty: number;
-  bankOfHoursRate: number;
-  bankOfHours: number;
   total: number;
 };
 
@@ -56,10 +50,8 @@ function rateColumn(
 export function calculateAnnualSmaPrice(raw: {
   systemMaterialValue: number;
   purchaseType: SmaPurchaseType;
-  bankOfHoursQty: number;
   tiers: SmaBaseTierInput[];
   svm: SmaSvmInput;
-  tech12StandardRate: number;
 }): AnnualSmaPriceResult {
   const input = calculateAnnualSmaPriceInputSchema.parse(raw);
   const tier = selectSmaBaseTier(input.systemMaterialValue, input.tiers)!;
@@ -77,14 +69,7 @@ export function calculateAnnualSmaPrice(raw: {
   // SVM on material value only — never include labor in the basis.
   const svmAmount = roundMoney(input.systemMaterialValue * svmPct);
 
-  const bankOfHoursRate = bankOfHoursHourlyRate(input.tech12StandardRate);
-  // Line total uses unrounded (rate × qty) then cent-rounds once so
-  // 62.94 × 0.90 × 10 = 566.46 (not 56.65 × 10 = 566.50).
-  const bankOfHours = roundMoney(
-    input.tech12StandardRate * IS_COM_BOH_RATE_FACTOR * input.bankOfHoursQty,
-  );
-
-  const total = roundMoney(baseRate + svmAmount + bankOfHours);
+  const total = roundMoney(baseRate + svmAmount);
 
   return {
     purchaseType: input.purchaseType,
@@ -93,9 +78,6 @@ export function calculateAnnualSmaPrice(raw: {
     baseRate,
     svmPct,
     svmAmount,
-    bankOfHoursQty: input.bankOfHoursQty,
-    bankOfHoursRate,
-    bankOfHours,
     total,
   };
 }

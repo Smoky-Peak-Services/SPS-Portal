@@ -2,14 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ZodError } from "zod";
 import {
-  IS_COM_BOH_RATE_FACTOR,
   IS_COM_RECURRING_FEES,
   IS_COM_RECURRING_MARKUP,
   IS_COM_SMA_BUNDLE_FACTOR,
 } from "./is-com-recurring";
-import { IS_COM_LABOR_POSITIONS } from "./is-com-rates";
 import { resolveMonthlyServiceRate } from "./monthly-service";
-import { bankOfHoursHourlyRate, calculateAnnualSmaPrice } from "./sma";
+import { calculateAnnualSmaPrice } from "./sma";
 import { selectSmaBaseTier } from "./sma-tier";
 import {
   calculateAnnualSmaPriceInputSchema,
@@ -42,13 +40,15 @@ const svm = {
   smaBundledRate: svmRow.smaBundledRate,
 };
 
-const tech12 = IS_COM_LABOR_POSITIONS.find((p) => p.sku === "LAB-COM-T12-SIS")!;
-
 const monitoring = IS_COM_RECURRING_FEES.find((r) => r.sku === "REC-MON-MON")!;
 
 describe("IS-Commercial recurring seed literals", () => {
-  it("has 11 rows and no $18.99 monitoring", () => {
-    assert.equal(IS_COM_RECURRING_FEES.length, 11);
+  it("has 10 rows (no Bank of Hours) and no $18.99 monitoring", () => {
+    assert.equal(IS_COM_RECURRING_FEES.length, 10);
+    assert.ok(
+      !IS_COM_RECURRING_FEES.some((r) => r.feeType === "SMA_BANK_OF_HOURS"),
+    );
+    assert.ok(!IS_COM_RECURRING_FEES.some((r) => r.sku === "REC-LAB-BOH-ANN"));
     assert.equal(monitoring.baseCost, 39.99);
     assert.equal(monitoring.directPurchaseRate, 51.99);
     assert.equal(monitoring.smaBundledRate, 46.79);
@@ -62,7 +62,6 @@ describe("IS-Commercial recurring seed literals", () => {
   it("CURRENCY rows follow direct ≈ base × 1.30 and bundled ≈ direct × 0.90", () => {
     for (const row of IS_COM_RECURRING_FEES) {
       if (row.valueType !== "CURRENCY") continue;
-      if (row.feeType === "SMA_BANK_OF_HOURS") continue; // placeholders
       const expectedDirect =
         Math.round(row.baseCost * IS_COM_RECURRING_MARKUP * 100) / 100;
       const expectedBundled =
@@ -87,35 +86,29 @@ describe("selectSmaBaseTier boundaries", () => {
 });
 
 describe("calculateAnnualSmaPrice", () => {
-  it("DIRECT $12k + 10 BOH → $3,738.46", () => {
+  it("DIRECT $12k → base + SVM = $3,172.00 (Bank of Hours deferred)", () => {
     const result = calculateAnnualSmaPrice({
       systemMaterialValue: 12000,
       purchaseType: "DIRECT",
-      bankOfHoursQty: 10,
       tiers,
       svm,
-      tech12StandardRate: tech12.standardBillingRate,
     });
     assert.equal(result.tierSku, "REC-AMA-TR3-ANN");
     assert.equal(result.baseRate, 1300);
     assert.equal(result.svmAmount, 1872);
-    assert.equal(result.bankOfHours, 566.46);
-    assert.equal(result.total, 3738.46);
+    assert.equal(result.total, 3172);
   });
 
-  it("SMA_BUNDLED $12k + 10 BOH → $3,421.26", () => {
+  it("SMA_BUNDLED $12k → base + SVM = $2,854.80", () => {
     const result = calculateAnnualSmaPrice({
       systemMaterialValue: 12000,
       purchaseType: "SMA_BUNDLED",
-      bankOfHoursQty: 10,
       tiers,
       svm,
-      tech12StandardRate: tech12.standardBillingRate,
     });
     assert.equal(result.baseRate, 1170);
     assert.equal(result.svmAmount, 1684.8);
-    assert.equal(result.bankOfHours, 566.46);
-    assert.equal(result.total, 3421.26);
+    assert.equal(result.total, 2854.8);
   });
 
   it("rejects unresolvable tier via Zod", () => {
@@ -124,33 +117,11 @@ describe("calculateAnnualSmaPrice", () => {
         calculateAnnualSmaPriceInputSchema.parse({
           systemMaterialValue: 499,
           purchaseType: "DIRECT",
-          bankOfHoursQty: 0,
           tiers,
           svm,
-          tech12StandardRate: tech12.standardBillingRate,
         }),
       ZodError,
     );
-  });
-
-  it("BOH hourly rate is round(T12 × 0.90, 2) and tracks T12 changes", () => {
-    assert.equal(
-      bankOfHoursHourlyRate(tech12.standardBillingRate),
-      Math.round(tech12.standardBillingRate * IS_COM_BOH_RATE_FACTOR * 100) /
-        100,
-    );
-    assert.equal(bankOfHoursHourlyRate(62.94), 56.65);
-
-    const bumped = calculateAnnualSmaPrice({
-      systemMaterialValue: 12000,
-      purchaseType: "DIRECT",
-      bankOfHoursQty: 10,
-      tiers,
-      svm,
-      tech12StandardRate: 70,
-    });
-    assert.equal(bumped.bankOfHoursRate, 63);
-    assert.equal(bumped.bankOfHours, 630);
   });
 });
 
