@@ -8,7 +8,7 @@ import {
   type ExportDomain,
 } from "@/features/materials/io";
 import { exportFileName } from "@/features/materials/scope-code";
-import { resolveStorageScope } from "@/features/materials/scope";
+import { resolveScope } from "@/features/materials/scope";
 import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
 
 const SEGMENTS = new Set(["COMMERCIAL", "RESIDENTIAL", "STR"]);
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   let resolved;
   try {
-    resolved = resolveStorageScope(division.slug, customerSegment);
+    resolved = resolveScope(division.slug, customerSegment);
   } catch {
     return NextResponse.json(
       { error: "Segment not valid for division" },
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   }
 
   const domains = await prisma.materialDomain.findMany({
-    where: { divisionId, segment: resolved.storageSegment },
+    where: { divisionId, segment: resolved.segment },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     include: {
       categories: {

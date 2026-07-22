@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { resolveStorageScope } from "@/features/materials/scope";
+import { resolveScope } from "@/features/materials/scope";
 import { assertCapability, requireArea, type SessionUser } from "@/lib/session";
 import { recomputeRates, type LaborRateMultipliers } from "./recompute";
 import {
@@ -45,15 +45,15 @@ export async function getLaborRatesForScope(
   if (!division) {
     return { config: null, positions: [], division: null };
   }
-  const { storageSegment } = resolveStorageScope(division.slug, segment);
+  const { segment: scopedSegment } = resolveScope(division.slug, segment);
   const [config, positions] = await Promise.all([
     prisma.laborRateConfig.findUnique({
       where: {
-        divisionId_segment: { divisionId, segment: storageSegment },
+        divisionId_segment: { divisionId, segment: scopedSegment },
       },
     }),
     prisma.laborPosition.findMany({
-      where: { divisionId, segment: storageSegment },
+      where: { divisionId, segment: scopedSegment },
       orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
     }),
   ]);
@@ -198,9 +198,9 @@ export async function getComplexityForScope(
   if (!division) {
     return { multipliers: [], division: null };
   }
-  const { storageSegment } = resolveStorageScope(division.slug, segment);
+  const { segment: scopedSegment } = resolveScope(division.slug, segment);
   const multipliers = await prisma.complexityMultiplier.findMany({
-    where: { divisionId, segment: storageSegment },
+    where: { divisionId, segment: scopedSegment },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
   return { multipliers, division };
@@ -239,9 +239,9 @@ export async function getRecurringForScope(
   if (!division) {
     return { items: [], division: null };
   }
-  const { storageSegment } = resolveStorageScope(division.slug, segment);
+  const { segment: scopedSegment } = resolveScope(division.slug, segment);
   const items = await prisma.recurringFeeItem.findMany({
-    where: { divisionId, segment: storageSegment },
+    where: { divisionId, segment: scopedSegment },
     orderBy: [{ sortOrder: "asc" }, { sku: "asc" }],
   });
   return { items, division };
@@ -280,13 +280,13 @@ export async function createRecurringFeeItem(raw: unknown) {
   if (!division) {
     throw new Error("Division not found");
   }
-  const { storageSegment } = resolveStorageScope(division.slug, data.segment);
+  const { segment: scopedSegment } = resolveScope(division.slug, data.segment);
 
   try {
     await prisma.recurringFeeItem.create({
       data: {
         divisionId: division.id,
-        segment: storageSegment,
+        segment: scopedSegment,
         sku: data.sku,
         description: data.description,
         unit: unitForBillingCycle(data.billingCycle),
@@ -373,9 +373,9 @@ export async function getServicePlansForScope(
   if (!division) {
     return { plans: [], division: null };
   }
-  const { storageSegment } = resolveStorageScope(division.slug, segment);
+  const { segment: scopedSegment } = resolveScope(division.slug, segment);
   const plans = await prisma.servicePlanRate.findMany({
-    where: { divisionId, segment: storageSegment },
+    where: { divisionId, segment: scopedSegment },
     orderBy: [{ planType: "asc" }, { sortOrder: "asc" }, { sku: "asc" }],
   });
   return { plans, division };

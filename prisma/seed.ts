@@ -13,6 +13,7 @@ import { seedLaborRates } from "../scripts/seed-labor-rates";
 import { seedComplexityMultipliers } from "../scripts/seed-complexity-multipliers";
 import { seedRecurringFees } from "../scripts/seed-recurring-fees";
 import { seedServicePlans } from "../scripts/seed-service-plans";
+import { seedConsumables } from "../scripts/seed-consumables";
 
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -268,11 +269,15 @@ async function main() {
 
   console.log("Seeding IS-Commercial recurring fees…");
   await seedRecurringFees(prisma);
-  console.log("  ✓ 11 RecurringFeeItem rows");
+  console.log("  ✓ 10 RecurringFeeItem rows (Bank of Hours deferred)");
 
   console.log("Seeding Cabin Services plan rates…");
   await seedServicePlans(prisma);
   console.log("  ✓ 18 ServicePlanRate rows (MP/CIP/FSP)");
+
+  console.log("Seeding consumables (IS + Cabin)…");
+  await seedConsumables(prisma);
+  console.log("  ✓ ConsumableItem rows per division");
 
   console.log("Seeding role capabilities…");
   await seedCapabilities(prisma);

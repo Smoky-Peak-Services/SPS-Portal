@@ -673,17 +673,11 @@ export async function createItem(raw: unknown) {
       name: data.name.trim(),
       laborUnits: data.laborUnits ?? 0,
       laborUnitNotes: emptyToNull(data.laborUnitNotes),
-      isConsumable: data.isConsumable ?? false,
       supplier: emptyToNull(data.supplier),
       notes: emptyToNull(data.notes),
       isActive: data.isActive ?? true,
       ...(writeFin
         ? {
-            baseCost: data.isConsumable ? (data.baseCost ?? null) : null,
-            markupPct: data.isConsumable ? (data.markupPct ?? null) : null,
-            wasteFactorPct: data.isConsumable
-              ? (data.wasteFactorPct ?? null)
-              : null,
             taxProfile: null,
             stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
             laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),
@@ -721,7 +715,6 @@ export async function updateItem(raw: unknown) {
             name: data.name.trim(),
             laborUnits: data.laborUnits ?? 0,
             laborUnitNotes: emptyToNull(data.laborUnitNotes),
-            isConsumable: data.isConsumable ?? false,
             supplier: emptyToNull(data.supplier),
             notes: emptyToNull(data.notes),
             isActive: data.isActive ?? true,
@@ -729,11 +722,6 @@ export async function updateItem(raw: unknown) {
         : {}),
       ...(writeFin
         ? {
-            baseCost: data.isConsumable ? (data.baseCost ?? null) : null,
-            markupPct: data.isConsumable ? (data.markupPct ?? null) : null,
-            wasteFactorPct: data.isConsumable
-              ? (data.wasteFactorPct ?? null)
-              : null,
             taxProfile: null,
             stripeTaxCodeId: emptyToNull(data.stripeTaxCodeId),
             laborInstallTaxCodeId: emptyToNull(data.laborInstallTaxCodeId),

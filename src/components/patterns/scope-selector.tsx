@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { Segment } from "@prisma/client";
 import {
   customerSegmentsForDivision,
-  resolveStorageScope,
+  resolveScope,
 } from "@/features/materials/scope";
 import { Label } from "@/components/ui/label";
 import {
@@ -53,7 +53,7 @@ export function ScopeSelector({
   const resolved = useMemo(() => {
     if (!selected || !segmentOptions.includes(segment)) return null;
     try {
-      return resolveStorageScope(selected.slug, segment);
+      return resolveScope(selected.slug, segment);
     } catch {
       return null;
     }

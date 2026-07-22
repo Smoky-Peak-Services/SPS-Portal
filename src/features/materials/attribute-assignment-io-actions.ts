@@ -8,7 +8,7 @@ import {
   requireMaterialsAccess,
 } from "@/features/materials/authz";
 import { userCan } from "@/config/permissions";
-import { resolveStorageScope } from "./scope";
+import { resolveScope } from "./scope";
 import {
   parseAssignmentWorkbookBuffer,
   planAssignmentImport,
@@ -57,10 +57,10 @@ async function readScope(formData: FormData): Promise<{
     select: { slug: true },
   });
   if (!division) throw new Error("Division not found");
-  const resolved = resolveStorageScope(division.slug, segmentRaw);
+  const resolved = resolveScope(division.slug, segmentRaw);
   return {
     divisionId,
-    segment: resolved.storageSegment,
+    segment: resolved.segment,
     scopeCode: resolved.scopeCode,
   };
 }

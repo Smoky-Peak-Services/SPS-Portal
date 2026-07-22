@@ -11,7 +11,7 @@
 import type { Segment } from "@prisma/client";
 import {
   customerSegmentsForDivision,
-  resolveStorageScope,
+  resolveScope,
 } from "@/features/materials/scope";
 
 export const ACTIVE_SCOPE_COOKIE = "sps_active_scope";
@@ -64,7 +64,7 @@ function toActiveScope(division: ScopeDivision, segment: Segment): ActiveScope {
     divisionSlug: division.slug,
     divisionName: division.name,
     segment,
-    scopeCode: resolveStorageScope(division.slug, segment).scopeCode,
+    scopeCode: resolveScope(division.slug, segment).scopeCode,
   };
 }
 

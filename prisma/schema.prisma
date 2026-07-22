@@ -183,6 +183,7 @@ model Division {
   complexityMultipliers ComplexityMultiplier[]
   recurringFeeItems     RecurringFeeItem[]
   servicePlanRates      ServicePlanRate[]
+  consumableItems       ConsumableItem[]
 
   @@map("division")
 }
@@ -400,10 +401,6 @@ model MaterialItem {
   name                  String
   laborUnits            Decimal             @default(0) @db.Decimal(12, 4)
   laborUnitNotes        String?
-  isConsumable          Boolean             @default(false)
-  baseCost              Decimal?            @db.Decimal(12, 2)
-  markupPct             Decimal?            @db.Decimal(6, 4)
-  wasteFactorPct        Decimal?            @db.Decimal(6, 4)
   supplier              String?
   notes                 String?
   isActive              Boolean             @default(true)
@@ -620,4 +617,35 @@ model ServicePlanRate {
   @@index([divisionId])
   @@index([divisionId, segment, planType])
   @@map("service_plan_rate")
+}
+
+/// Shop supplies / consumables (prompt 17). One dataset per division — shared
+/// across that division's segments (IS Commercial and Residential share one
+/// list). Sell price and labor cost are derived at use/display time; labor
+/// rate is the active scope's blended INSTALL rate (never stored).
+model ConsumableItem {
+  id             String   @id @default(cuid())
+  divisionId     String
+  division       Division @relation(fields: [divisionId], references: [id])
+  description    String
+  sku            String
+  category       String?
+  manufacturer   String?
+  partNumber     String?
+  unit           String
+  wasteFactorPct Decimal  @default(0) @db.Decimal(6, 4)
+  baseCost       Decimal? @db.Decimal(12, 4)
+  isMarketRate   Boolean  @default(false)
+  markupPct      Decimal  @db.Decimal(6, 4)
+  laborUnits     Decimal  @default(0) @db.Decimal(12, 4)
+  supplier       String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([divisionId, sku])
+  @@index([divisionId])
+  @@map("consumable_item")
 }

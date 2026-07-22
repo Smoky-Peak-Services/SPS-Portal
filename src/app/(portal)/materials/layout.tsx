@@ -27,7 +27,7 @@ export default async function MaterialsLayout({
   if (userCan(user, "materials.import_export")) {
     tabs.push({ label: "Catalog I/O", href: "/materials/import-export" });
   }
-  tabs.push({ label: "Consumables", disabled: true });
+  tabs.push({ label: "Consumables", href: "/materials/consumables" });
 
   const [divisions, cookie] = await Promise.all([
     listScopeDivisions(),

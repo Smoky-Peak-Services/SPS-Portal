@@ -7,7 +7,7 @@ import {
   buildAttributeExportWorkbookBuffer,
   type ExportAttribute,
 } from "@/features/materials/attribute-io";
-import { resolveStorageScope } from "@/features/materials/scope";
+import { resolveScope } from "@/features/materials/scope";
 import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
 
 const SEGMENTS = new Set(["COMMERCIAL", "RESIDENTIAL", "STR"]);
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
   let resolved;
   try {
-    resolved = resolveStorageScope(division.slug, segmentRaw);
+    resolved = resolveScope(division.slug, segmentRaw);
   } catch {
     return NextResponse.json(
       { error: "Segment not valid for division" },
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
   }
 
   const attributes = await prisma.materialAttribute.findMany({
-    where: { divisionId, segment: resolved.storageSegment },
+    where: { divisionId, segment: resolved.segment },
     orderBy: { slug: "asc" },
     include: {
       options: {

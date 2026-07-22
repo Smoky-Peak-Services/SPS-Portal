@@ -54,10 +54,6 @@ type Props = {
     name: string;
     laborUnits: { toString(): string } | number;
     laborUnitNotes: string | null;
-    isConsumable: boolean;
-    baseCost: { toString(): string } | number | null;
-    markupPct: { toString(): string } | number | null;
-    wasteFactorPct: { toString(): string } | number | null;
     supplier: string | null;
     notes: string | null;
     isActive: boolean;
@@ -86,9 +82,6 @@ export function ItemForm({
   const [error, setError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState(
     initial?.categoryId ?? defaultCategoryId ?? categories[0]?.id ?? "",
-  );
-  const [isConsumable, setIsConsumable] = useState(
-    initial?.isConsumable ?? false,
   );
   const isEdit = !!initial?.id;
 
@@ -143,19 +136,12 @@ export function ItemForm({
 
     start(async () => {
       try {
-        const baseCostRaw = String(fd.get("baseCost") || "");
-        const markupRaw = String(fd.get("markupPct") || "");
-        const wasteRaw = String(fd.get("wasteFactorPct") || "");
         const payload = {
           categoryId: String(fd.get("categoryId") || ""),
           unitId: String(fd.get("unitId") || ""),
           name: String(fd.get("name") || ""),
           laborUnits: Number(fd.get("laborUnits") || 0),
           laborUnitNotes: String(fd.get("laborUnitNotes") || ""),
-          isConsumable: fd.get("isConsumable") === "on",
-          baseCost: baseCostRaw === "" ? null : Number(baseCostRaw),
-          markupPct: markupRaw === "" ? null : Number(markupRaw),
-          wasteFactorPct: wasteRaw === "" ? null : Number(wasteRaw),
           supplier: String(fd.get("supplier") || ""),
           notes: String(fd.get("notes") || ""),
           isActive: fd.get("isActive") === "on",
@@ -244,49 +230,6 @@ export function ItemForm({
           defaultValue={initial?.laborUnitNotes ?? ""}
         />
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          name="isConsumable"
-          checked={isConsumable}
-          onChange={(e) => setIsConsumable(e.target.checked)}
-        />
-        Consumable (cost fields apply)
-      </label>
-      {isConsumable ? (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="baseCost">Base cost</Label>
-            <Input
-              id="baseCost"
-              name="baseCost"
-              type="number"
-              step="0.01"
-              defaultValue={numStr(initial?.baseCost)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="markupPct">Markup %</Label>
-            <Input
-              id="markupPct"
-              name="markupPct"
-              type="number"
-              step="0.0001"
-              defaultValue={numStr(initial?.markupPct)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="wasteFactorPct">Waste %</Label>
-            <Input
-              id="wasteFactorPct"
-              name="wasteFactorPct"
-              type="number"
-              step="0.0001"
-              defaultValue={numStr(initial?.wasteFactorPct)}
-            />
-          </div>
-        </div>
-      ) : null}
       <StripeTaxCodeCombobox
         name="stripeTaxCodeId"
         label="Stripe tax code override (blank = inherit)"

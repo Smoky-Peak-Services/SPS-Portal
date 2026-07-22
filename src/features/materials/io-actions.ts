@@ -22,7 +22,7 @@ import {
   type ImportPlan,
 } from "./io";
 import { parseScopeFromFilename } from "./scope-code";
-import { customerSegmentsForDivision, resolveStorageScope } from "./scope";
+import { customerSegmentsForDivision, resolveScope } from "./scope";
 
 const SEGMENTS = new Set<string>(["COMMERCIAL", "RESIDENTIAL", "STR"]);
 
@@ -183,11 +183,10 @@ async function buildPreview(
     );
   }
 
-  const resolved = resolveStorageScope(division.slug, customerSegment);
-  const storageSegment = resolved.storageSegment;
+  const resolved = resolveScope(division.slug, customerSegment);
 
   const parsed = await parseWorkbookBuffer(buffer);
-  const existing = await loadExistingSnapshot(divisionId, storageSegment);
+  const existing = await loadExistingSnapshot(divisionId, resolved.segment);
   const plan = planImport(existing, parsed);
 
   return {
@@ -244,10 +243,7 @@ export async function commitMaterialsImport(
     select: { slug: true },
   });
   if (!division) throw new Error("Division not found");
-  const { storageSegment: segment } = resolveStorageScope(
-    division.slug,
-    customerSegment,
-  );
+  const { segment } = resolveScope(division.slug, customerSegment);
 
   const applied = await prisma.$transaction(async (tx) => {
     const unitIdByCode = new Map<string, string>();
@@ -438,7 +434,7 @@ export async function listImportExportScopes() {
   return divisions.map((d) => {
     const customerSegs = customerSegmentsForDivision(d.slug);
     const scopes = customerSegs.map((customerSegment) => {
-      const resolved = resolveStorageScope(d.slug, customerSegment);
+      const resolved = resolveScope(d.slug, customerSegment);
       return {
         segment: customerSegment,
         scopeCode: resolved.scopeCode,
