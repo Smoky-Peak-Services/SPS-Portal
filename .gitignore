@@ -35,3 +35,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Local Vercel ingest key export (do not commit)
+.tmp-ingest-export/
+

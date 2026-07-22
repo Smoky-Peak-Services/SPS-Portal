@@ -24,7 +24,10 @@ export type LeadIngestResult =
 
 /**
  * Public-site lead ingest. Auth via per-division IngestKey header `x-ingest-key`
- * or shared `x-ingest-secret` matching INGEST_SERVER_SECRET.
+ * and/or shared `x-ingest-secret` matching INGEST_SERVER_SECRET.
+ *
+ * Division: a valid `x-ingest-key` always wins (even when the shared secret is
+ * also present). Secret-only requests use body `divisionSlug` or the CRM default.
  */
 export async function handleLeadIngest(
   body: unknown,
@@ -49,12 +52,13 @@ export async function handleLeadIngest(
 
   const serverSecret = process.env.INGEST_SERVER_SECRET?.trim();
   const trusted = !!(serverSecret && headers.ingestSecret === serverSecret);
+  const rawKey = headers.ingestKey?.trim() || null;
 
-  if (!trusted) {
-    const rawKey = headers.ingestKey?.trim();
-    if (!rawKey) {
-      return { ok: false, status: 401, error: "Missing ingest credentials" };
-    }
+  if (!trusted && !rawKey) {
+    return { ok: false, status: 401, error: "Missing ingest credentials" };
+  }
+
+  if (rawKey) {
     const key = await prismaPii.ingestKey.findFirst({
       where: { keyHash: hashKey(rawKey), revokedAt: null },
       include: { division: true },

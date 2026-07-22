@@ -65,11 +65,27 @@ powershell -File scripts/sync-vercel-env.ps1 -EnvFile .env.vercel `
 
 Production portal resolves Neon PII via `CLIENT_DB_SECRET_ARN` (same `sps/clients-db/*` secret as the original SPS Portal) using Vercel OIDC (`AWS_ROLE_ARN`, `AWS_REGION=us-east-2`). Do **not** set raw `PII_DATABASE_URL` on Vercel.
 
-1. Enable OIDC on the Portal 2.0 Vercel project and ensure the role trust for `AWS_ROLE_ARN` includes this project (extend the existing v1 role trust if it is project-scoped).
-2. Set `CLIENT_DB_SECRET_ARN`, `AWS_ROLE_ARN`, and `AWS_REGION` on Vercel (copy values from the original portal `.env.vercel`).
-3. Smoke: `POST /api/v1/leads` with a valid ingest key/secret should not return `503` / `pii_unconfigured`.
+1. Enable OIDC on the Portal 2.0 Vercel project (`sps-portal`) and ensure role `VercelPortalPaymentsInvoke` trust allows:
+   `owner:ryank-3313s-projects:project:sps-portal:environment:production`
+   (repo copy: original SPS Portal `aws/payments/iam/trust-policy.json`). The IAM user `Smoky_Peak_Services` cannot update trust policies — use the AWS Console as an admin/root, or temporarily widen that user’s IAM permissions.
+2. Set `CLIENT_DB_SECRET_ARN`, `AWS_ROLE_ARN`, and `AWS_REGION` on Vercel (copy values from the original portal).
+3. Smoke: `POST /api/v1/leads` with a valid ingest key/secret should not return `503` / `pii_unconfigured` or OIDC `AccessDenied`.
 
 Locally, keep using `PII_DATABASE_URL` / `PII_DIRECT_URL` for seed and migrate. `isPiiConfigured()` is true when either the local URL or the ARN is set.
+
+### Local AWS CLI profiles
+
+Smoky Peak account **`084000526828`** must be the AWS CLI **`[default]`** profile (`us-east-2`). The Altitude Network / cousin account (`501804115142`) lives under profile **`altitude`** (`us-west-1`):
+
+```powershell
+aws sts get-caller-identity
+# Expect Account: 084000526828
+
+aws sts get-caller-identity --profile altitude
+# Expect Account: 501804115142
+```
+
+Do not commit access keys. Keys for local CLI ops can live in `.env.local` (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`) and/or `~/.aws/credentials`.
 
 ## PWA
 

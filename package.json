@@ -23,6 +23,7 @@
     "test:pricing-plans": "tsx --test src/features/pricing/service-plans.test.ts",
     "test:consumables": "tsx --test src/features/consumables/consumables.test.ts",
     "test:equipment": "tsx --test src/features/equipment/equipment.test.ts",
+    "export:marketing-ingest-keys": "tsx scripts/export-marketing-ingest-keys.ts",
     "test:scope": "tsx --test src/features/materials/scope.test.ts",
     "test:active-scope": "tsx --test src/features/scope/active-scope.test.ts",
     "seed:consumables": "tsx --env-file=.env.local scripts/run-seed-consumables.ts",

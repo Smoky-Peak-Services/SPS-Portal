@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::084000526828:oidc-provider/oidc.vercel.com/ryank-3313s-projects"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.vercel.com/ryank-3313s-projects:aud": "https://vercel.com/ryank-3313s-projects"
+        },
+        "StringLike": {
+          "oidc.vercel.com/ryank-3313s-projects:sub": [
+            "owner:ryank-3313s-projects:project:smoky-peak-portal:environment:production",
+            "owner:ryank-3313s-projects:project:sps-portal:environment:production"
+          ]
+        }
+      }
+    }
+  ]
+}
