@@ -69,8 +69,7 @@ export type CustomerScope = {
   divisionSlug: string;
   divisionName: string;
   divisionCode: string;
-  customerSegment: PrismaSegment;
-  storageSegment: PrismaSegment;
+  segment: PrismaSegment;
   scopeCode: string;
   label: string;
 };
@@ -85,8 +84,7 @@ export function listCustomerScopes(): CustomerScope[] {
         divisionSlug: d.slug,
         divisionName: d.name,
         divisionCode: d.code,
-        customerSegment: segment,
-        storageSegment: segment,
+        segment,
         scopeCode: scopeCodeFor(d.code, segment),
         label:
           d.segments.length > 1
@@ -98,22 +96,21 @@ export function listCustomerScopes(): CustomerScope[] {
   return out;
 }
 
-export type ResolvedStorageScope = {
+export type ResolvedScope = {
   divisionSlug: string;
-  customerSegment: PrismaSegment;
-  storageSegment: PrismaSegment;
+  segment: PrismaSegment;
   scopeCode: string;
 };
 
 /**
- * Validate a division + segment pair and return the scope used for Prisma
- * reads/writes. Storage always equals the requested segment (prompt 14 removed
- * the shared-catalog aliasing); invalid pairs throw.
+ * Validate a division + segment pair and return the scope (segment + code)
+ * used for Prisma reads/writes. No storage aliasing exists (prompt 14);
+ * invalid pairs throw.
  */
-export function resolveStorageScope(
+export function resolveScope(
   divisionSlug: string,
   segment: PrismaSegment | string,
-): ResolvedStorageScope {
+): ResolvedScope {
   const division = getDivision(divisionSlug);
   if (!division) {
     throw new Error(`Unknown division slug: ${divisionSlug}`);
@@ -133,8 +130,7 @@ export function resolveStorageScope(
 
   return {
     divisionSlug: division.slug,
-    customerSegment: seg,
-    storageSegment: seg,
+    segment: seg,
     scopeCode: scopeCodeFor(division.code, seg),
   };
 }

@@ -2,6 +2,8 @@
 
 Add the Consumables section. It's a sibling to the materials catalog but a **separate, simpler dataset** with one critical scoping difference and one derived-value rule. Build it in the same add / edit / delete fashion as materials.
 
+**What a consumable is (why it's separate):** generic supplies that aren't tied to any specific system and get used on the majority of jobs — pull string, Velcro one-wrap, blank inserts, cable labels, screws, drywall anchors, zip ties, etc. Materials are system-specific line items you quote per job; consumables are the shared shop stock everyone burns through. They are kept in **completely separate catalogs** on purpose: a thing is a consumable *only* because it lives in the consumables catalog, never because of a flag on a material. See the hard separation requirement below.
+
 Fixtures (source of truth for seed + column shapes): `claude/prompts/samples/is-consumables.csv` and `claude/prompts/samples/cabin-consumables.csv`.
 
 ## Scope: division-only, NOT per segment
@@ -41,7 +43,17 @@ Unify both sheets' columns (some fields only apply to one division — nullable)
 
 Derived (compute, don't store): `sellPrice = round(baseCost × (1 + markupPct))` when not market-rate; `laborRate` = blended install rate for the active scope; `laborCost = laborUnits × laborRate`.
 
-This is a **new model, separate from `MaterialItem`.** Leave the existing unused `MaterialItem.isConsumable` flag alone (don't repurpose it, don't migrate into it).
+This is a **new model, fully separate from `MaterialItem`.**
+
+## Hard separation: remove the material-as-consumable flag entirely
+
+Right now a material can be *flagged* as a consumable — `MaterialItem.isConsumable` exists and is wired into `item-form.tsx` (a checkbox that reveals `baseCost` / `markupPct` / `wasteFactorPct` pricing fields on the material). Ryan wants this gone: nobody should be able to label a material as a consumable, because it makes "what is what" ambiguous. A consumable is a consumable *only* by living in the `ConsumableItem` catalog.
+
+Remove it end to end:
+- Drop `MaterialItem.isConsumable` (schema + migration).
+- Drop the consumable-only pricing fields that exist solely to support that flag — `baseCost`, `markupPct`, `wasteFactorPct` on `MaterialItem` (materials store no pricing; material pricing is obtained at quote time — those columns only existed for the consumable hack; consumable pricing now lives on `ConsumableItem`). **Before dropping each, grep for other uses;** if one is genuinely used for a non-consumable material purpose, keep that one and only remove the `isConsumable`-driven behavior — but by inspection today they're only set when `isConsumable` is true.
+- Remove the checkbox and the revealed base/markup/waste fields from `item-form.tsx`, the `isConsumable` handling in `actions.ts` (create/update item), the `isConsumable` field in `schemas.ts`, and the reference in `materials/items/[id]/page.tsx`.
+- Migration must not destroy data unexpectedly: if any existing `MaterialItem` rows are currently flagged `isConsumable = true`, surface them to Ryan (list their names) rather than silently dropping — they likely belong in the new consumables catalog and he may want to re-enter/move them. (In practice there may be none; check.)
 
 ## UI + CRUD (same fashion as materials)
 
@@ -69,7 +81,8 @@ A flat Excel/CSV import-export for consumables (one sheet per division) would ma
 - Don't store the labor rate; it's always derived from the blended labor rate.
 - No tax/Stripe fields for now (consumables are typically rolled up, not itemized — per the sheet note); add later if needed.
 - Don't add a segment column to consumables or otherwise split the dataset.
-- Don't touch `MaterialItem.isConsumable`, the labor engine, or the scope switcher beyond consuming them.
+- Don't add any "is consumable" flag or type toggle to materials to replace the removed one — the separation is by catalog, full stop.
+- Don't change the labor engine or the scope switcher beyond consuming them.
 
 ## Verification checklist
 
@@ -80,4 +93,5 @@ A flat Excel/CSV import-export for consumables (one sheet per division) would ma
 - The reference labor rate on the page equals the active scope's blended install rate (changes if you switch IS-Commercial ↔ IS-Residential, because their blends differ), and it's clearly labeled as derived — no stored $62.94/$46.62 anywhere.
 - Add, edit, and delete all work and persist; delete confirms first.
 - Consumables tab is enabled (no "Soon") and routes to the page.
+- `MaterialItem.isConsumable` and its checkbox/pricing-field UI are gone: grep for `isConsumable` returns nothing in `src/` (migrations aside); the material item form no longer offers a "consumable" option.
 - Update `AGENTS.md` / `.cursor/rules/` to document `ConsumableItem` (division-only scope, derived blended labor rate, one dataset per division).

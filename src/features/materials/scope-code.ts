@@ -2,17 +2,12 @@ import { company } from "@/config/company";
 import type { Segment } from "@prisma/client";
 import {
   listCustomerScopes,
-  resolveStorageScope,
+  resolveScope,
   scopeCodeFor,
   toPrismaSegment,
 } from "./scope";
 
-export {
-  scopeCodeFor,
-  resolveStorageScope,
-  toPrismaSegment,
-  listCustomerScopes,
-};
+export { scopeCodeFor, resolveScope, toPrismaSegment, listCustomerScopes };
 
 const ABBREV_TO_SEGMENT: Record<string, Segment> = {
   COM: "COMMERCIAL",
@@ -29,16 +24,13 @@ export function listScopeCodes(): {
   divisionSlug: string;
   divisionCode: string;
   segment: Segment;
-  /** Prisma storage segment for reads/writes (always equals segment). */
-  storageSegment: Segment;
   label: string;
 }[] {
   return listCustomerScopes().map((s) => ({
     code: s.scopeCode,
     divisionSlug: s.divisionSlug,
     divisionCode: s.divisionCode,
-    segment: s.customerSegment,
-    storageSegment: s.storageSegment,
+    segment: s.segment,
     label: s.label,
   }));
 }
@@ -51,7 +43,6 @@ export function parseScopeFromFilename(filename: string): {
   scopeCode: string;
   divisionCode: string;
   segment: Segment;
-  storageSegment: Segment;
   date?: string;
 } | null {
   const base = filename.replace(/^.*[/\\]/, "").replace(/\.xlsx?$/i, "");
@@ -71,7 +62,6 @@ export function parseScopeFromFilename(filename: string): {
     scopeCode: known.code,
     divisionCode: known.divisionCode,
     segment: known.segment,
-    storageSegment: known.storageSegment,
     date: m[3],
   };
 }
