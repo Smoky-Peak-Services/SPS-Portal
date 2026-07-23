@@ -26,6 +26,8 @@ type Suggestion = {
   country: string;
   lat: number;
   lon: number;
+  confidence: number | null;
+  resultType: string | null;
 };
 
 type AddressValues = {
@@ -49,13 +51,15 @@ const empty: AddressValues = {
 };
 
 const MIN_QUERY_CHARS = 4;
-const DEBOUNCE_MS = 350;
+const DEBOUNCE_MS = 500;
 const BLUR_CLOSE_MS = 150;
+const LOW_CONFIDENCE = 0.5;
 
 /**
  * Address block with Geoapify autocomplete. State must be chosen first so queries
- * stay scoped. Controlled inputs use `name`s for FormData-based forms; lat/lon
- * are hidden fields.
+ * stay hard-scoped to that state's rect. Controlled inputs use `name`s for
+ * FormData-based forms; lat/lon are hidden fields. Low confidence is flagged
+ * but never blocks save.
  */
 export function AddressAutocomplete({
   names,
@@ -73,31 +77,34 @@ export function AddressAutocomplete({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
+  const [lowConfidence, setLowConfidence] = useState(false);
+  const [noMatches, setNoMatches] = useState(false);
 
   const boxRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
   const focusedRef = useRef(false);
   const regionRef = useRef(v.region);
+  const valuesRef = useRef(v);
   regionRef.current = v.region;
+  valuesRef.current = v;
 
   const stateReady = isUsRegionCode(v.region);
-  const showDropdown = open && (suggestions.length > 0 || loading);
+  const showDropdown =
+    open && (suggestions.length > 0 || loading || noMatches);
 
-  function cancelPending() {
+  function clearDebounce() {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setLoading(false);
   }
 
   function closeDropdown() {
     setOpen(false);
     setLoading(false);
+    setNoMatches(false);
   }
 
   useEffect(() => {
@@ -110,14 +117,14 @@ export function AddressAutocomplete({
     document.addEventListener("mousedown", onDocMouseDown);
     return () => {
       document.removeEventListener("mousedown", onDocMouseDown);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      clearDebounce();
       if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
-      abortRef.current?.abort();
     };
   }, []);
 
   function setState(code: string) {
-    cancelPending();
+    clearDebounce();
+    requestIdRef.current += 1;
     setV((p) => ({
       ...p,
       region: code,
@@ -125,62 +132,68 @@ export function AddressAutocomplete({
       lon: "",
     }));
     setSuggestions([]);
+    setLowConfidence(false);
     closeDropdown();
   }
 
   function queryLine1(text: string) {
     setV((p) => ({ ...p, line1: text, lat: "", lon: "" }));
+    setLowConfidence(false);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    clearDebounce();
 
     const stateCode = regionRef.current;
     if (!isUsRegionCode(stateCode) || text.trim().length < MIN_QUERY_CHARS) {
-      cancelPending();
+      requestIdRef.current += 1;
       setSuggestions([]);
+      setNoMatches(false);
+      setLoading(false);
       closeDropdown();
       return;
     }
 
-    // Keep prior suggestions visible while debouncing; open while focused.
     if (focusedRef.current) setOpen(true);
 
+    const scheduledText = text;
     debounceRef.current = setTimeout(async () => {
       debounceRef.current = null;
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+      const id = ++requestIdRef.current;
       setLoading(true);
+      setNoMatches(false);
       if (focusedRef.current) setOpen(true);
 
       try {
         const res = await fetch(
-          `/api/geoapify/autocomplete?text=${encodeURIComponent(text)}` +
+          `/api/geoapify/autocomplete?text=${encodeURIComponent(scheduledText)}` +
             `&state=${encodeURIComponent(stateCode)}`,
-          { signal: controller.signal },
         );
         const data = await res.json();
-        if (controller.signal.aborted) return;
+        // Ignore stale responses — do not clear suggestions for superseded queries.
+        if (id !== requestIdRef.current) return;
         if (data.configured === false) setNotConfigured(true);
-        // Trust API payload as-is — no client-side street/includes or slice(0,1).
         const results: Suggestion[] = data.results ?? [];
         setSuggestions(results);
+        setNoMatches(results.length === 0);
         if (focusedRef.current) setOpen(true);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        // Network / parse errors: keep prior suggestions.
+      } catch {
+        if (id !== requestIdRef.current) return;
+        // Keep prior suggestions on network/parse errors.
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-          abortRef.current = null;
-        }
+        if (id === requestIdRef.current) setLoading(false);
       }
     }, DEBOUNCE_MS);
   }
 
+  function applyConfidence(confidence: number | null) {
+    setLowConfidence(
+      confidence != null && confidence < LOW_CONFIDENCE,
+    );
+  }
+
   function pick(s: Suggestion) {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
-    cancelPending();
-    // Street = housenumber + street (mapped to line1 server-side); fill city + ZIP.
+    clearDebounce();
+    requestIdRef.current += 1;
     setV((p) => ({
       line1: s.line1.trim(),
       line2: p.line2,
@@ -190,8 +203,75 @@ export function AddressAutocomplete({
       lat: s.lat ? String(s.lat) : "",
       lon: s.lon ? String(s.lon) : "",
     }));
+    applyConfidence(s.confidence);
     setSuggestions([]);
+    setNoMatches(false);
     closeDropdown();
+
+    // If autocomplete omitted confidence, validate once via search.
+    if (s.confidence == null && s.line1.trim()) {
+      const state = s.region || regionRef.current;
+      void (async () => {
+        try {
+          const params = new URLSearchParams({
+            line1: s.line1.trim(),
+            city: s.city,
+            postal: s.postalCode,
+            state,
+          });
+          const res = await fetch(`/api/geoapify/validate?${params}`);
+          const data = await res.json();
+          if (data.result?.confidence != null) {
+            applyConfidence(data.result.confidence);
+            if (data.result.lat && data.result.lon) {
+              setV((p) => ({
+                ...p,
+                lat: String(data.result.lat),
+                lon: String(data.result.lon),
+              }));
+            }
+          }
+        } catch {
+          // Validation is best-effort; never block.
+        }
+      })();
+    }
+  }
+
+  async function revalidateOnBlur() {
+    const cur = valuesRef.current;
+    if (!isUsRegionCode(cur.region) || !cur.line1.trim() || !cur.city.trim()) {
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams({
+        line1: cur.line1.trim(),
+        city: cur.city.trim(),
+        postal: cur.postal.trim(),
+        state: cur.region,
+      });
+      const res = await fetch(`/api/geoapify/validate?${params}`);
+      const data = await res.json();
+      if (data.configured === false) setNotConfigured(true);
+      const result = data.result;
+      if (!result) return;
+      applyConfidence(result.confidence ?? null);
+      if (result.lat && result.lon) {
+        setV((p) => ({
+          ...p,
+          lat: String(result.lat),
+          lon: String(result.lon),
+          // Fill blanks only — do not overwrite user-edited city/ZIP.
+          city: p.city.trim() ? p.city : (result.city ?? p.city),
+          postal: p.postal.trim()
+            ? p.postal
+            : (result.postalCode ?? p.postal),
+        }));
+      }
+    } catch {
+      // Best-effort.
+    }
   }
 
   return (
@@ -233,12 +313,15 @@ export function AddressAutocomplete({
             onFocus={() => {
               focusedRef.current = true;
               if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
-              if (suggestions.length > 0 || loading) setOpen(true);
+              if (suggestions.length > 0 || loading || noMatches) {
+                setOpen(true);
+              }
             }}
             onBlur={() => {
               focusedRef.current = false;
               blurTimerRef.current = setTimeout(() => {
                 closeDropdown();
+                void revalidateOnBlur();
               }, BLUR_CLOSE_MS);
             }}
             placeholder={stateReady ? "Street address" : "Select state first"}
@@ -267,9 +350,9 @@ export function AddressAutocomplete({
                     </li>
                   ))}
                 </ul>
-              ) : loading ? (
+              ) : !loading && noMatches ? (
                 <p className="px-3 py-2 text-sm text-muted-foreground">
-                  Looking up addresses…
+                  No matches
                 </p>
               ) : null}
             </div>
@@ -279,6 +362,12 @@ export function AddressAutocomplete({
           <p className="text-xs text-amber-400">
             Address lookup is not configured (missing API key). Enter the
             address manually.
+          </p>
+        ) : null}
+        {lowConfidence ? (
+          <p className="text-xs text-amber-400">
+            Low address confidence — verify before relying on this for
+            shipping. You can still save.
           </p>
         ) : null}
       </div>
@@ -304,9 +393,16 @@ export function AddressAutocomplete({
             required={required}
             disabled={!stateReady}
             value={v.city}
-            onChange={(e) =>
-              setV((p) => ({ ...p, city: e.target.value, lat: "", lon: "" }))
-            }
+            onChange={(e) => {
+              setLowConfidence(false);
+              setV((p) => ({
+                ...p,
+                city: e.target.value,
+                lat: "",
+                lon: "",
+              }));
+            }}
+            onBlur={() => void revalidateOnBlur()}
             placeholder="City"
           />
         </div>
@@ -318,9 +414,16 @@ export function AddressAutocomplete({
             required={required}
             disabled={!stateReady}
             value={v.postal}
-            onChange={(e) =>
-              setV((p) => ({ ...p, postal: e.target.value, lat: "", lon: "" }))
-            }
+            onChange={(e) => {
+              setLowConfidence(false);
+              setV((p) => ({
+                ...p,
+                postal: e.target.value,
+                lat: "",
+                lon: "",
+              }));
+            }}
+            onBlur={() => void revalidateOnBlur()}
             placeholder="ZIP"
           />
         </div>
