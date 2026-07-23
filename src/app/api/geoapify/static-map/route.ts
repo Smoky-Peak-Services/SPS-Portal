@@ -54,7 +54,7 @@ export async function GET(req: Request) {
     String(width),
     String(height),
     String(zoom),
-    "teal-v2",
+    "teal-v3",
   ];
 
   try {

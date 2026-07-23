@@ -17,8 +17,8 @@ export function MapTile({
   if (lat == null || lon == null) return null;
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
-  // v=3 busts prior broken/blue browser caches after marker + cache fix.
-  const src = `/api/geoapify/static-map?lat=${lat}&lon=${lon}&w=600&h=240&z=15&v=3`;
+  // v=4 busts prior broken marker caches after size:large → size:64 fix.
+  const src = `/api/geoapify/static-map?lat=${lat}&lon=${lon}&w=600&h=240&z=15&v=4`;
   return (
     // eslint-disable-next-line @next/next/no-img-element -- proxied static map, not a Next Image asset
     <img
