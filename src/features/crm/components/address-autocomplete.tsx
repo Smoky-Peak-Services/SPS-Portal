@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
-import { FormSelect } from "@/components/patterns/form-select";
+import { SearchableFormSelect } from "@/components/patterns/searchable-form-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { US_REGION_OPTIONS, isUsRegionCode } from "@/features/crm/us-regions";
@@ -149,15 +149,15 @@ export function AddressAutocomplete({
         <p className="text-sm font-medium text-foreground">{legend}</p>
       ) : null}
 
-      <FormSelect
+      <SearchableFormSelect
         name={names.region}
         label="State / territory"
         options={US_REGION_OPTIONS}
         value={v.region}
         onValueChange={setState}
         placeholder="Select state first"
+        searchPlaceholder="Search state or territory…"
         required={required}
-        allowEmpty
         emptyLabel="Select state first"
       />
 

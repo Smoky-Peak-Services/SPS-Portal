@@ -112,7 +112,7 @@ export function FormSelect({
         <SelectContent
           align="start"
           alignItemWithTrigger={false}
-          className="border border-border bg-popover text-popover-foreground shadow-lg"
+          className="max-h-60 border border-border bg-popover text-popover-foreground shadow-lg"
         >
           {allOptions.map((o) => (
             <SelectItem key={o.value} value={o.value}>
