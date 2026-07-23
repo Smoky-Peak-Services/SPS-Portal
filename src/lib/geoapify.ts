@@ -42,7 +42,7 @@ function mapRow(r: Record<string, unknown>): AddressSuggestion {
 
 /**
  * Address autocomplete scoped to a US state/territory.
- * US country filter + state appended to text; rect bias (not hard filter) for relevance.
+ * Appends `, ST, USA`, filters to US streets, biases to state bounds, post-filters by state_code.
  */
 export async function geoapifyAutocomplete(
   text: string,
@@ -53,10 +53,11 @@ export async function geoapifyAutocomplete(
   if (!region) return [];
 
   const [lon1, lat1, lon2, lat2] = region.rect;
-  const q = `${text.trim()}, ${region.code}`;
+  const q = `${text.trim()}, ${region.code}, USA`;
   const url =
     `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}` +
     `&filter=countrycode:us` +
+    `&type=street` +
     `&bias=rect:${lon1},${lat1},${lon2},${lat2}` +
     `&format=json&limit=6&apiKey=${KEY}`;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapPin } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
 import { SearchableFormSelect } from "@/components/patterns/searchable-form-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,8 +48,9 @@ const empty: AddressValues = {
   lon: "",
 };
 
-/** Silent floor: wait until enough characters before spending an API call. */
 const MIN_QUERY_CHARS = 4;
+const DEBOUNCE_MS = 350;
+const BLUR_CLOSE_MS = 150;
 
 /**
  * Address block with Geoapify autocomplete. State must be chosen first so queries
@@ -70,82 +71,128 @@ export function AddressAutocomplete({
   const [v, setV] = useState<AddressValues>({ ...empty, ...defaults });
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
+
   const boxRef = useRef<HTMLDivElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const focusedRef = useRef(false);
+  const regionRef = useRef(v.region);
+  regionRef.current = v.region;
 
   const stateReady = isUsRegionCode(v.region);
+  const showDropdown = open && (suggestions.length > 0 || loading);
+
+  function cancelPending() {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+  }
+
+  function closeDropdown() {
+    setOpen(false);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
-        setOpen(false);
+    function onDocMouseDown(e: MouseEvent) {
+      if (!boxRef.current?.contains(e.target as Node)) {
+        focusedRef.current = false;
+        closeDropdown();
       }
     }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+      abortRef.current?.abort();
+    };
   }, []);
 
   function setState(code: string) {
+    cancelPending();
     setV((p) => ({
       ...p,
       region: code,
-      // Changing state invalidates prior geocode.
       lat: "",
       lon: "",
     }));
     setSuggestions([]);
-    setOpen(false);
+    closeDropdown();
   }
 
   function queryLine1(text: string) {
-    const stateCode = v.region;
     setV((p) => ({ ...p, line1: text, lat: "", lon: "" }));
-    if (timer.current) clearTimeout(timer.current);
 
-    if (!isUsRegionCode(stateCode)) {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const stateCode = regionRef.current;
+    if (!isUsRegionCode(stateCode) || text.trim().length < MIN_QUERY_CHARS) {
+      cancelPending();
       setSuggestions([]);
-      setOpen(false);
+      closeDropdown();
       return;
     }
 
-    // Only clear when below the floor; keep prior results while typing past it
-    // so suggestions do not flash away between debounced requests.
-    if (text.trim().length < MIN_QUERY_CHARS) {
-      setSuggestions([]);
-      setOpen(false);
-      return;
-    }
+    // Keep prior suggestions visible while debouncing; open while focused.
+    if (focusedRef.current) setOpen(true);
 
-    timer.current = setTimeout(async () => {
+    debounceRef.current = setTimeout(async () => {
+      debounceRef.current = null;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setLoading(true);
+      if (focusedRef.current) setOpen(true);
+
       try {
         const res = await fetch(
           `/api/geoapify/autocomplete?text=${encodeURIComponent(text)}` +
             `&state=${encodeURIComponent(stateCode)}`,
+          { signal: controller.signal },
         );
         const data = await res.json();
+        if (controller.signal.aborted) return;
         if (data.configured === false) setNotConfigured(true);
         const results: Suggestion[] = data.results ?? [];
-        setSuggestions(results);
-        setOpen(results.length > 0);
-      } catch {
-        setSuggestions([]);
+        if (results.length > 0) {
+          setSuggestions(results);
+        }
+        // Empty payload: leave prior suggestions in place.
+        if (focusedRef.current) setOpen(true);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Network / parse errors: keep prior suggestions.
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          abortRef.current = null;
+        }
       }
-    }, 400);
+    }, DEBOUNCE_MS);
   }
 
   function pick(s: Suggestion) {
-    setV({
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    cancelPending();
+    setV((p) => ({
       line1: s.line1,
-      line2: v.line2,
+      line2: p.line2,
       city: s.city,
-      region: s.region || v.region,
+      region: s.region || p.region,
       postal: s.postalCode,
       lat: s.lat ? String(s.lat) : "",
       lon: s.lon ? String(s.lon) : "",
-    });
-    setOpen(false);
+    }));
     setSuggestions([]);
+    closeDropdown();
   }
 
   return (
@@ -184,7 +231,17 @@ export function AddressAutocomplete({
             disabled={!stateReady}
             value={v.line1}
             onChange={(e) => queryLine1(e.target.value)}
-            onFocus={() => suggestions.length && setOpen(true)}
+            onFocus={() => {
+              focusedRef.current = true;
+              if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+              if (suggestions.length > 0 || loading) setOpen(true);
+            }}
+            onBlur={() => {
+              focusedRef.current = false;
+              blurTimerRef.current = setTimeout(() => {
+                closeDropdown();
+              }, BLUR_CLOSE_MS);
+            }}
             placeholder={stateReady ? "Street address" : "Select state first"}
           />
         </div>
@@ -194,21 +251,36 @@ export function AddressAutocomplete({
             address manually.
           </p>
         ) : null}
-        {open ? (
-          <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
-            {suggestions.map((s, i) => (
-              <li key={`${s.formatted}-${i}`}>
-                <button
-                  type="button"
-                  onClick={() => pick(s)}
-                  className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-                >
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span>{s.formatted}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        {showDropdown ? (
+          <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+            {loading ? (
+              <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                Searching…
+              </div>
+            ) : null}
+            {suggestions.length > 0 ? (
+              <ul className="max-h-60 overflow-y-auto">
+                {suggestions.map((s, i) => (
+                  <li key={`${s.formatted}-${i}`}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pick(s)}
+                      className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                    >
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span>{s.formatted}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : loading ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">
+                Looking up addresses…
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
