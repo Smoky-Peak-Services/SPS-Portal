@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createCustomer } from "@/features/crm/actions";
+import { AddressAutocomplete } from "@/features/crm/components/address-autocomplete";
 import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ const CUSTOMER_TYPE_OPTIONS = [
 ];
 
 const CONTACT_ROLE_OPTIONS = [
-  { value: "CLIENT", label: "Client" },
+  { value: "CLIENT", label: "Client / homeowner" },
   { value: "PROPERTY_MANAGER", label: "Property manager" },
   { value: "ESTIMATOR", label: "Estimator" },
   { value: "TENANT", label: "Tenant" },
@@ -56,6 +57,8 @@ export function CreateCustomerForm({
             hqCity: fd.get("hqCity"),
             hqRegion: fd.get("hqRegion"),
             hqPostal: fd.get("hqPostal"),
+            hqLat: fd.get("hqLat"),
+            hqLng: fd.get("hqLng"),
             contactFirstName: fd.get("contactFirstName"),
             contactLastName: fd.get("contactLastName"),
             contactEmail: fd.get("contactEmail"),
@@ -107,13 +110,17 @@ export function CreateCustomerForm({
 
       <fieldset className="space-y-3 rounded-md border border-border p-4">
         <legend className="px-1 text-sm font-medium">HQ address</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input name="hqLine1" placeholder="Line 1" />
-          <Input name="hqLine2" placeholder="Line 2" />
-          <Input name="hqCity" placeholder="City" />
-          <Input name="hqRegion" placeholder="State" />
-          <Input name="hqPostal" placeholder="Postal" />
-        </div>
+        <AddressAutocomplete
+          names={{
+            line1: "hqLine1",
+            line2: "hqLine2",
+            city: "hqCity",
+            region: "hqRegion",
+            postal: "hqPostal",
+            lat: "hqLat",
+            lon: "hqLng",
+          }}
+        />
       </fieldset>
 
       <fieldset className="space-y-3 rounded-md border border-border p-4">

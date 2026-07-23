@@ -17,8 +17,8 @@ export default async function ClientBillingPage({
 
   return (
     <Panel
-      title="Billing profile"
-      description="Individual for residential/STR by default; Entity for commercial."
+      title="Billing information"
+      description="Billing address, invoicing email, and contact for whoever is authorized to manage billing."
     >
       <BillingProfileForm
         rootOrgId={customer.id}

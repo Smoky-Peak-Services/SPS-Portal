@@ -2,10 +2,10 @@ import { notFound } from "next/navigation";
 import { requireArea } from "@/lib/session";
 import { getCustomerProfile } from "@/features/crm/queries";
 import { canWriteCrm } from "@/features/crm/authz";
-import { ContactsPanel } from "@/features/crm/components/contacts-panel";
+import { ActivityPanel } from "@/features/crm/components/activity-panel";
 import { Panel } from "@/components/patterns/panel";
 
-export default async function ClientContactsPage({
+export default async function ClientNotesPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -17,12 +17,13 @@ export default async function ClientContactsPage({
 
   return (
     <Panel
-      title="Client Contacts"
-      description="Other homeowners, property managers, company contacts, project managers, estimators, and tenants."
+      title="Notes"
+      description="Internal comments only: special instructions, warnings, previous issues. Not customer-facing."
     >
-      <ContactsPanel
+      <ActivityPanel
         customerId={customer.id}
-        contacts={customer.contacts}
+        activities={customer.activities}
+        locations={customer.serviceLocations}
         canWrite={canWriteCrm(user)}
       />
     </Panel>

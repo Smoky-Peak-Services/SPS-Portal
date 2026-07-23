@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   normalizeServiceLines,
   validateServiceLines,
+  normalizeAddressKey,
+  rootOrgServiceLocationDefaults,
 } from "./service-location";
 import { billingMissing, isBillingComplete } from "./billing";
 
@@ -29,6 +31,41 @@ describe("service location lines", () => {
     assert.equal(
       validateServiceLines("RESIDENTIAL", ["CABIN_SERVICES"]),
       null,
+    );
+  });
+
+  it("normalizes address keys for duplicate checks", () => {
+    assert.equal(
+      normalizeAddressKey({
+        line1: "  12 Main St ",
+        city: "Oak Ridge",
+        region: "tn",
+        postalCode: "37830",
+      }),
+      "12 main st|oak ridge|tn|37830",
+    );
+  });
+
+  it("derives service location defaults from root org", () => {
+    assert.deepEqual(
+      rootOrgServiceLocationDefaults({
+        customerType: "COMMERCIAL",
+        divisionSlug: "integrated-systems",
+      }),
+      {
+        classification: "COMMERCIAL",
+        serviceLines: ["INTEGRATED_SYSTEMS"],
+      },
+    );
+    assert.deepEqual(
+      rootOrgServiceLocationDefaults({
+        customerType: "STR",
+        divisionSlug: "cabin-services",
+      }),
+      {
+        classification: "RESIDENTIAL",
+        serviceLines: ["CABIN_SERVICES"],
+      },
     );
   });
 });

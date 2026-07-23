@@ -76,6 +76,10 @@ export const updateCustomerSchema = z.object({
   notes: optStr,
   summary: optStr,
   ...hqAddressFields,
+  /** Copy HQ address (+ primary contact) onto BillingProfile when true. */
+  useAsBillingAddress: z.coerce.boolean().optional(),
+  /** Create a ServiceLocation from HQ when true (skip if address already exists). */
+  createServiceLocationFromRoot: z.coerce.boolean().optional(),
 });
 
 export const updateBillingProfileSchema = z.object({

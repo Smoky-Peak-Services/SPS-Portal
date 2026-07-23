@@ -18,6 +18,8 @@ import {
 } from "./schemas";
 import {
   normalizeServiceLines,
+  normalizeAddressKey,
+  rootOrgServiceLocationDefaults,
   validateServiceLines,
   type ServiceLine,
 } from "./service-location";
@@ -31,7 +33,11 @@ function revalidateClients(id?: string) {
     revalidatePath(`/clients/${id}/billing`);
     revalidatePath(`/clients/${id}/contacts`);
     revalidatePath(`/clients/${id}/locations`);
+    revalidatePath(`/clients/${id}/notes`);
     revalidatePath(`/clients/${id}/activity`);
+    revalidatePath(`/clients/${id}/estimates`);
+    revalidatePath(`/clients/${id}/service-tickets`);
+    revalidatePath(`/clients/${id}/invoices`);
   }
 }
 
@@ -138,35 +144,156 @@ export async function updateCustomer(raw: unknown): Promise<ActionResult> {
     if (!division) return { ok: false, error: "Unknown division." };
   }
 
-  await prismaPii.customer.update({
-    where: { id: data.id },
-    data: {
-      type: data.type,
-      displayName: data.displayName?.trim(),
-      divisionId: data.divisionId,
-      generalEmail:
-        data.generalEmail !== undefined
-          ? emptyToNull(data.generalEmail)
-          : undefined,
-      mainPhone:
-        data.mainPhone !== undefined ? emptyToNull(data.mainPhone) : undefined,
-      website: data.website !== undefined ? emptyToNull(data.website) : undefined,
-      source: data.source !== undefined ? emptyToNull(data.source) : undefined,
-      notes: data.notes !== undefined ? emptyToNull(data.notes) : undefined,
-      summary:
-        data.summary !== undefined ? emptyToNull(data.summary) : undefined,
-      hqLine1:
-        data.hqLine1 !== undefined ? emptyToNull(data.hqLine1) : undefined,
-      hqLine2:
-        data.hqLine2 !== undefined ? emptyToNull(data.hqLine2) : undefined,
-      hqCity: data.hqCity !== undefined ? emptyToNull(data.hqCity) : undefined,
-      hqRegion:
-        data.hqRegion !== undefined ? emptyToNull(data.hqRegion) : undefined,
-      hqPostal:
-        data.hqPostal !== undefined ? emptyToNull(data.hqPostal) : undefined,
-      hqLat: data.hqLat === undefined ? undefined : data.hqLat,
-      hqLng: data.hqLng === undefined ? undefined : data.hqLng,
-    },
+  await prismaPii.$transaction(async (tx) => {
+    const updated = await tx.customer.update({
+      where: { id: data.id },
+      data: {
+        type: data.type,
+        displayName: data.displayName?.trim(),
+        divisionId: data.divisionId,
+        generalEmail:
+          data.generalEmail !== undefined
+            ? emptyToNull(data.generalEmail)
+            : undefined,
+        mainPhone:
+          data.mainPhone !== undefined
+            ? emptyToNull(data.mainPhone)
+            : undefined,
+        website:
+          data.website !== undefined ? emptyToNull(data.website) : undefined,
+        source:
+          data.source !== undefined ? emptyToNull(data.source) : undefined,
+        notes: data.notes !== undefined ? emptyToNull(data.notes) : undefined,
+        summary:
+          data.summary !== undefined ? emptyToNull(data.summary) : undefined,
+        hqLine1:
+          data.hqLine1 !== undefined ? emptyToNull(data.hqLine1) : undefined,
+        hqLine2:
+          data.hqLine2 !== undefined ? emptyToNull(data.hqLine2) : undefined,
+        hqCity:
+          data.hqCity !== undefined ? emptyToNull(data.hqCity) : undefined,
+        hqRegion:
+          data.hqRegion !== undefined ? emptyToNull(data.hqRegion) : undefined,
+        hqPostal:
+          data.hqPostal !== undefined ? emptyToNull(data.hqPostal) : undefined,
+        hqLat: data.hqLat === undefined ? undefined : data.hqLat,
+        hqLng: data.hqLng === undefined ? undefined : data.hqLng,
+      },
+      include: {
+        division: { select: { slug: true } },
+        contacts: {
+          where: { OR: [{ isPrimary: true }, { isBilling: true }] },
+          orderBy: [{ isPrimary: "desc" }, { isBilling: "desc" }],
+          take: 2,
+        },
+        billingProfile: true,
+        serviceLocations: {
+          select: {
+            id: true,
+            line1: true,
+            city: true,
+            region: true,
+            postalCode: true,
+          },
+        },
+      },
+    });
+
+    if (data.useAsBillingAddress) {
+      const primary =
+        updated.contacts.find((c) => c.isPrimary) ??
+        updated.contacts.find((c) => c.isBilling) ??
+        updated.contacts[0];
+      const billingName =
+        primary != null
+          ? [primary.firstName, primary.lastName].filter(Boolean).join(" ")
+          : updated.displayName;
+      const billingEmail =
+        primary?.directEmail ?? updated.generalEmail ?? null;
+      const billingPhone = primary?.directPhone ?? updated.mainPhone ?? null;
+
+      await tx.billingProfile.upsert({
+        where: { rootOrgId: updated.id },
+        create: {
+          rootOrgId: updated.id,
+          profileType: defaultBillingType(updated.type),
+          billingName,
+          billingEmail,
+          billingPhone,
+          billingLine1: updated.hqLine1,
+          billingLine2: updated.hqLine2,
+          billingCity: updated.hqCity,
+          billingRegion: updated.hqRegion,
+          billingPostal: updated.hqPostal,
+          billingLat: updated.hqLat,
+          billingLng: updated.hqLng,
+          pointOfContactId: primary?.id ?? null,
+        },
+        update: {
+          billingName,
+          billingEmail,
+          billingPhone,
+          billingLine1: updated.hqLine1,
+          billingLine2: updated.hqLine2,
+          billingCity: updated.hqCity,
+          billingRegion: updated.hqRegion,
+          billingPostal: updated.hqPostal,
+          billingLat: updated.hqLat,
+          billingLng: updated.hqLng,
+          pointOfContactId: primary?.id ?? undefined,
+        },
+      });
+    }
+
+    if (data.createServiceLocationFromRoot) {
+      const line1 = updated.hqLine1?.trim();
+      const city = updated.hqCity?.trim();
+      const region = updated.hqRegion?.trim();
+      const postalCode = updated.hqPostal?.trim();
+      if (line1 && city && region && postalCode) {
+        const key = normalizeAddressKey({
+          line1,
+          city,
+          region,
+          postalCode,
+        });
+        const exists = updated.serviceLocations.some(
+          (loc) =>
+            normalizeAddressKey({
+              line1: loc.line1,
+              city: loc.city,
+              region: loc.region,
+              postalCode: loc.postalCode,
+            }) === key,
+        );
+        if (!exists) {
+          const defaults = rootOrgServiceLocationDefaults({
+            customerType: updated.type,
+            divisionSlug: updated.division.slug,
+          });
+          const lines = normalizeServiceLines(
+            defaults.classification,
+            defaults.serviceLines,
+          );
+          await tx.serviceLocation.create({
+            data: {
+              customerId: updated.id,
+              siteName: updated.displayName,
+              classification: defaults.classification,
+              serviceLines: lines,
+              line1,
+              line2: updated.hqLine2,
+              city,
+              region,
+              postalCode,
+              country: "US",
+              latitude: updated.hqLat,
+              longitude: updated.hqLng,
+            },
+          });
+        }
+      }
+    }
   });
 
   revalidateClients(data.id);

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateCustomer } from "@/features/crm/actions";
+import { AddressAutocomplete } from "@/features/crm/components/address-autocomplete";
 import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,8 @@ type Customer = {
   hqCity: string | null;
   hqRegion: string | null;
   hqPostal: string | null;
+  hqLat: number | null;
+  hqLng: number | null;
 };
 
 const CUSTOMER_TYPE_OPTIONS = [
@@ -97,6 +100,11 @@ export function RootOrgForm({
             hqCity: fd.get("hqCity"),
             hqRegion: fd.get("hqRegion"),
             hqPostal: fd.get("hqPostal"),
+            hqLat: fd.get("hqLat"),
+            hqLng: fd.get("hqLng"),
+            useAsBillingAddress: fd.get("useAsBillingAddress") === "on",
+            createServiceLocationFromRoot:
+              fd.get("createServiceLocationFromRoot") === "on",
           });
           if (!result.ok) {
             setError(result.error);
@@ -159,33 +167,55 @@ export function RootOrgForm({
           />
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input
-          name="hqLine1"
-          placeholder="HQ line 1"
-          defaultValue={customer.hqLine1 ?? ""}
+
+      <fieldset className="space-y-3 rounded-md border border-border p-4">
+        <legend className="px-1 text-sm font-medium">Root address</legend>
+        <AddressAutocomplete
+          names={{
+            line1: "hqLine1",
+            line2: "hqLine2",
+            city: "hqCity",
+            region: "hqRegion",
+            postal: "hqPostal",
+            lat: "hqLat",
+            lon: "hqLng",
+          }}
+          defaults={{
+            line1: customer.hqLine1 ?? "",
+            line2: customer.hqLine2 ?? "",
+            city: customer.hqCity ?? "",
+            region: customer.hqRegion ?? "",
+            postal: customer.hqPostal ?? "",
+            lat: customer.hqLat != null ? String(customer.hqLat) : "",
+            lon: customer.hqLng != null ? String(customer.hqLng) : "",
+          }}
         />
-        <Input
-          name="hqLine2"
-          placeholder="HQ line 2"
-          defaultValue={customer.hqLine2 ?? ""}
-        />
-        <Input
-          name="hqCity"
-          placeholder="City"
-          defaultValue={customer.hqCity ?? ""}
-        />
-        <Input
-          name="hqRegion"
-          placeholder="State"
-          defaultValue={customer.hqRegion ?? ""}
-        />
-        <Input
-          name="hqPostal"
-          placeholder="Postal"
-          defaultValue={customer.hqPostal ?? ""}
-        />
-      </div>
+        <div className="space-y-2 border-t border-border pt-3">
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="useAsBillingAddress"
+              className="mt-0.5"
+            />
+            <span>
+              Use this address as the billing address (copies name, email, phone,
+              and address into Billing information on save)
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="createServiceLocationFromRoot"
+              className="mt-0.5"
+            />
+            <span>
+              Also add this root address and primary contact as a service
+              location (skipped if an identical address already exists)
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
       <Textarea
         name="summary"
         placeholder="Summary"
@@ -194,7 +224,7 @@ export function RootOrgForm({
       />
       <Textarea
         name="notes"
-        placeholder="Notes"
+        placeholder="Account notes (visible on profile)"
         defaultValue={customer.notes ?? ""}
         rows={2}
       />
@@ -202,7 +232,7 @@ export function RootOrgForm({
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save root org"}
+        {pending ? "Saving…" : "Save client profile"}
       </Button>
     </form>
   );

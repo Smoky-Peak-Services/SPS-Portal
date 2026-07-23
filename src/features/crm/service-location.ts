@@ -52,3 +52,46 @@ export function locationDisplayName(loc: {
 }): string {
   return loc.siteName?.trim() || loc.line1;
 }
+
+/** Normalize address for duplicate checks. */
+export function normalizeAddressKey(parts: {
+  line1: string;
+  city: string;
+  region: string;
+  postalCode: string;
+}): string {
+  return [parts.line1, parts.city, parts.region, parts.postalCode]
+    .map((s) => s.trim().toLowerCase().replace(/\s+/g, " "))
+    .join("|");
+}
+
+/**
+ * Derive classification + service lines for a location created from the root org.
+ */
+export function rootOrgServiceLocationDefaults(opts: {
+  customerType: "RESIDENTIAL" | "COMMERCIAL" | "STR";
+  divisionSlug: string;
+}): {
+  classification: ServiceLocationClassification;
+  serviceLines: ServiceLine[];
+} {
+  if (opts.customerType === "COMMERCIAL") {
+    return {
+      classification: "COMMERCIAL",
+      serviceLines: ["INTEGRATED_SYSTEMS"],
+    };
+  }
+  if (
+    opts.customerType === "STR" ||
+    opts.divisionSlug === "cabin-services"
+  ) {
+    return {
+      classification: "RESIDENTIAL",
+      serviceLines: ["CABIN_SERVICES"],
+    };
+  }
+  return {
+    classification: "RESIDENTIAL",
+    serviceLines: ["INTEGRATED_SYSTEMS"],
+  };
+}

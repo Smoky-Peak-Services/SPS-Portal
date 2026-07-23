@@ -21,8 +21,8 @@ export default async function ClientLocationsPage({
 
   return (
     <Panel
-      title="Service locations"
-      description="Job sites. Commercial locations are Integrated Systems only."
+      title="Service Locations"
+      description="Root site or multiple job sites under one profile. Commercial locations are Integrated Systems only."
     >
       <LocationsPanel
         customerId={customer.id}

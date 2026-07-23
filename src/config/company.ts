@@ -36,6 +36,12 @@ export interface CrmConfig {
 export interface RetentionConfig {
   customerArchiveYears: number;
   leadArchiveYears: number;
+  /** Future: purge estimate history older than this (years). */
+  estimateHistoryYears: number;
+  /** Future: purge service ticket history older than this (years). */
+  serviceTicketHistoryYears: number;
+  /** Future: purge invoice history older than this (years). */
+  invoiceHistoryYears: number;
 }
 
 export interface Company {
@@ -136,6 +142,9 @@ export const company: Company = {
   retention: {
     customerArchiveYears: 5,
     leadArchiveYears: 3,
+    estimateHistoryYears: 5,
+    serviceTicketHistoryYears: 5,
+    invoiceHistoryYears: 5,
   },
 };
 

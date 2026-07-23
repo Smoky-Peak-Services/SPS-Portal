@@ -6,6 +6,8 @@ import {
   createServiceLocation,
   deleteServiceLocation,
 } from "@/features/crm/actions";
+import { AddressAutocomplete } from "@/features/crm/components/address-autocomplete";
+import { MapTile } from "@/features/crm/components/map-tile";
 import {
   classificationLabel,
   locationDisplayName,
@@ -32,6 +34,8 @@ type Location = {
   city: string;
   region: string;
   postalCode: string;
+  latitude: number | null;
+  longitude: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
 };
@@ -103,6 +107,32 @@ export function LocationsPanel({
         </table>
       </DataTableShell>
 
+      {locations.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {locations.map((loc) => (
+            <div
+              key={`map-${loc.id}`}
+              className="space-y-2 rounded-md border border-border p-3"
+            >
+              <p className="text-sm font-medium">{locationDisplayName(loc)}</p>
+              <p className="text-xs text-muted-foreground">
+                {loc.line1}, {loc.city}, {loc.region} {loc.postalCode}
+              </p>
+              <MapTile
+                lat={loc.latitude}
+                lon={loc.longitude}
+                label={locationDisplayName(loc)}
+              />
+              {loc.latitude == null || loc.longitude == null ? (
+                <p className="text-xs text-muted-foreground">
+                  No map yet. Edit or re-save with address lookup to geocode.
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {canWrite ? (
         <form
           className="grid gap-3 rounded-md border border-border p-4 sm:grid-cols-2"
@@ -125,6 +155,8 @@ export function LocationsPanel({
                 city: fd.get("city"),
                 region: fd.get("region"),
                 postalCode: fd.get("postalCode"),
+                latitude: fd.get("latitude"),
+                longitude: fd.get("longitude"),
                 bedrooms: fd.get("bedrooms") || null,
                 bathrooms: fd.get("bathrooms") || null,
               });
@@ -145,11 +177,20 @@ export function LocationsPanel({
             defaultValue="RESIDENTIAL"
             required
           />
-          <Input name="line1" placeholder="Street line 1" required />
-          <Input name="line2" placeholder="Street line 2" />
-          <Input name="city" placeholder="City" required />
-          <Input name="region" placeholder="State" required />
-          <Input name="postalCode" placeholder="Postal" required />
+          <div className="sm:col-span-2">
+            <AddressAutocomplete
+              names={{
+                line1: "line1",
+                line2: "line2",
+                city: "city",
+                region: "region",
+                postal: "postalCode",
+                lat: "latitude",
+                lon: "longitude",
+              }}
+              required
+            />
+          </div>
           <div className="flex flex-col gap-2 text-sm sm:col-span-2">
             <span className="text-muted-foreground">Service lines</span>
             <label className="flex items-center gap-2">

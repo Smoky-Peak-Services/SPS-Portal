@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
 
 const CONTACT_ROLE_OPTIONS = [
-  { value: "CLIENT", label: "Client" },
+  { value: "CLIENT", label: "Client / homeowner" },
   { value: "PROPERTY_MANAGER", label: "Property manager" },
   { value: "ESTIMATOR", label: "Estimator" },
   { value: "TENANT", label: "Tenant" },

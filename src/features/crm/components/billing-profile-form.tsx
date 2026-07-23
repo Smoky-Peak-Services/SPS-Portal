@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateBillingProfile } from "@/features/crm/actions";
+import { AddressAutocomplete } from "@/features/crm/components/address-autocomplete";
 import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,8 @@ type Billing = {
   billingCity: string | null;
   billingRegion: string | null;
   billingPostal: string | null;
+  billingLat: number | null;
+  billingLng: number | null;
   pointOfContactId: string | null;
   taxExemptionNumber: string | null;
   taxExemptEntityType: string | null;
@@ -92,6 +95,8 @@ export function BillingProfileForm({
                 billingCity: fd.get("billingCity"),
                 billingRegion: fd.get("billingRegion"),
                 billingPostal: fd.get("billingPostal"),
+                billingLat: fd.get("billingLat"),
+                billingLng: fd.get("billingLng"),
                 pointOfContactId: fd.get("pointOfContactId") || "",
                 taxExemptionNumber: fd.get("taxExemptionNumber"),
                 taxExemptEntityType: fd.get("taxExemptEntityType") || null,
@@ -116,7 +121,7 @@ export function BillingProfileForm({
               required
             />
             <div className="space-y-2">
-              <Label htmlFor="billingName">Billing name</Label>
+              <Label htmlFor="billingName">Billing contact name</Label>
               <Input
                 id="billingName"
                 name="billingName"
@@ -124,7 +129,7 @@ export function BillingProfileForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="billingEmail">Billing email</Label>
+              <Label htmlFor="billingEmail">Invoicing email</Label>
               <Input
                 id="billingEmail"
                 name="billingEmail"
@@ -140,33 +145,6 @@ export function BillingProfileForm({
                 defaultValue={billing?.billingPhone ?? ""}
               />
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              name="billingLine1"
-              placeholder="Billing line 1"
-              defaultValue={billing?.billingLine1 ?? ""}
-            />
-            <Input
-              name="billingLine2"
-              placeholder="Billing line 2"
-              defaultValue={billing?.billingLine2 ?? ""}
-            />
-            <Input
-              name="billingCity"
-              placeholder="City"
-              defaultValue={billing?.billingCity ?? ""}
-            />
-            <Input
-              name="billingRegion"
-              placeholder="State"
-              defaultValue={billing?.billingRegion ?? ""}
-            />
-            <Input
-              name="billingPostal"
-              placeholder="Postal"
-              defaultValue={billing?.billingPostal ?? ""}
-            />
             <FormSelect
               name="pointOfContactId"
               label="Point of contact"
@@ -179,6 +157,37 @@ export function BillingProfileForm({
               emptyLabel="No point of contact"
             />
           </div>
+
+          <fieldset className="space-y-3 rounded-md border border-border p-4">
+            <legend className="px-1 text-sm font-medium">Billing address</legend>
+            <AddressAutocomplete
+              names={{
+                line1: "billingLine1",
+                line2: "billingLine2",
+                city: "billingCity",
+                region: "billingRegion",
+                postal: "billingPostal",
+                lat: "billingLat",
+                lon: "billingLng",
+              }}
+              defaults={{
+                line1: billing?.billingLine1 ?? "",
+                line2: billing?.billingLine2 ?? "",
+                city: billing?.billingCity ?? "",
+                region: billing?.billingRegion ?? "",
+                postal: billing?.billingPostal ?? "",
+                lat:
+                  billing?.billingLat != null
+                    ? String(billing.billingLat)
+                    : "",
+                lon:
+                  billing?.billingLng != null
+                    ? String(billing.billingLng)
+                    : "",
+              }}
+            />
+          </fieldset>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
               name="taxExemptionNumber"
