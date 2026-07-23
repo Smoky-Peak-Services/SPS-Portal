@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateBillingProfile } from "@/features/crm/actions";
+import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,24 @@ type Billing = {
   taxExemptCertOnFile: boolean;
   smaStatus: string | null;
 } | null;
+
+const PROFILE_TYPE_OPTIONS = [
+  { value: "INDIVIDUAL", label: "Individual" },
+  { value: "ENTITY", label: "Entity" },
+];
+
+const TAX_EXEMPT_OPTIONS = [
+  { value: "GOVERNMENT", label: "Government" },
+  { value: "CHURCH", label: "Church" },
+  { value: "SCHOOL", label: "School" },
+  { value: "OTHER", label: "Other" },
+];
+
+const SMA_STATUS_OPTIONS = [
+  { value: "ACTIVE_PAYG", label: "Active (pay as you go)" },
+  { value: "ACTIVE_TERM", label: "Active (term)" },
+  { value: "INACTIVE", label: "Inactive" },
+];
 
 export function BillingProfileForm({
   rootOrgId,
@@ -88,18 +107,14 @@ export function BillingProfileForm({
           }}
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="profileType">Profile type</Label>
-              <select
-                id="profileType"
-                name="profileType"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                defaultValue={billing?.profileType ?? "INDIVIDUAL"}
-              >
-                <option value="INDIVIDUAL">Individual</option>
-                <option value="ENTITY">Entity</option>
-              </select>
-            </div>
+            <FormSelect
+              id="profileType"
+              name="profileType"
+              label="Profile type"
+              options={PROFILE_TYPE_OPTIONS}
+              defaultValue={billing?.profileType ?? "INDIVIDUAL"}
+              required
+            />
             <div className="space-y-2">
               <Label htmlFor="billingName">Billing name</Label>
               <Input
@@ -152,19 +167,17 @@ export function BillingProfileForm({
               placeholder="Postal"
               defaultValue={billing?.billingPostal ?? ""}
             />
-            <select
+            <FormSelect
               name="pointOfContactId"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              label="Point of contact"
+              options={contacts.map((c) => ({
+                value: c.id,
+                label: `${c.firstName}${c.lastName ? ` ${c.lastName}` : ""}`,
+              }))}
               defaultValue={billing?.pointOfContactId ?? ""}
-            >
-              <option value="">Point of contact</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.firstName}
-                  {c.lastName ? ` ${c.lastName}` : ""}
-                </option>
-              ))}
-            </select>
+              allowEmpty
+              emptyLabel="No point of contact"
+            />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
@@ -172,27 +185,22 @@ export function BillingProfileForm({
               placeholder="Tax exemption #"
               defaultValue={billing?.taxExemptionNumber ?? ""}
             />
-            <select
+            <FormSelect
               name="taxExemptEntityType"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              label="Tax-exempt entity type"
+              options={TAX_EXEMPT_OPTIONS}
               defaultValue={billing?.taxExemptEntityType ?? ""}
-            >
-              <option value="">Tax-exempt entity type</option>
-              <option value="GOVERNMENT">Government</option>
-              <option value="CHURCH">Church</option>
-              <option value="SCHOOL">School</option>
-              <option value="OTHER">Other</option>
-            </select>
-            <select
+              allowEmpty
+              emptyLabel="None"
+            />
+            <FormSelect
               name="smaStatus"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              label="SMA status"
+              options={SMA_STATUS_OPTIONS}
               defaultValue={billing?.smaStatus ?? ""}
-            >
-              <option value="">SMA status</option>
-              <option value="ACTIVE_PAYG">Active (pay as you go)</option>
-              <option value="ACTIVE_TERM">Active (term)</option>
-              <option value="INACTIVE">Inactive</option>
-            </select>
+              allowEmpty
+              emptyLabel="None"
+            />
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"

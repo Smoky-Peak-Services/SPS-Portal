@@ -7,9 +7,17 @@ import {
   deleteContact,
   updateContact,
 } from "@/features/crm/actions";
+import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
+
+const CONTACT_ROLE_OPTIONS = [
+  { value: "CLIENT", label: "Client" },
+  { value: "PROPERTY_MANAGER", label: "Property manager" },
+  { value: "ESTIMATOR", label: "Estimator" },
+  { value: "TENANT", label: "Tenant" },
+];
 
 type Contact = {
   id: string;
@@ -138,16 +146,12 @@ export function ContactsPanel({
           <Input name="lastName" placeholder="Last name" />
           <Input name="directEmail" type="email" placeholder="Email" />
           <Input name="directPhone" placeholder="Phone" />
-          <select
+          <FormSelect
             name="roleTag"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            label="Role"
+            options={CONTACT_ROLE_OPTIONS}
             defaultValue="CLIENT"
-          >
-            <option value="CLIENT">Client</option>
-            <option value="PROPERTY_MANAGER">Property manager</option>
-            <option value="ESTIMATOR">Estimator</option>
-            <option value="TENANT">Tenant</option>
-          </select>
+          />
           <div className="flex items-center gap-4 text-sm">
             <label className="flex items-center gap-2">
               <input type="checkbox" name="isPrimary" /> Primary

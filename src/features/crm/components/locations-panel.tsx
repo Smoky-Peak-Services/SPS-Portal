@@ -12,9 +12,15 @@ import {
   serviceLineLabel,
   type ServiceLine,
 } from "@/features/crm/service-location";
+import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
+
+const CLASSIFICATION_OPTIONS = [
+  { value: "RESIDENTIAL", label: "Residential" },
+  { value: "COMMERCIAL", label: "Commercial" },
+];
 
 type Location = {
   id: string;
@@ -132,14 +138,13 @@ export function LocationsPanel({
           }}
         >
           <Input name="siteName" placeholder="Site name" />
-          <select
+          <FormSelect
             name="classification"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            label="Classification"
+            options={CLASSIFICATION_OPTIONS}
             defaultValue="RESIDENTIAL"
-          >
-            <option value="RESIDENTIAL">Residential</option>
-            <option value="COMMERCIAL">Commercial</option>
-          </select>
+            required
+          />
           <Input name="line1" placeholder="Street line 1" required />
           <Input name="line2" placeholder="Street line 2" />
           <Input name="city" placeholder="City" required />

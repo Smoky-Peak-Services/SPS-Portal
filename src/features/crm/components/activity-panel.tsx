@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createCustomerActivity } from "@/features/crm/actions";
 import { locationDisplayName } from "@/features/crm/service-location";
+import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -61,18 +62,17 @@ export function ActivityPanel({
           }}
         >
           <Textarea name="body" rows={3} placeholder="Add a note…" required />
-          <select
+          <FormSelect
             name="serviceLocationId"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            label="Scope"
+            options={locations.map((loc) => ({
+              value: loc.id,
+              label: locationDisplayName(loc),
+            }))}
             defaultValue=""
-          >
-            <option value="">Whole account</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {locationDisplayName(loc)}
-              </option>
-            ))}
-          </select>
+            allowEmpty
+            emptyLabel="Whole account"
+          />
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button type="submit" disabled={pending}>
             Add note

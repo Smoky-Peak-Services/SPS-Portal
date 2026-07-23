@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateCustomer } from "@/features/crm/actions";
+import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,12 @@ type Customer = {
   hqRegion: string | null;
   hqPostal: string | null;
 };
+
+const CUSTOMER_TYPE_OPTIONS = [
+  { value: "RESIDENTIAL", label: "Residential" },
+  { value: "COMMERCIAL", label: "Commercial" },
+  { value: "STR", label: "STR" },
+];
 
 export function RootOrgForm({
   customer,
@@ -110,34 +117,22 @@ export function RootOrgForm({
             required
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="type">Type</Label>
-          <select
-            id="type"
-            name="type"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-            defaultValue={customer.type}
-          >
-            <option value="RESIDENTIAL">Residential</option>
-            <option value="COMMERCIAL">Commercial</option>
-            <option value="STR">STR</option>
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="divisionId">Owning division</Label>
-          <select
-            id="divisionId"
-            name="divisionId"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-            defaultValue={customer.divisionId}
-          >
-            {divisions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FormSelect
+          id="type"
+          name="type"
+          label="Type"
+          options={CUSTOMER_TYPE_OPTIONS}
+          defaultValue={customer.type}
+          required
+        />
+        <FormSelect
+          id="divisionId"
+          name="divisionId"
+          label="Owning division"
+          options={divisions.map((d) => ({ value: d.id, label: d.name }))}
+          defaultValue={customer.divisionId}
+          required
+        />
         <div className="space-y-2">
           <Label htmlFor="mainPhone">Main phone</Label>
           <Input

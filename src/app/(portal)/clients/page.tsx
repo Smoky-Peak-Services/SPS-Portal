@@ -5,11 +5,11 @@ import { isPiiConfigured } from "@/lib/prisma-pii";
 import { listCrmDivisions, listCustomers } from "@/features/crm/queries";
 import { canWriteCrm } from "@/features/crm/authz";
 import { isBillingComplete } from "@/features/crm/billing";
+import { ClientsFilterBar } from "@/features/crm/components/clients-filter-bar";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTableShell } from "@/components/patterns/data-table-shell";
 import { EmptyState } from "@/components/patterns/empty-state";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 export default async function ClientsPage({
   searchParams,
@@ -69,39 +69,12 @@ export default async function ClientsPage({
         }
       />
 
-      <form className="flex flex-wrap gap-2" method="get">
-        <Input
-          name="q"
-          placeholder="Search name, email, phone"
-          defaultValue={sp.q ?? ""}
-          className="max-w-xs"
-        />
-        <select
-          name="divisionId"
-          defaultValue={sp.divisionId ?? ""}
-          className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-        >
-          <option value="">All divisions</option>
-          {divisions.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <select
-          name="type"
-          defaultValue={sp.type ?? ""}
-          className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-        >
-          <option value="">All types</option>
-          <option value="RESIDENTIAL">Residential</option>
-          <option value="COMMERCIAL">Commercial</option>
-          <option value="STR">STR</option>
-        </select>
-        <Button type="submit" variant="secondary">
-          Filter
-        </Button>
-      </form>
+      <ClientsFilterBar
+        divisions={divisions}
+        q={sp.q}
+        divisionId={sp.divisionId}
+        type={sp.type}
+      />
 
       {customers.length === 0 ? (
         <EmptyState

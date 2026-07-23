@@ -3,12 +3,26 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createCustomer } from "@/features/crm/actions";
+import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 type DivisionOpt = { id: string; name: string; slug: string };
+
+const CUSTOMER_TYPE_OPTIONS = [
+  { value: "RESIDENTIAL", label: "Residential" },
+  { value: "COMMERCIAL", label: "Commercial" },
+  { value: "STR", label: "STR" },
+];
+
+const CONTACT_ROLE_OPTIONS = [
+  { value: "CLIENT", label: "Client" },
+  { value: "PROPERTY_MANAGER", label: "Property manager" },
+  { value: "ESTIMATOR", label: "Estimator" },
+  { value: "TENANT", label: "Tenant" },
+];
 
 export function CreateCustomerForm({
   divisions,
@@ -61,35 +75,22 @@ export function CreateCustomerForm({
           <Label htmlFor="displayName">Display name</Label>
           <Input id="displayName" name="displayName" required />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="type">Customer type</Label>
-          <select
-            id="type"
-            name="type"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-            defaultValue="RESIDENTIAL"
-          >
-            <option value="RESIDENTIAL">Residential</option>
-            <option value="COMMERCIAL">Commercial</option>
-            <option value="STR">STR</option>
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="divisionId">Owning division</Label>
-          <select
-            id="divisionId"
-            name="divisionId"
-            required
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-            defaultValue={divisions[0]?.id ?? ""}
-          >
-            {divisions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FormSelect
+          id="type"
+          name="type"
+          label="Customer type"
+          options={CUSTOMER_TYPE_OPTIONS}
+          defaultValue="RESIDENTIAL"
+          required
+        />
+        <FormSelect
+          id="divisionId"
+          name="divisionId"
+          label="Owning division"
+          options={divisions.map((d) => ({ value: d.id, label: d.name }))}
+          defaultValue={divisions[0]?.id}
+          required
+        />
         <div className="space-y-2">
           <Label htmlFor="mainPhone">Main phone</Label>
           <Input id="mainPhone" name="mainPhone" />
@@ -124,16 +125,12 @@ export function CreateCustomerForm({
           <Input name="contactLastName" placeholder="Last name" />
           <Input name="contactEmail" type="email" placeholder="Email" />
           <Input name="contactPhone" placeholder="Phone" />
-          <select
+          <FormSelect
             name="contactRoleTag"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            label="Role"
+            options={CONTACT_ROLE_OPTIONS}
             defaultValue="CLIENT"
-          >
-            <option value="CLIENT">Client</option>
-            <option value="PROPERTY_MANAGER">Property manager</option>
-            <option value="ESTIMATOR">Estimator</option>
-            <option value="TENANT">Tenant</option>
-          </select>
+          />
         </div>
       </fieldset>
 
