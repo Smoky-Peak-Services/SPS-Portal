@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 /**
  * Guards the ops/PII boundary: ops schema must not grow customer address/email/phone columns.
- * PII schema owns lead ingest only until CRM is rebuilt.
+ * PII schema owns lead ingest + CRM identity models.
  */
 const FORBIDDEN_OPS_FIELDS = [
   "displayName",
@@ -80,7 +80,7 @@ describe("ops-pii schema guard", () => {
     assert.equal(schema.includes("commercialBillingMultiplier"), false);
   });
 
-  it("pii schema owns lead ingest models and not deferred CRM", () => {
+  it("pii schema owns lead ingest and CRM identity models", () => {
     const schema = readFileSync(
       join(process.cwd(), "prisma", "pii", "schema.prisma"),
       "utf8",
@@ -89,8 +89,23 @@ describe("ops-pii schema guard", () => {
     assert.match(schema, /model Lead \{/);
     assert.match(schema, /model Activity \{/);
     assert.match(schema, /model IngestKey \{/);
+    assert.match(schema, /model Customer \{/);
+    assert.match(schema, /model Contact \{/);
+    assert.match(schema, /model ServiceLocation \{/);
+    assert.match(schema, /model BillingProfile \{/);
+    assert.match(schema, /enum ServiceLine \{/);
+    assert.equal(schema.includes("model Job {"), false);
+    assert.equal(schema.includes("model Ticket {"), false);
+  });
+
+  it("ops schema has no CRM identity models", () => {
+    const schema = readFileSync(
+      join(process.cwd(), "prisma", "schema.prisma"),
+      "utf8",
+    );
     assert.equal(schema.includes("model Customer {"), false);
     assert.equal(schema.includes("model Contact {"), false);
     assert.equal(schema.includes("model ServiceLocation {"), false);
+    assert.equal(schema.includes("model BillingProfile {"), false);
   });
 });

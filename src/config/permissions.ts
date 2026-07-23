@@ -31,6 +31,7 @@ export const AREA_ACCESS_CAPABILITY = {
   dashboard: "dashboard.access",
   materials: "materials.access",
   pricing: "pricing.access",
+  crm: "crm.access",
   settings: "settings.permissions.manage",
 } as const satisfies Record<string, CapabilityId>;
 

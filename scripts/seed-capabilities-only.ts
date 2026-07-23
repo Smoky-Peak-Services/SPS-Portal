@@ -3,7 +3,9 @@ import { seedCapabilities } from "../src/config/capabilities";
 
 async function main() {
   await seedCapabilities(prisma);
-  console.log("Capabilities seeded (including pricing.access / pricing.write)");
+  console.log(
+    "Capabilities seeded (including crm.access / crm.write / crm.archive)",
+  );
 }
 
 main()

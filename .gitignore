@@ -39,3 +39,4 @@ next-env.d.ts
 # Local Vercel ingest key export (do not commit)
 .tmp-ingest-export/
 
+.env*

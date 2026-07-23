@@ -1,5 +1,4 @@
-// SPS Portal 2.0 — PII-tier schema (lead ingest + division replication).
-// CRM Customer/Contact/ServiceLocation deferred until that phase.
+// SPS Portal 2.0 — PII-tier schema (CRM + lead ingest + division replication).
 // Generate: npm run db:generate:pii
 
 generator client {
@@ -9,6 +8,12 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum CustomerType {
+  RESIDENTIAL
+  COMMERCIAL
+  STR
 }
 
 enum LeadSource {
@@ -38,6 +43,42 @@ enum ActivityType {
   STATUS_CHANGE
 }
 
+enum ContactRoleTag {
+  CLIENT
+  PROPERTY_MANAGER
+  ESTIMATOR
+  TENANT
+}
+
+enum BillingProfileType {
+  INDIVIDUAL
+  ENTITY
+}
+
+enum TaxExemptEntityType {
+  GOVERNMENT
+  CHURCH
+  SCHOOL
+  OTHER
+}
+
+enum SmaStatus {
+  ACTIVE_PAYG
+  ACTIVE_TERM
+  INACTIVE
+}
+
+enum ServiceLocationClassification {
+  RESIDENTIAL
+  COMMERCIAL
+}
+
+/// Operational lines that may serve a site (not catalog scope codes).
+enum ServiceLine {
+  INTEGRATED_SYSTEMS
+  CABIN_SERVICES
+}
+
 // Division metadata replicated from ops DB (no cross-DB FK).
 model Division {
   id        String   @id
@@ -47,51 +88,175 @@ model Division {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  customers  Customer[]
   leads      Lead[]
   ingestKeys IngestKey[]
 
   @@map("division")
 }
 
+model Customer {
+  id               String       @id @default(cuid())
+  type             CustomerType
+  displayName      String
+  generalEmail     String?
+  mainPhone        String?
+  website          String?
+  hqLine1          String?
+  hqLine2          String?
+  hqCity           String?
+  hqRegion         String?
+  hqPostal         String?
+  hqLat            Float?
+  hqLng            Float?
+  divisionId       String
+  division         Division     @relation(fields: [divisionId], references: [id])
+  source           String?
+  notes            String?
+  summary          String?
+  archivedAt       DateTime?
+  stripeCustomerId String?
+  /// ops User.id — no FK across DBs
+  createdById      String
+  contacts         Contact[]
+  serviceLocations ServiceLocation[]
+  leads            Lead[]
+  activities       Activity[]
+  billingProfile   BillingProfile?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([displayName])
+  @@index([divisionId])
+  @@index([archivedAt])
+  @@map("customer")
+}
+
+model BillingProfile {
+  id                  String               @id @default(cuid())
+  rootOrgId           String               @unique
+  customer            Customer             @relation(fields: [rootOrgId], references: [id], onDelete: Cascade)
+  profileType         BillingProfileType   @default(INDIVIDUAL)
+  billingName         String?
+  billingEmail        String?
+  billingPhone        String?
+  billingLine1        String?
+  billingLine2        String?
+  billingCity         String?
+  billingRegion       String?
+  billingPostal       String?
+  billingLat          Float?
+  billingLng          Float?
+  pointOfContactId    String?
+  taxExemptionNumber  String?
+  taxExemptEntityType TaxExemptEntityType?
+  taxExemptCertOnFile Boolean              @default(false)
+  smaStatus           SmaStatus?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([rootOrgId])
+  @@map("billing_profile")
+}
+
+model Contact {
+  id          String          @id @default(cuid())
+  customerId  String
+  customer    Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  firstName   String
+  lastName    String?
+  directEmail String?
+  directPhone String?
+  roleTag     ContactRoleTag?
+  isPrimary   Boolean         @default(false)
+  isBilling   Boolean         @default(false)
+  activities  Activity[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([customerId])
+  @@map("contact")
+}
+
+model ServiceLocation {
+  id                   String                        @id @default(cuid())
+  customerId           String
+  customer             Customer                      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  siteName             String?
+  classification       ServiceLocationClassification @default(RESIDENTIAL)
+  serviceLines         ServiceLine[]                 @default([INTEGRATED_SYSTEMS])
+  line1                String
+  line2                String?
+  city                 String
+  region               String
+  postalCode           String
+  country              String                        @default("US")
+  latitude             Float?
+  longitude            Float?
+  notes                String?
+  bedrooms             Int?
+  bathrooms            Int?
+  complexitySelections String[]                      @default([])
+  activities           Activity[]
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+
+  @@index([customerId])
+  @@map("service_location")
+}
+
 model Lead {
   id          String     @id @default(cuid())
   divisionId  String
-  /// Org Division FK (ops-replicated). Named to avoid clash with form `division` text.
-  orgDivision Division   @relation(fields: [divisionId], references: [id])
-  name        String
-  email       String?
-  phone       String?
   /// Form "Division" / inquiry-type selection (not the org FK).
   division    String?
+  name        String
   /// Submitter company name. Ingest defaults blank/missing to "Residential".
   company     String?
+  email       String?
+  phone       String?
   message     String?
+  timeline    String?
+  budget      String?
   source      LeadSource @default(WEBSITE)
   status      LeadStatus @default(INQUIRY)
-  budget      String?
-  timeline    String?
-  closedAt    DateTime?
-  activities  Activity[]
+  customerId  String?
+  customer    Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  closedAt    DateTime?
+
+  /// Org Division FK (ops-replicated). Named to avoid clash with form `division` text.
+  orgDivision Division   @relation(fields: [divisionId], references: [id])
+  activities  Activity[]
 
   @@index([divisionId])
   @@index([status])
   @@index([email])
+  @@index([customerId])
   @@map("lead")
 }
 
 model Activity {
-  id          String       @id @default(cuid())
-  type        ActivityType
-  body        String?
-  meta        Json?
-  leadId      String?
-  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  createdById String?
-  createdAt   DateTime     @default(now())
+  id                String           @id @default(cuid())
+  type              ActivityType
+  body              String?
+  meta              Json?
+  leadId            String?
+  lead              Lead?            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  customerId        String?
+  customer          Customer?        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactId         String?
+  contact           Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  serviceLocationId String?
+  serviceLocation   ServiceLocation? @relation(fields: [serviceLocationId], references: [id], onDelete: SetNull)
+  createdById       String?
+  createdAt         DateTime         @default(now())
 
   @@index([leadId])
+  @@index([customerId])
+  @@index([contactId])
+  @@index([serviceLocationId])
   @@map("activity")
 }
 

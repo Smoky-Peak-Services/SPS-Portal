@@ -186,30 +186,36 @@ export async function handleLeadIngest(
   const disqualified =
     data.budget && company.crm.disqualifyBudgets.includes(data.budget);
 
-  const lead = await prismaPii.lead.create({
-    data: {
-      divisionId: orgDivision.id,
-      name: data.name,
-      email: data.email || null,
-      phone: data.phone || null,
-      division: data.division?.trim() || null,
-      company: resolveCompany(data.company),
-      message: composeMessage(data.subject, data.message),
-      budget: data.budget || null,
-      timeline: data.timeline || null,
-      source: "WEBSITE",
-      status: disqualified ? "DISQUALIFIED" : "INQUIRY",
-      closedAt: disqualified ? new Date() : null,
-      activities: {
-        create: {
-          type: "STATUS_CHANGE",
-          body: disqualified
-            ? "Auto-disqualified by budget"
-            : "Lead ingested from website",
+  try {
+    const lead = await prismaPii.lead.create({
+      data: {
+        divisionId: orgDivision.id,
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone || null,
+        division: data.division?.trim() || null,
+        company: resolveCompany(data.company),
+        message: composeMessage(data.subject, data.message),
+        budget: data.budget || null,
+        timeline: data.timeline || null,
+        source: "WEBSITE",
+        status: disqualified ? "DISQUALIFIED" : "INQUIRY",
+        closedAt: disqualified ? new Date() : null,
+        activities: {
+          create: {
+            type: "STATUS_CHANGE",
+            body: disqualified
+              ? "Auto-disqualified by budget"
+              : "Lead ingested from website",
+          },
         },
       },
-    },
-  });
+    });
 
-  return { ok: true, leadId: lead.id };
+    return { ok: true, leadId: lead.id };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[ingest] lead.create failed:", message);
+    return { ok: false, status: 500, error: `Lead create failed: ${message}` };
+  }
 }

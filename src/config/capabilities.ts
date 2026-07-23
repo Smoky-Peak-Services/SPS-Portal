@@ -72,6 +72,24 @@ export const CAPABILITIES = [
     sortOrder: 210,
   },
   {
+    id: "crm.access",
+    label: "CRM — access",
+    description: "Open Clients area and view customer profiles.",
+    sortOrder: 300,
+  },
+  {
+    id: "crm.write",
+    label: "CRM — write",
+    description: "Create and edit customers, contacts, locations, and billing.",
+    sortOrder: 310,
+  },
+  {
+    id: "crm.archive",
+    label: "CRM — archive",
+    description: "Archive and restore customer accounts.",
+    sortOrder: 320,
+  },
+  {
     id: "settings.permissions.manage",
     label: "Settings — permissions",
     description: "Edit role capability matrix.",
@@ -111,12 +129,17 @@ export const DEFAULT_ROLE_CAPABILITIES: Record<Role, readonly CapabilityId[]> =
       "materials.tax_review",
       "pricing.access",
       "pricing.write",
+      "crm.access",
+      "crm.write",
+      "crm.archive",
     ],
     sales: [
       "dashboard.access",
       "materials.access",
       "materials.financials.view",
       "pricing.access",
+      "crm.access",
+      "crm.write",
     ],
     accounting: [
       "dashboard.access",
@@ -126,12 +149,15 @@ export const DEFAULT_ROLE_CAPABILITIES: Record<Role, readonly CapabilityId[]> =
       "materials.tax_review",
       "pricing.access",
       "pricing.write",
+      "crm.access",
+      "crm.write",
     ],
     field_supervisor: [
       "dashboard.access",
       "materials.access",
       "materials.financials.view",
       "pricing.access",
+      "crm.access",
     ],
     field_tech: ["dashboard.access"],
   };

@@ -7,6 +7,7 @@ import {
   Headset,
   LayoutDashboard,
   Package,
+  Users,
 } from "lucide-react";
 import {
   filterFooterForCapabilities,
@@ -26,6 +27,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   CircleUser,
   Package,
   Gauge,
+  Users,
 };
 
 type Props = {

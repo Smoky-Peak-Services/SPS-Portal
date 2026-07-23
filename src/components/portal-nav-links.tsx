@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CircleUser, Gauge, LayoutDashboard, Package } from "lucide-react";
+import { CircleUser, Gauge, LayoutDashboard, Package, Users } from "lucide-react";
 import {
   filterFooterForCapabilities,
   filterNavForCapabilities,
@@ -15,6 +15,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   CircleUser,
   Package,
   Gauge,
+  Users,
 };
 
 export function PortalNavLinks({

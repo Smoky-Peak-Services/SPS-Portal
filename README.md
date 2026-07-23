@@ -98,5 +98,6 @@ Installable standalone app (browser “Install” / Add to Home Screen). Service
 | `/sign-in`           | Invite-only sign-in                            |
 | `/`                  | Empty dashboard shell                          |
 | `/account`           | Profile                                        |
+| `/clients`           | CRM client profiles (desktop)                  |
 | `/materials`         | Materials catalog admin (desktop, admin/staff) |
 | `POST /api/v1/leads` | Public lead ingest (PII)                       |

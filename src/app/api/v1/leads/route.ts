@@ -21,20 +21,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const result = await handleLeadIngest(body, {
-    ingestKey: req.headers.get("x-ingest-key"),
-    ingestSecret: req.headers.get("x-ingest-secret"),
-  });
+  try {
+    const result = await handleLeadIngest(body, {
+      ingestKey: req.headers.get("x-ingest-key"),
+      ingestSecret: req.headers.get("x-ingest-secret"),
+    });
 
-  if (!result.ok) {
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status },
+      );
+    }
+
     return NextResponse.json(
-      { error: result.error },
-      { status: result.status },
+      { ok: true, leadId: result.leadId },
+      { status: 201 },
     );
+  } catch (err) {
+    console.error(
+      "[ingest] unhandled error:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return NextResponse.json({ error: "Ingest failed" }, { status: 500 });
   }
-
-  return NextResponse.json(
-    { ok: true, leadId: result.leadId },
-    { status: 201 },
-  );
 }
