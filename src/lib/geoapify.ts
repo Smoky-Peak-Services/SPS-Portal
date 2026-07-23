@@ -57,42 +57,65 @@ export async function geoapifyAutocomplete(
   const want = (region?.code ?? stateCode).trim().toUpperCase();
   if (!want) return [];
 
+  const targetStateCode = want.slice(0, 2).toLowerCase();
+  const targetStateName = (region?.name ?? "").toLowerCase();
+
   // Raw street text only — no `, TN` / `, USA` suffix.
   const q = text.trim();
   // Hard US filter; soft state bias. Omit `type` so house-number addresses match.
-  const bias = region
-    ? `&bias=rect:${region.rect[0]},${region.rect[1]},${region.rect[2]},${region.rect[3]}`
-    : "";
-
-  const url =
-    `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}` +
-    `&filter=countrycode:us` +
-    bias +
-    `&format=json` +
-    `&allowNonVerifiedHouseNumber=true` +
-    `&allowNonVerifiedStreet=true` +
-    `&limit=6&apiKey=${KEY}`;
+  const params = new URLSearchParams({
+    text: q,
+    filter: "countrycode:us",
+    format: "json",
+    allowNonVerifiedHouseNumber: "true",
+    allowNonVerifiedStreet: "true",
+    limit: "6",
+    apiKey: KEY,
+  });
+  if (region) {
+    params.set(
+      "bias",
+      `rect:${region.rect[0]},${region.rect[1]},${region.rect[2]},${region.rect[3]}`,
+    );
+  }
+  const url = `https://api.geoapify.com/v1/geocode/autocomplete?${params}`;
+  const redacted = new URL(url);
+  redacted.searchParams.set("apiKey", "[REDACTED]");
+  console.log("Geoapify Autocomplete URL:", redacted.toString());
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.error(
+      "Geoapify API Error:",
+      res.status,
+      res.statusText,
+      await res.text(),
+    );
+    return [];
+  }
 
   const data = (await res.json()) as {
     results?: Array<Record<string, unknown>>;
     features?: Array<{ properties?: Record<string, unknown> }>;
   };
-  console.log("Geoapify Raw Response:", data);
+  console.log("Geoapify Raw Results:", data.results);
   const rows: Array<Record<string, unknown>> =
     data.results ??
     (data.features ?? []).map((f) => f.properties ?? {});
 
-  return rows
-    .map(mapRow)
-    .filter((s) => {
-      const code = s.region.trim().toUpperCase();
-      // Keep empty region (incomplete rows); drop clear out-of-state hits.
-      return !code || code === want || code.startsWith(want);
-    })
-    .map((s) => ({ ...s, region: want }));
+  const filteredResults = rows.filter((item) => {
+    if (!targetStateCode) return true;
+    const itemStateCode = String(item.state_code ?? "").toLowerCase();
+    const itemStateName = String(item.state ?? "").toLowerCase();
+    if (!itemStateCode && !itemStateName) return true;
+    return (
+      itemStateCode === targetStateCode ||
+      itemStateCode.startsWith(targetStateCode) ||
+      (targetStateName !== "" && itemStateName.includes(targetStateName))
+    );
+  });
+
+  return filteredResults.map(mapRow).map((s) => ({ ...s, region: want }));
 }
 
 /** Forward geocode a US address string → coordinates. */
