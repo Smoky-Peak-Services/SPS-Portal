@@ -1,9 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { createCustomer } from "@/features/crm/actions";
 import { AddressAutocomplete } from "@/features/crm/components/address-autocomplete";
+import {
+  owningDivisionSlugForCustomerType,
+  type CustomerType,
+} from "@/features/crm/service-location";
 import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +29,14 @@ const CONTACT_ROLE_OPTIONS = [
   { value: "TENANT", label: "Tenant" },
 ];
 
+function divisionForType(
+  type: CustomerType,
+  divisions: DivisionOpt[],
+): DivisionOpt | undefined {
+  const slug = owningDivisionSlugForCustomerType(type);
+  return divisions.find((d) => d.slug === slug);
+}
+
 export function CreateCustomerForm({
   divisions,
 }: {
@@ -33,6 +45,12 @@ export function CreateCustomerForm({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [type, setType] = useState<CustomerType>("RESIDENTIAL");
+
+  const lockedDivision = useMemo(
+    () => divisionForType(type, divisions),
+    [type, divisions],
+  );
 
   return (
     <form
@@ -40,12 +58,16 @@ export function CreateCustomerForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
+        if (!lockedDivision) {
+          setError("Required owning division is not configured.");
+          return;
+        }
         const fd = new FormData(e.currentTarget);
         start(async () => {
           const result = await createCustomer({
-            type: fd.get("type"),
+            type,
             displayName: fd.get("displayName"),
-            divisionId: fd.get("divisionId"),
+            divisionId: lockedDivision.id,
             mainPhone: fd.get("mainPhone"),
             generalEmail: fd.get("generalEmail"),
             website: fd.get("website"),
@@ -83,17 +105,32 @@ export function CreateCustomerForm({
           name="type"
           label="Customer type"
           options={CUSTOMER_TYPE_OPTIONS}
-          defaultValue="RESIDENTIAL"
+          value={type}
+          onValueChange={(v) => setType(v as CustomerType)}
           required
         />
-        <FormSelect
-          id="divisionId"
-          name="divisionId"
-          label="Owning division"
-          options={divisions.map((d) => ({ value: d.id, label: d.name }))}
-          defaultValue={divisions[0]?.id}
-          required
-        />
+        <div className="space-y-2">
+          <Label htmlFor="divisionId">Owning division</Label>
+          <Input
+            id="divisionId"
+            name="divisionId"
+            value={lockedDivision?.id ?? ""}
+            type="hidden"
+            readOnly
+          />
+          <Input
+            value={lockedDivision?.name ?? "Not configured"}
+            disabled
+            readOnly
+          />
+          <p className="text-xs text-muted-foreground">
+            {type === "COMMERCIAL"
+              ? "Commercial clients are always Integrated Systems."
+              : type === "STR"
+                ? "STR clients are always Cabin Services."
+                : "Residential clients are always Integrated Systems."}
+          </p>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="mainPhone">Main phone</Label>
           <Input id="mainPhone" name="mainPhone" />
@@ -152,7 +189,7 @@ export function CreateCustomerForm({
       <Input type="hidden" name="source" value="MANUAL" />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending || !lockedDivision}>
         {pending ? "Creating…" : "Create client"}
       </Button>
     </form>

@@ -5,11 +5,13 @@ import {
   validateServiceLines,
   normalizeAddressKey,
   rootOrgServiceLocationDefaults,
+  owningDivisionSlugForCustomerType,
+  customerTypeDivisionError,
 } from "./service-location";
 import { billingMissing, isBillingComplete } from "./billing";
 
 describe("service location lines", () => {
-  it("forces commercial to Integrated Systems only", () => {
+  it("forces commercial normalize to Integrated Systems only", () => {
     assert.deepEqual(
       normalizeServiceLines("COMMERCIAL", [
         "CABIN_SERVICES",
@@ -17,9 +19,32 @@ describe("service location lines", () => {
       ]),
       ["INTEGRATED_SYSTEMS"],
     );
+  });
+
+  it("rejects commercial without Integrated Systems only", () => {
     assert.equal(
       validateServiceLines("COMMERCIAL", ["CABIN_SERVICES"]),
       "Commercial locations can only use Integrated Systems.",
+    );
+    assert.equal(
+      validateServiceLines("COMMERCIAL", ["INTEGRATED_SYSTEMS"]),
+      null,
+    );
+  });
+
+  it("locks owning division from customer type", () => {
+    assert.equal(
+      owningDivisionSlugForCustomerType("COMMERCIAL"),
+      "integrated-systems",
+    );
+    assert.equal(
+      owningDivisionSlugForCustomerType("RESIDENTIAL"),
+      "integrated-systems",
+    );
+    assert.equal(owningDivisionSlugForCustomerType("STR"), "cabin-services");
+    assert.match(
+      customerTypeDivisionError("COMMERCIAL", "cabin-services") ?? "",
+      /Integrated Systems/,
     );
   });
 

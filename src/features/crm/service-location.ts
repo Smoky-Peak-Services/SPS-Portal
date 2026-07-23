@@ -1,3 +1,33 @@
+export type CustomerType = "RESIDENTIAL" | "COMMERCIAL" | "STR";
+
+/**
+ * Owning division is derived from customer type so accounts cannot be miscategorized.
+ * Commercial + Residential → Integrated Systems. STR → Cabin Services.
+ */
+export function owningDivisionSlugForCustomerType(
+  type: CustomerType,
+): "integrated-systems" | "cabin-services" {
+  if (type === "STR") return "cabin-services";
+  return "integrated-systems";
+}
+
+export function customerTypeDivisionError(
+  type: CustomerType,
+  divisionSlug: string,
+): string | null {
+  const expected = owningDivisionSlugForCustomerType(type);
+  if (divisionSlug !== expected) {
+    if (type === "COMMERCIAL") {
+      return "Commercial clients must use the Integrated Systems division.";
+    }
+    if (type === "STR") {
+      return "STR clients must use the Cabin Services division.";
+    }
+    return "Residential clients must use the Integrated Systems division.";
+  }
+  return null;
+}
+
 export type ServiceLocationClassification = "RESIDENTIAL" | "COMMERCIAL";
 export type ServiceLine = "INTEGRATED_SYSTEMS" | "CABIN_SERVICES";
 
@@ -35,7 +65,11 @@ export function validateServiceLines(
   serviceLines: ServiceLine[],
 ): string | null {
   if (classification === "COMMERCIAL") {
-    if (serviceLines.some((d) => d === "CABIN_SERVICES")) {
+    // After normalize, commercial is always IS-only; still guard raw payloads.
+    if (
+      serviceLines.length !== 1 ||
+      serviceLines[0] !== "INTEGRATED_SYSTEMS"
+    ) {
       return "Commercial locations can only use Integrated Systems.";
     }
     return null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   createServiceLocation,
   deleteServiceLocation,
@@ -13,6 +13,7 @@ import {
   locationDisplayName,
   serviceLineLabel,
   type ServiceLine,
+  type ServiceLocationClassification,
 } from "@/features/crm/service-location";
 import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,26 @@ export function LocationsPanel({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [classification, setClassification] =
+    useState<ServiceLocationClassification>("RESIDENTIAL");
+  const [isChecked, setIsChecked] = useState(true);
+  const [cabinChecked, setCabinChecked] = useState(false);
+
+  const isCommercial = classification === "COMMERCIAL";
+
+  const formKey = useMemo(
+    () => `${classification}:${isCommercial ? "is" : "flex"}`,
+    [classification, isCommercial],
+  );
+
+  function onClassificationChange(next: string) {
+    const value = next as ServiceLocationClassification;
+    setClassification(value);
+    if (value === "COMMERCIAL") {
+      setIsChecked(true);
+      setCabinChecked(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -135,17 +156,20 @@ export function LocationsPanel({
 
       {canWrite ? (
         <form
+          key={formKey}
           className="grid gap-3 rounded-md border border-border p-4 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
             const fd = new FormData(e.currentTarget);
-            const serviceLines = fd.getAll("serviceLines") as string[];
+            const serviceLines = isCommercial
+              ? (["INTEGRATED_SYSTEMS"] as const)
+              : (fd.getAll("serviceLines") as string[]);
             start(async () => {
               const result = await createServiceLocation({
                 customerId,
                 siteName: fd.get("siteName"),
-                classification: fd.get("classification"),
+                classification,
                 serviceLines:
                   serviceLines.length > 0
                     ? serviceLines
@@ -164,6 +188,9 @@ export function LocationsPanel({
                 setError(result.error);
                 return;
               }
+              setClassification("RESIDENTIAL");
+              setIsChecked(true);
+              setCabinChecked(false);
               e.currentTarget.reset();
               router.refresh();
             });
@@ -174,7 +201,8 @@ export function LocationsPanel({
             name="classification"
             label="Classification"
             options={CLASSIFICATION_OPTIONS}
-            defaultValue="RESIDENTIAL"
+            value={classification}
+            onValueChange={onClassificationChange}
             required
           />
           <div className="sm:col-span-2">
@@ -198,20 +226,34 @@ export function LocationsPanel({
                 type="checkbox"
                 name="serviceLines"
                 value="INTEGRATED_SYSTEMS"
-                defaultChecked
+                checked={isCommercial ? true : isChecked}
+                disabled={isCommercial}
+                onChange={(e) => setIsChecked(e.target.checked)}
               />
               Integrated Systems
             </label>
-            <label className="flex items-center gap-2">
+            <label
+              className={`flex items-center gap-2 ${
+                isCommercial ? "opacity-50" : ""
+              }`}
+            >
               <input
                 type="checkbox"
                 name="serviceLines"
                 value="CABIN_SERVICES"
+                checked={isCommercial ? false : cabinChecked}
+                disabled={isCommercial}
+                onChange={(e) => setCabinChecked(e.target.checked)}
               />
               Cabin Services
             </label>
+            {isCommercial ? (
+              <p className="text-xs text-muted-foreground">
+                Commercial sites are always Integrated Systems only.
+              </p>
+            ) : null}
           </div>
-          {showCabinFields ? (
+          {showCabinFields && !isCommercial ? (
             <>
               <Input
                 name="bedrooms"
