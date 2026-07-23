@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { createCustomer } from "@/features/crm/actions";
 import { AddressAutocomplete } from "@/features/crm/components/address-autocomplete";
 import {
-  owningDivisionSlugForCustomerType,
+  allowedDivisionSlugsForCustomerType,
+  lockedDivisionSlugForCustomerType,
   type CustomerType,
 } from "@/features/crm/service-location";
 import { FormSelect } from "@/components/patterns/form-select";
@@ -29,14 +30,6 @@ const CONTACT_ROLE_OPTIONS = [
   { value: "TENANT", label: "Tenant" },
 ];
 
-function divisionForType(
-  type: CustomerType,
-  divisions: DivisionOpt[],
-): DivisionOpt | undefined {
-  const slug = owningDivisionSlugForCustomerType(type);
-  return divisions.find((d) => d.slug === slug);
-}
-
 export function CreateCustomerForm({
   divisions,
 }: {
@@ -46,11 +39,22 @@ export function CreateCustomerForm({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState<CustomerType>("RESIDENTIAL");
+  const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
 
-  const lockedDivision = useMemo(
-    () => divisionForType(type, divisions),
-    [type, divisions],
-  );
+  const allowedDivisions = useMemo(() => {
+    const allowed = new Set(allowedDivisionSlugsForCustomerType(type));
+    return divisions.filter((d) => allowed.has(d.slug as never));
+  }, [type, divisions]);
+
+  const lockedSlug = lockedDivisionSlugForCustomerType(type);
+  const divisionLocked = lockedSlug != null;
+
+  useEffect(() => {
+    if (allowedDivisions.length === 0) return;
+    if (!allowedDivisions.some((d) => d.id === divisionId)) {
+      setDivisionId(allowedDivisions[0]!.id);
+    }
+  }, [allowedDivisions, divisionId]);
 
   return (
     <form
@@ -58,8 +62,8 @@ export function CreateCustomerForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
-        if (!lockedDivision) {
-          setError("Required owning division is not configured.");
+        if (!divisionId) {
+          setError("Owning division is required.");
           return;
         }
         const fd = new FormData(e.currentTarget);
@@ -67,7 +71,7 @@ export function CreateCustomerForm({
           const result = await createCustomer({
             type,
             displayName: fd.get("displayName"),
-            divisionId: lockedDivision.id,
+            divisionId,
             mainPhone: fd.get("mainPhone"),
             generalEmail: fd.get("generalEmail"),
             website: fd.get("website"),
@@ -110,25 +114,45 @@ export function CreateCustomerForm({
           required
         />
         <div className="space-y-2">
-          <Label htmlFor="divisionId">Owning division</Label>
-          <Input
-            id="divisionId"
-            name="divisionId"
-            value={lockedDivision?.id ?? ""}
-            type="hidden"
-            readOnly
-          />
-          <Input
-            value={lockedDivision?.name ?? "Not configured"}
-            disabled
-            readOnly
-          />
+          {divisionLocked ? (
+            <>
+              <Label htmlFor="divisionId">Owning division</Label>
+              <Input
+                id="divisionId"
+                name="divisionId"
+                value={divisionId}
+                type="hidden"
+                readOnly
+              />
+              <Input
+                value={
+                  allowedDivisions.find((d) => d.id === divisionId)?.name ??
+                  "Not configured"
+                }
+                disabled
+                readOnly
+              />
+            </>
+          ) : (
+            <FormSelect
+              id="divisionId"
+              name="divisionId"
+              label="Owning division"
+              options={allowedDivisions.map((d) => ({
+                value: d.id,
+                label: d.name,
+              }))}
+              value={divisionId}
+              onValueChange={setDivisionId}
+              required
+            />
+          )}
           <p className="text-xs text-muted-foreground">
             {type === "COMMERCIAL"
-              ? "Commercial clients are always Integrated Systems."
+              ? "Commercial clients must use Integrated Systems."
               : type === "STR"
-                ? "STR clients are always Cabin Services."
-                : "Residential clients are always Integrated Systems."}
+                ? "STR clients must use Cabin Services."
+                : "Residential clients can use Integrated Systems or Cabin Services."}
           </p>
         </div>
         <div className="space-y-2">
@@ -189,7 +213,7 @@ export function CreateCustomerForm({
       <Input type="hidden" name="source" value="MANUAL" />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={pending || !lockedDivision}>
+      <Button type="submit" disabled={pending || !divisionId}>
         {pending ? "Creating…" : "Create client"}
       </Button>
     </form>

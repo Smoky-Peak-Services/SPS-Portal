@@ -18,9 +18,9 @@ import {
 } from "./schemas";
 import {
   customerTypeDivisionError,
+  lockedDivisionSlugForCustomerType,
   normalizeServiceLines,
   normalizeAddressKey,
-  owningDivisionSlugForCustomerType,
   rootOrgServiceLocationDefaults,
   validateServiceLines,
   type ServiceLine,
@@ -65,17 +65,23 @@ export async function createCustomer(
   }
   const data = createCustomerSchema.parse(raw);
 
-  const expectedSlug = owningDivisionSlugForCustomerType(data.type);
-  const division =
-    (await prismaPii.division.findFirst({
-      where: { slug: expectedSlug },
-    })) ??
-    (await prismaPii.division.findUnique({
-      where: { id: data.divisionId },
-    }));
+  const division = await prismaPii.division.findUnique({
+    where: { id: data.divisionId },
+  });
   if (!division) return { ok: false, error: "Unknown division." };
 
-  const pairErr = customerTypeDivisionError(data.type, division.slug);
+  const lockedSlug = lockedDivisionSlugForCustomerType(data.type);
+  const effectiveDivision =
+    lockedSlug != null
+      ? ((await prismaPii.division.findFirst({ where: { slug: lockedSlug } })) ??
+        division)
+      : division;
+  if (!effectiveDivision) return { ok: false, error: "Unknown division." };
+
+  const pairErr = customerTypeDivisionError(
+    data.type,
+    effectiveDivision.slug,
+  );
   if (pairErr) return { ok: false, error: pairErr };
 
   const customer = await prismaPii.$transaction(async (tx) => {
@@ -83,7 +89,7 @@ export async function createCustomer(
       data: {
         type: data.type,
         displayName: data.displayName.trim(),
-        divisionId: division.id,
+        divisionId: effectiveDivision.id,
         generalEmail: emptyToNull(data.generalEmail),
         mainPhone: emptyToNull(data.mainPhone),
         website: emptyToNull(data.website),
@@ -154,16 +160,28 @@ export async function updateCustomer(raw: unknown): Promise<ActionResult> {
   if (!existing) return { ok: false, error: "Customer not found." };
 
   const nextType = data.type ?? existing.type;
-  const expectedSlug = owningDivisionSlugForCustomerType(nextType);
-  const lockedDivision = await prismaPii.division.findFirst({
-    where: { slug: expectedSlug },
-  });
-  if (!lockedDivision) {
-    return {
-      ok: false,
-      error: `Required division (${expectedSlug}) is not configured.`,
-    };
+  const lockedSlug = lockedDivisionSlugForCustomerType(nextType);
+
+  let nextDivisionId = data.divisionId ?? existing.divisionId;
+  if (lockedSlug != null) {
+    const lockedDivision = await prismaPii.division.findFirst({
+      where: { slug: lockedSlug },
+    });
+    if (!lockedDivision) {
+      return {
+        ok: false,
+        error: `Required division (${lockedSlug}) is not configured.`,
+      };
+    }
+    nextDivisionId = lockedDivision.id;
   }
+
+  const nextDivision = await prismaPii.division.findUnique({
+    where: { id: nextDivisionId },
+  });
+  if (!nextDivision) return { ok: false, error: "Unknown division." };
+  const pairErr = customerTypeDivisionError(nextType, nextDivision.slug);
+  if (pairErr) return { ok: false, error: pairErr };
 
   await prismaPii.$transaction(async (tx) => {
     const updated = await tx.customer.update({
@@ -171,7 +189,7 @@ export async function updateCustomer(raw: unknown): Promise<ActionResult> {
       data: {
         type: data.type,
         displayName: data.displayName?.trim(),
-        divisionId: lockedDivision.id,
+        divisionId: nextDivisionId,
         generalEmail:
           data.generalEmail !== undefined
             ? emptyToNull(data.generalEmail)

@@ -1,9 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { updateCustomer } from "@/features/crm/actions";
 import { AddressAutocomplete } from "@/features/crm/components/address-autocomplete";
+import {
+  allowedDivisionSlugsForCustomerType,
+  lockedDivisionSlugForCustomerType,
+  type CustomerType,
+} from "@/features/crm/service-location";
 import { FormSelect } from "@/components/patterns/form-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +19,7 @@ type DivisionOpt = { id: string; name: string; slug: string };
 
 type Customer = {
   id: string;
-  type: "RESIDENTIAL" | "COMMERCIAL" | "STR";
+  type: CustomerType;
   displayName: string;
   divisionId: string;
   generalEmail: string | null;
@@ -51,6 +56,23 @@ export function RootOrgForm({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [type, setType] = useState<CustomerType>(customer.type);
+  const [divisionId, setDivisionId] = useState(customer.divisionId);
+
+  const allowedDivisions = useMemo(() => {
+    const allowed = new Set(allowedDivisionSlugsForCustomerType(type));
+    return divisions.filter((d) => allowed.has(d.slug as never));
+  }, [type, divisions]);
+
+  const lockedSlug = lockedDivisionSlugForCustomerType(type);
+  const divisionLocked = lockedSlug != null;
+
+  useEffect(() => {
+    if (allowedDivisions.length === 0) return;
+    if (!allowedDivisions.some((d) => d.id === divisionId)) {
+      setDivisionId(allowedDivisions[0]!.id);
+    }
+  }, [allowedDivisions, divisionId]);
 
   if (!canWrite) {
     return (
@@ -82,13 +104,17 @@ export function RootOrgForm({
         e.preventDefault();
         setError(null);
         setMessage(null);
+        if (!divisionId) {
+          setError("Owning division is required.");
+          return;
+        }
         const fd = new FormData(e.currentTarget);
         start(async () => {
           const result = await updateCustomer({
             id: customer.id,
-            type: fd.get("type"),
+            type,
             displayName: fd.get("displayName"),
-            divisionId: fd.get("divisionId"),
+            divisionId,
             mainPhone: fd.get("mainPhone"),
             generalEmail: fd.get("generalEmail"),
             website: fd.get("website"),
@@ -130,17 +156,52 @@ export function RootOrgForm({
           name="type"
           label="Type"
           options={CUSTOMER_TYPE_OPTIONS}
-          defaultValue={customer.type}
+          value={type}
+          onValueChange={(v) => setType(v as CustomerType)}
           required
         />
-        <FormSelect
-          id="divisionId"
-          name="divisionId"
-          label="Owning division"
-          options={divisions.map((d) => ({ value: d.id, label: d.name }))}
-          defaultValue={customer.divisionId}
-          required
-        />
+        <div className="space-y-2">
+          {divisionLocked ? (
+            <>
+              <Label htmlFor="divisionId">Owning division</Label>
+              <Input
+                id="divisionId"
+                name="divisionId"
+                value={divisionId}
+                type="hidden"
+                readOnly
+              />
+              <Input
+                value={
+                  allowedDivisions.find((d) => d.id === divisionId)?.name ??
+                  "Not configured"
+                }
+                disabled
+                readOnly
+              />
+            </>
+          ) : (
+            <FormSelect
+              id="divisionId"
+              name="divisionId"
+              label="Owning division"
+              options={allowedDivisions.map((d) => ({
+                value: d.id,
+                label: d.name,
+              }))}
+              value={divisionId}
+              onValueChange={setDivisionId}
+              required
+            />
+          )}
+          <p className="text-xs text-muted-foreground">
+            {type === "COMMERCIAL"
+              ? "Commercial clients must use Integrated Systems."
+              : type === "STR"
+                ? "STR clients must use Cabin Services."
+                : "Residential clients can use Integrated Systems or Cabin Services."}
+          </p>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="mainPhone">Main phone</Label>
           <Input
@@ -231,7 +292,7 @@ export function RootOrgForm({
       <Input type="hidden" name="source" defaultValue={customer.source ?? ""} />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending || !divisionId}>
         {pending ? "Saving…" : "Save client profile"}
       </Button>
     </form>

@@ -5,7 +5,8 @@ import {
   validateServiceLines,
   normalizeAddressKey,
   rootOrgServiceLocationDefaults,
-  owningDivisionSlugForCustomerType,
+  lockedDivisionSlugForCustomerType,
+  allowedDivisionSlugsForCustomerType,
   customerTypeDivisionError,
 } from "./service-location";
 import { billingMissing, isBillingComplete } from "./billing";
@@ -34,17 +35,30 @@ describe("service location lines", () => {
 
   it("locks owning division from customer type", () => {
     assert.equal(
-      owningDivisionSlugForCustomerType("COMMERCIAL"),
+      lockedDivisionSlugForCustomerType("COMMERCIAL"),
       "integrated-systems",
+    );
+    assert.equal(lockedDivisionSlugForCustomerType("STR"), "cabin-services");
+    assert.equal(lockedDivisionSlugForCustomerType("RESIDENTIAL"), null);
+    assert.deepEqual(allowedDivisionSlugsForCustomerType("RESIDENTIAL"), [
+      "integrated-systems",
+      "cabin-services",
+    ]);
+    assert.equal(
+      customerTypeDivisionError("RESIDENTIAL", "cabin-services"),
+      null,
     );
     assert.equal(
-      owningDivisionSlugForCustomerType("RESIDENTIAL"),
-      "integrated-systems",
+      customerTypeDivisionError("RESIDENTIAL", "integrated-systems"),
+      null,
     );
-    assert.equal(owningDivisionSlugForCustomerType("STR"), "cabin-services");
     assert.match(
       customerTypeDivisionError("COMMERCIAL", "cabin-services") ?? "",
       /Integrated Systems/,
+    );
+    assert.match(
+      customerTypeDivisionError("STR", "integrated-systems") ?? "",
+      /Cabin Services/,
     );
   });
 

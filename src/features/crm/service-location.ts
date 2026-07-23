@@ -1,31 +1,41 @@
 export type CustomerType = "RESIDENTIAL" | "COMMERCIAL" | "STR";
+export type DivisionSlug = "integrated-systems" | "cabin-services";
 
 /**
- * Owning division is derived from customer type so accounts cannot be miscategorized.
- * Commercial + Residential → Integrated Systems. STR → Cabin Services.
+ * Allowed customer type × owning division pairs:
+ * - Integrated Systems: Commercial or Residential
+ * - Cabin Services: STR or Residential
+ * Commercial never pairs with Cabin; STR never pairs with Integrated Systems.
  */
-export function owningDivisionSlugForCustomerType(
+export function lockedDivisionSlugForCustomerType(
   type: CustomerType,
-): "integrated-systems" | "cabin-services" {
+): DivisionSlug | null {
+  if (type === "COMMERCIAL") return "integrated-systems";
   if (type === "STR") return "cabin-services";
-  return "integrated-systems";
+  return null; // Residential: either division
+}
+
+export function allowedDivisionSlugsForCustomerType(
+  type: CustomerType,
+): DivisionSlug[] {
+  const locked = lockedDivisionSlugForCustomerType(type);
+  if (locked) return [locked];
+  return ["integrated-systems", "cabin-services"];
 }
 
 export function customerTypeDivisionError(
   type: CustomerType,
   divisionSlug: string,
 ): string | null {
-  const expected = owningDivisionSlugForCustomerType(type);
-  if (divisionSlug !== expected) {
-    if (type === "COMMERCIAL") {
-      return "Commercial clients must use the Integrated Systems division.";
-    }
-    if (type === "STR") {
-      return "STR clients must use the Cabin Services division.";
-    }
-    return "Residential clients must use the Integrated Systems division.";
+  const allowed = allowedDivisionSlugsForCustomerType(type);
+  if (allowed.includes(divisionSlug as DivisionSlug)) return null;
+  if (type === "COMMERCIAL") {
+    return "Commercial clients must use the Integrated Systems division.";
   }
-  return null;
+  if (type === "STR") {
+    return "STR clients must use the Cabin Services division.";
+  }
+  return "That division is not valid for this customer type.";
 }
 
 export type ServiceLocationClassification = "RESIDENTIAL" | "COMMERCIAL";
