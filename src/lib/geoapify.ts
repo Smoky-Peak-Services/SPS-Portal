@@ -63,14 +63,12 @@ export async function geoapifyAutocomplete(
     ? `countrycode:us|rect:${region.rect[0]},${region.rect[1]},${region.rect[2]},${region.rect[3]}`
     : `countrycode:us`;
 
+  // Omit `type` so house-number + street queries can match (type=street often returns []).
+  // Do not send JS-widget-only flags (allowNonVerified*, addDetails) as REST params.
   const url =
     `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}` +
     `&filter=${filter}` +
-    `&type=street` +
     `&format=json` +
-    `&allowNonVerifiedHouseNumber=true` +
-    `&allowNonVerifiedStreet=true` +
-    `&addDetails=true` +
     `&limit=6&apiKey=${KEY}`;
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
