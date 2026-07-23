@@ -1,5 +1,6 @@
 import "server-only";
 
+import { company } from "@/config/company";
 import { getUsRegion } from "@/features/crm/us-regions";
 
 const KEY = process.env.GEOAPIFY_API_KEY;
@@ -293,7 +294,9 @@ export function staticMapUrl(opts: {
 }): string | null {
   if (!KEY) return null;
   const { lat, lon, width = 600, height = 280, zoom = 15 } = opts;
-  const marker = `lonlat:${lon},${lat};type:material;color:%231d4ed8;size:large`;
+  // Brand teal (company.brand.primary), URL-encoded for Geoapify marker color.
+  const markerColor = encodeURIComponent(company.brand.primary);
+  const marker = `lonlat:${lon},${lat};type:material;color:${markerColor};size:large`;
   return (
     `https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=${width}&height=${height}` +
     `&center=lonlat:${lon},${lat}&zoom=${zoom}&marker=${marker}&scaleFactor=2&apiKey=${KEY}`
