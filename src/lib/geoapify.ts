@@ -293,10 +293,11 @@ export function staticMapUrl(opts: {
 }): string | null {
   if (!KEY) return null;
   const { lat, lon, width = 600, height = 280, zoom = 15 } = opts;
-  // Brand teal (#0D9488). size must be pixels (not large/x-large) per current Static Maps API.
-  const marker =
-    `lonlat:${lon},${lat};type:awesome;color:%230D9488;size:64` +
-    `;icon:location-dot;icontype:awesome;contentcolor:%23ffffff;whitecircle:no`;
+  // Brand teal (#0D9488). Encode the full marker string per Geoapify Static Maps docs.
+  const marker = encodeURIComponent(
+    `lonlat:${lon},${lat};type:awesome;color:#0D9488;size:64` +
+      `;icon:map-marker;contentcolor:#ffffff;whitecircle:no`,
+  );
   return (
     `https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=${width}&height=${height}` +
     `&center=lonlat:${lon},${lat}&zoom=${zoom}&marker=${marker}&scaleFactor=2&apiKey=${KEY}`

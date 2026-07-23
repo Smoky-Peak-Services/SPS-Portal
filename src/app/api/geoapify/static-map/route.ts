@@ -14,6 +14,12 @@ async function fetchMapFromGeoapify(url: string): Promise<CachedMap> {
   const upstream = await fetch(url, { cache: "no-store" });
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => "");
+    const redacted = new URL(url);
+    redacted.searchParams.set("apiKey", "[REDACTED]");
+    console.error(
+      "Geoapify static map upstream URL:",
+      redacted.toString(),
+    );
     throw new Error(
       `Geoapify static map ${upstream.status}: ${detail.slice(0, 200)}`,
     );
@@ -54,7 +60,7 @@ export async function GET(req: Request) {
     String(width),
     String(height),
     String(zoom),
-    "teal-v3",
+    "teal-v4",
   ];
 
   try {
