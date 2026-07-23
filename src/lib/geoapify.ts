@@ -45,7 +45,8 @@ function mapRow(r: Record<string, unknown>): AddressSuggestion {
  *
  * IMPORTANT: never append state/USA to `text` — that contaminates street names
  * that contain the state word (e.g. "East Tennessee" becomes numeric "SR 101" hits).
- * Scope with a hard countrycode + rect filter from us-regions instead.
+ * Hard-scope with `filter=countrycode:us`; soft-prioritize the selected state via
+ * `bias=rect:…` from us-regions (no pipe-combined filter).
  */
 export async function geoapifyAutocomplete(
   text: string,
@@ -58,17 +59,18 @@ export async function geoapifyAutocomplete(
 
   // Raw street text only — no `, TN` / `, USA` suffix.
   const q = text.trim();
-  // Do not encodeURIComponent the whole filter; `|` and commas must stay literal.
-  const filter = region
-    ? `countrycode:us|rect:${region.rect[0]},${region.rect[1]},${region.rect[2]},${region.rect[3]}`
-    : `countrycode:us`;
+  // Hard US filter; soft state bias. Omit `type` so house-number addresses match.
+  const bias = region
+    ? `&bias=rect:${region.rect[0]},${region.rect[1]},${region.rect[2]},${region.rect[3]}`
+    : "";
 
-  // Omit `type` so house-number + street queries can match (type=street often returns []).
-  // Do not send JS-widget-only flags (allowNonVerified*, addDetails) as REST params.
   const url =
     `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}` +
-    `&filter=${filter}` +
+    `&filter=countrycode:us` +
+    bias +
     `&format=json` +
+    `&allowNonVerifiedHouseNumber=true` +
+    `&allowNonVerifiedStreet=true` +
     `&limit=6&apiKey=${KEY}`;
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
@@ -78,6 +80,7 @@ export async function geoapifyAutocomplete(
     results?: Array<Record<string, unknown>>;
     features?: Array<{ properties?: Record<string, unknown> }>;
   };
+  console.log("Geoapify Raw Response:", data);
   const rows: Array<Record<string, unknown>> =
     data.results ??
     (data.features ?? []).map((f) => f.properties ?? {});
