@@ -42,7 +42,10 @@ function mapRow(r: Record<string, unknown>): AddressSuggestion {
 
 /**
  * Address autocomplete scoped to a US state/territory.
- * Appends `, ST, USA`, filters to US streets, biases to state bounds, post-filters by state_code.
+ *
+ * IMPORTANT: never append state/USA to `text` — that contaminates street names
+ * that contain the state word (e.g. "East Tennessee" becomes numeric "SR 101" hits).
+ * Scope with a hard countrycode + rect filter from us-regions instead.
  */
 export async function geoapifyAutocomplete(
   text: string,
@@ -50,16 +53,25 @@ export async function geoapifyAutocomplete(
 ): Promise<AddressSuggestion[]> {
   if (!KEY || text.trim().length < 3) return [];
   const region = getUsRegion(stateCode);
-  if (!region) return [];
+  const want = (region?.code ?? stateCode).trim().toUpperCase();
+  if (!want) return [];
 
-  const [lon1, lat1, lon2, lat2] = region.rect;
-  const q = `${text.trim()}, ${region.code}, USA`;
+  // Raw street text only — no `, TN` / `, USA` suffix.
+  const q = text.trim();
+  // Do not encodeURIComponent the whole filter; `|` and commas must stay literal.
+  const filter = region
+    ? `countrycode:us|rect:${region.rect[0]},${region.rect[1]},${region.rect[2]},${region.rect[3]}`
+    : `countrycode:us`;
+
   const url =
     `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}` +
-    `&filter=countrycode:us` +
+    `&filter=${filter}` +
     `&type=street` +
-    `&bias=rect:${lon1},${lat1},${lon2},${lat2}` +
-    `&format=json&limit=6&apiKey=${KEY}`;
+    `&format=json` +
+    `&allowNonVerifiedHouseNumber=true` +
+    `&allowNonVerifiedStreet=true` +
+    `&addDetails=true` +
+    `&limit=6&apiKey=${KEY}`;
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) return [];
@@ -72,7 +84,6 @@ export async function geoapifyAutocomplete(
     data.results ??
     (data.features ?? []).map((f) => f.properties ?? {});
 
-  const want = region.code.toUpperCase();
   return rows
     .map(mapRow)
     .filter((s) => {
