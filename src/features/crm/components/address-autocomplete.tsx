@@ -48,11 +48,8 @@ const empty: AddressValues = {
   lon: "",
 };
 
-/** Fire autocomplete only every 4 characters (4, 8, 12, …) once past the floor. */
-function shouldQuery(text: string): boolean {
-  const len = text.trim().length;
-  return len >= 4 && len % 4 === 0;
-}
+/** Silent floor: wait until enough characters before spending an API call. */
+const MIN_QUERY_CHARS = 4;
 
 /**
  * Address block with Geoapify autocomplete. State must be chosen first so queries
@@ -106,7 +103,15 @@ export function AddressAutocomplete({
     setV((p) => ({ ...p, line1: text, lat: "", lon: "" }));
     if (timer.current) clearTimeout(timer.current);
 
-    if (!isUsRegionCode(stateCode) || !shouldQuery(text)) {
+    if (!isUsRegionCode(stateCode)) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
+
+    // Only clear when below the floor; keep prior results while typing past it
+    // so suggestions do not flash away between debounced requests.
+    if (text.trim().length < MIN_QUERY_CHARS) {
       setSuggestions([]);
       setOpen(false);
       return;
@@ -180,11 +185,7 @@ export function AddressAutocomplete({
             value={v.line1}
             onChange={(e) => queryLine1(e.target.value)}
             onFocus={() => suggestions.length && setOpen(true)}
-            placeholder={
-              stateReady
-                ? "Start typing (lookup every 4 characters)"
-                : "Select state first"
-            }
+            placeholder={stateReady ? "Street address" : "Select state first"}
           />
         </div>
         {notConfigured ? (

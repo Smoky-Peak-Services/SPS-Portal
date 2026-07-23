@@ -42,7 +42,7 @@ function mapRow(r: Record<string, unknown>): AddressSuggestion {
 
 /**
  * Address autocomplete scoped to a US state/territory.
- * Hard-filters with countrycode + state bounding rect, then post-filters by state_code.
+ * US country filter + state appended to text; rect bias (not hard filter) for relevance.
  */
 export async function geoapifyAutocomplete(
   text: string,
@@ -53,11 +53,12 @@ export async function geoapifyAutocomplete(
   if (!region) return [];
 
   const [lon1, lat1, lon2, lat2] = region.rect;
-  const filter = `countrycode:us|rect:${lon1},${lat1},${lon2},${lat2}`;
   const q = `${text.trim()}, ${region.code}`;
   const url =
     `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}` +
-    `&filter=${encodeURIComponent(filter)}&format=json&limit=6&apiKey=${KEY}`;
+    `&filter=countrycode:us` +
+    `&bias=rect:${lon1},${lat1},${lon2},${lat2}` +
+    `&format=json&limit=6&apiKey=${KEY}`;
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) return [];
@@ -75,6 +76,7 @@ export async function geoapifyAutocomplete(
     .map(mapRow)
     .filter((s) => {
       const code = s.region.trim().toUpperCase();
+      // Keep empty region (incomplete rows); drop clear out-of-state hits.
       return !code || code === want || code.startsWith(want);
     })
     .map((s) => ({ ...s, region: want }));
@@ -88,17 +90,18 @@ export async function geoapifyGeocode(
   if (!KEY || !address.trim()) return null;
 
   let filter = "countrycode:us";
+  let bias = "";
   if (stateCode) {
     const region = getUsRegion(stateCode);
     if (region) {
       const [lon1, lat1, lon2, lat2] = region.rect;
-      filter = `countrycode:us|rect:${lon1},${lat1},${lon2},${lat2}`;
+      bias = `&bias=rect:${lon1},${lat1},${lon2},${lat2}`;
     }
   }
 
   const url =
     `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}` +
-    `&filter=${encodeURIComponent(filter)}&format=json&limit=1&apiKey=${KEY}`;
+    `&filter=${filter}${bias}&format=json&limit=1&apiKey=${KEY}`;
 
   let res: Response;
   try {
