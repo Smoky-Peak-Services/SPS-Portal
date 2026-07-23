@@ -161,11 +161,9 @@ export function AddressAutocomplete({
         const data = await res.json();
         if (controller.signal.aborted) return;
         if (data.configured === false) setNotConfigured(true);
+        // Trust API payload as-is — no client-side street/includes or slice(0,1).
         const results: Suggestion[] = data.results ?? [];
-        if (results.length > 0) {
-          setSuggestions(results);
-        }
-        // Empty payload: leave prior suggestions in place.
+        setSuggestions(results);
         if (focusedRef.current) setOpen(true);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -182,8 +180,9 @@ export function AddressAutocomplete({
   function pick(s: Suggestion) {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     cancelPending();
+    // Street = housenumber + street (mapped to line1 server-side); fill city + ZIP.
     setV((p) => ({
-      line1: s.line1,
+      line1: s.line1.trim(),
       line2: p.line2,
       city: s.city,
       region: s.region || p.region,
@@ -220,9 +219,9 @@ export function AddressAutocomplete({
         </p>
       ) : null}
 
-      <div ref={boxRef} className="relative space-y-2">
-        <div className="space-y-2">
-          <Label htmlFor={names.line1}>Street address</Label>
+      <div className="space-y-2">
+        <Label htmlFor={names.line1}>Street address</Label>
+        <div ref={boxRef} className="relative">
           <Input
             id={names.line1}
             name={names.line1}
@@ -244,43 +243,43 @@ export function AddressAutocomplete({
             }}
             placeholder={stateReady ? "Street address" : "Select state first"}
           />
+          {showDropdown ? (
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
+              {loading ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Searching…
+                </div>
+              ) : null}
+              {suggestions.length > 0 ? (
+                <ul>
+                  {suggestions.map((s, i) => (
+                    <li key={`${s.formatted}-${i}`}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pick(s)}
+                        className="flex w-full items-start gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted"
+                      >
+                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span>{s.formatted}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : loading ? (
+                <p className="px-3 py-2 text-sm text-muted-foreground">
+                  Looking up addresses…
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         {notConfigured ? (
           <p className="text-xs text-amber-400">
             Address lookup is not configured (missing API key). Enter the
             address manually.
           </p>
-        ) : null}
-        {showDropdown ? (
-          <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
-            {loading ? (
-              <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
-                <Loader2 className="size-3.5 animate-spin" />
-                Searching…
-              </div>
-            ) : null}
-            {suggestions.length > 0 ? (
-              <ul className="max-h-60 overflow-y-auto">
-                {suggestions.map((s, i) => (
-                  <li key={`${s.formatted}-${i}`}>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => pick(s)}
-                      className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-                    >
-                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span>{s.formatted}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : loading ? (
-              <p className="px-3 py-2 text-sm text-muted-foreground">
-                Looking up addresses…
-              </p>
-            ) : null}
-          </div>
         ) : null}
       </div>
 
