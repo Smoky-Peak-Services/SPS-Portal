@@ -664,7 +664,6 @@ function revalidateLeads(id?: string) {
   if (id) revalidatePath(`/leads/${id}`);
 }
 
-const DELETABLE_LEAD_STATUSES = new Set(["INQUIRY", "SITE_VISIT"]);
 const CLOSED_LEAD_STATUSES = new Set(["WON", "LOST", "DISQUALIFIED"]);
 
 export async function createLead(raw: unknown): Promise<ActionResult> {
@@ -731,6 +730,7 @@ export async function updateLeadStatus(raw: unknown): Promise<ActionResult> {
   return { ok: true, id: data.id };
 }
 
+/** Hard-delete any lead (spam / not interested). Customer row is kept if promoted. */
 export async function deleteLead(raw: unknown): Promise<ActionResult> {
   await requireCrmWrite();
   if (!isPiiConfigured()) {
@@ -739,17 +739,12 @@ export async function deleteLead(raw: unknown): Promise<ActionResult> {
   const data = deleteLeadSchema.parse(raw);
   const lead = await prismaPii.lead.findUnique({
     where: { id: data.id },
-    select: { status: true },
+    select: { id: true },
   });
   if (!lead) return { ok: false, error: "Lead not found." };
-  if (!DELETABLE_LEAD_STATUSES.has(lead.status)) {
-    return {
-      ok: false,
-      error: "Only leads before an estimate is sent can be deleted.",
-    };
-  }
   await prismaPii.lead.delete({ where: { id: data.id } });
   revalidateLeads();
+  revalidatePath("/call-log");
   return { ok: true, id: data.id };
 }
 

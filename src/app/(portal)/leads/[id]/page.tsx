@@ -8,6 +8,7 @@ import { canWriteCrm } from "@/features/crm/authz";
 import { LeadStatusSelect } from "@/features/crm/components/lead-status-select";
 import { PromoteLeadButton } from "@/features/crm/components/promote-lead-button";
 import { LeadNoteForm } from "@/features/crm/components/lead-note-form";
+import { DeleteLeadButton } from "@/features/crm/components/delete-lead-button";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Panel } from "@/components/patterns/panel";
 import { EmptyState } from "@/components/patterns/empty-state";
@@ -44,9 +45,14 @@ export default async function LeadDetailPage({
           lead.phone ? ` · ${formatPhoneDisplay(lead.phone)}` : ""
         }`}
         actions={
-          <Button asChild variant="outline">
-            <Link href="/leads">Back to pipeline</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline">
+              <Link href="/leads">Back to pipeline</Link>
+            </Button>
+            {canWrite ? (
+              <DeleteLeadButton leadId={lead.id} leadName={lead.name} />
+            ) : null}
+          </div>
         }
       />
 

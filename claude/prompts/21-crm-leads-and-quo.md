@@ -18,7 +18,8 @@ Lead inbox for website-ingested and manual leads, promote-to-customer, and Quo (
 | `/leads/archive` | Won / Lost / Disqualified |
 | `/leads/[id]` | Detail, status, notes, promote |
 | `/call-log` | Last 14 days PhoneEvents, dismiss, triage |
-| `POST /api/webhooks/openphone` | Public Quo webhook (HMAC) |
+| `POST /webhooks/openphone` | Public Quo webhook (HMAC; legacy URL Quo uses) |
+| `POST /api/webhooks/openphone` | Same handler (alternate path) |
 
 Desktop-only. Capabilities: `crm.access` / `crm.write` / `crm.archive` (reuse).
 
@@ -30,7 +31,8 @@ Desktop-only. Capabilities: `crm.access` / `crm.write` / `crm.archive` (reuse).
 
 ## Env
 
-- `OPENPHONE_WEBHOOK_SECRET` (or `OP_WEBHOOK_SECRET`) — base64 signing key from Quo; comma-separated for multiple keys. Required in production.
+- `OPENPHONE_WEBHOOK_SECRET` (or `OP_WEBHOOK_SECRET`) — base64 signing key from Quo; comma-separated for multiple keys. Required in production on Vercel.
+- Quo webhook URL: `https://portal.smokypeak.tech/webhooks/openphone` (also `/api/webhooks/openphone`).
 
 ## Non-goals
 

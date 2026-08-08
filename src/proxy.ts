@@ -7,6 +7,7 @@ const PUBLIC_PREFIXES = [
   "/api/auth",
   "/api/v1/leads",
   "/api/webhooks/openphone",
+  "/webhooks/openphone",
   "/_next",
   "/favicon",
   "/brand/",
@@ -39,7 +40,8 @@ export async function proxy(req: NextRequest) {
   }
 
   if (
-    pathname.startsWith("/api/webhooks/openphone") &&
+    (pathname.startsWith("/api/webhooks/openphone") ||
+      pathname.startsWith("/webhooks/openphone")) &&
     req.method !== "POST"
   ) {
     return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
