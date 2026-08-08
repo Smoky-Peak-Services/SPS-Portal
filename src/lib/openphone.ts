@@ -20,12 +20,20 @@ export function phoneForStorage(raw: string | null | undefined): string | null {
   return toE164(t) ?? t;
 }
 
+/**
+ * Combined signing secrets. Both env names are accepted and merged (comma lists
+ * on either). Prefer not to let OPENPHONE_* shadow a newer OP_WEBHOOK_SECRET
+ * whsec_ key — Quo recreates keys when webhooks are re-registered.
+ */
 export function openPhoneWebhookSecret(): string {
-  return (
-    process.env.OPENPHONE_WEBHOOK_SECRET ??
-    process.env.OP_WEBHOOK_SECRET ??
-    ""
-  ).trim();
+  const parts = [
+    process.env.OP_WEBHOOK_SECRET,
+    process.env.OPENPHONE_WEBHOOK_SECRET,
+  ]
+    .flatMap((v) => (v ?? "").split(","))
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return [...new Set(parts)].join(",");
 }
 
 export type QuoWebhookHeaders = {

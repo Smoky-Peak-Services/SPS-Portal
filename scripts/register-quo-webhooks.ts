@@ -42,7 +42,13 @@ async function main() {
   console.log("\n*** Copy this signing key to Vercel (OP_WEBHOOK_SECRET) ***");
   console.log(result.key);
   console.log(
-    "\nThen redeploy. Call Log fills from Quo deliveries; unknown callers stay Call Log-only until triage.\n",
+    "\nAlso set the same value in .env.local as OP_WEBHOOK_SECRET, then:",
+  );
+  console.log("  npx tsx --env-file=.env.local scripts/sync-quo-webhook-secret-to-vercel.ts");
+  console.log("  npx vercel --prod");
+  console.log("  npx tsx --env-file=.env.local scripts/verify-quo-webhook.ts " + result.id);
+  console.log(
+    "\nCall Log fills from Quo deliveries; unknown callers stay Call Log-only until triage.\n",
   );
 
   if (testEvent) {

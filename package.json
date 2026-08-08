@@ -16,6 +16,8 @@
     "test:crm": "tsx --test src/features/crm/service-location.test.ts",
     "test:phone": "tsx --test src/features/phone/openphone-payload.test.ts src/features/phone/match-target.test.ts src/lib/openphone.test.ts",
     "register:quo-webhooks": "tsx --env-file=.env.local scripts/register-quo-webhooks.ts",
+    "verify:quo-webhooks": "tsx --env-file=.env.local scripts/verify-quo-webhook.ts",
+    "sync:quo-webhook-secret": "tsx --env-file=.env.local scripts/sync-quo-webhook-secret-to-vercel.ts",
     "test:materials-io": "tsx --test src/features/materials/io.test.ts",
     "test:materials-attribute-io": "tsx --test src/features/materials/attribute-io.test.ts",
     "test:materials-category-tax-io": "tsx --test src/features/materials/category-tax-io.test.ts",

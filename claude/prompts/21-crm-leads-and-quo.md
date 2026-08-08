@@ -41,7 +41,9 @@ npm run register:quo-webhooks
 # optional smoke: npm run register:quo-webhooks -- --test message.received
 ```
 
-3. Copy the printed `whsec_…` key to **Vercel** as `OP_WEBHOOK_SECRET` (or `OPENPHONE_WEBHOOK_SECRET`). Redeploy.
+3. Copy the printed `whsec_…` key into `.env.local` as `OP_WEBHOOK_SECRET`, then sync + redeploy:
+   `npm run sync:quo-webhook-secret` → `npx vercel --prod` → `npm run verify:quo-webhooks -- <webhookId>`
+   (A stale legacy secret on Vercel causes Quo deliveries to return `401 bad signature`.)
 4. Quo webhook URL: `https://portal.smokypeak.tech/webhooks/openphone`
 5. Events subscribed: `call.completed`, `call.missed`, `call.voicemail.completed`, `call.recording.completed`, `call.summary.completed`, `call.transcript.completed`, `message.received`.
 
