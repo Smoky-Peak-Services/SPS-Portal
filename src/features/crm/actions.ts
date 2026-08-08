@@ -3,17 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { isPiiConfigured, prismaPii } from "@/lib/prisma-pii";
 import { requireCrmArchive, requireCrmWrite } from "./authz";
+import { phoneForStorage } from "@/lib/openphone";
 import {
   archiveCustomerSchema,
   createContactSchema,
   createCustomerActivitySchema,
   createCustomerSchema,
+  createLeadActivitySchema,
+  createLeadSchema,
   createServiceLocationSchema,
   deleteContactSchema,
+  deleteLeadSchema,
   deleteServiceLocationSchema,
+  promoteLeadSchema,
   updateBillingProfileSchema,
   updateContactSchema,
   updateCustomerSchema,
+  updateLeadStatusSchema,
   updateServiceLocationSchema,
 } from "./schemas";
 import {
@@ -649,4 +655,175 @@ export async function createCustomerActivity(
 
   revalidateClients(data.customerId);
   return { ok: true, id: activity.id };
+}
+
+const LEADS_PATHS = ["/leads", "/leads/archive"] as const;
+
+function revalidateLeads(id?: string) {
+  for (const p of LEADS_PATHS) revalidatePath(p);
+  if (id) revalidatePath(`/leads/${id}`);
+}
+
+const DELETABLE_LEAD_STATUSES = new Set(["INQUIRY", "SITE_VISIT"]);
+const CLOSED_LEAD_STATUSES = new Set(["WON", "LOST", "DISQUALIFIED"]);
+
+export async function createLead(raw: unknown): Promise<ActionResult> {
+  await requireCrmWrite();
+  if (!isPiiConfigured()) {
+    return { ok: false, error: "PII database is not configured." };
+  }
+  const data = createLeadSchema.parse(raw);
+  const division = await prismaPii.division.findUnique({
+    where: { id: data.divisionId },
+  });
+  if (!division) return { ok: false, error: "Unknown division." };
+
+  const lead = await prismaPii.lead.create({
+    data: {
+      source: data.source,
+      divisionId: data.divisionId,
+      name: data.name.trim(),
+      email: emptyToNull(data.email),
+      phone: phoneForStorage(data.phone),
+      company: emptyToNull(data.company),
+      message: emptyToNull(data.message),
+      budget: emptyToNull(data.budget),
+      timeline: emptyToNull(data.timeline),
+      division: emptyToNull(data.division),
+    },
+  });
+  revalidateLeads(lead.id);
+  revalidatePath("/call-log");
+  return { ok: true, id: lead.id };
+}
+
+export async function updateLeadStatus(raw: unknown): Promise<ActionResult> {
+  const user = await requireCrmWrite();
+  if (!isPiiConfigured()) {
+    return { ok: false, error: "PII database is not configured." };
+  }
+  const data = updateLeadStatusSchema.parse(raw);
+  const lead = await prismaPii.lead.findUnique({ where: { id: data.id } });
+  if (!lead) return { ok: false, error: "Lead not found." };
+
+  const closed = CLOSED_LEAD_STATUSES.has(data.status);
+  await prismaPii.$transaction(async (tx) => {
+    await tx.lead.update({
+      where: { id: data.id },
+      data: {
+        status: data.status,
+        closedAt: closed ? (lead.closedAt ?? new Date()) : null,
+      },
+    });
+    if (data.status !== lead.status) {
+      await tx.activity.create({
+        data: {
+          type: "STATUS_CHANGE",
+          body: `Status → ${data.status}`,
+          leadId: data.id,
+          createdById: user.id,
+        },
+      });
+    }
+  });
+
+  revalidateLeads(data.id);
+  return { ok: true, id: data.id };
+}
+
+export async function deleteLead(raw: unknown): Promise<ActionResult> {
+  await requireCrmWrite();
+  if (!isPiiConfigured()) {
+    return { ok: false, error: "PII database is not configured." };
+  }
+  const data = deleteLeadSchema.parse(raw);
+  const lead = await prismaPii.lead.findUnique({
+    where: { id: data.id },
+    select: { status: true },
+  });
+  if (!lead) return { ok: false, error: "Lead not found." };
+  if (!DELETABLE_LEAD_STATUSES.has(lead.status)) {
+    return {
+      ok: false,
+      error: "Only leads before an estimate is sent can be deleted.",
+    };
+  }
+  await prismaPii.lead.delete({ where: { id: data.id } });
+  revalidateLeads();
+  return { ok: true, id: data.id };
+}
+
+export async function createLeadActivity(raw: unknown): Promise<ActionResult> {
+  const user = await requireCrmWrite();
+  if (!isPiiConfigured()) {
+    return { ok: false, error: "PII database is not configured." };
+  }
+  const data = createLeadActivitySchema.parse(raw);
+  const lead = await prismaPii.lead.findUnique({
+    where: { id: data.leadId },
+    select: { id: true },
+  });
+  if (!lead) return { ok: false, error: "Lead not found." };
+
+  const activity = await prismaPii.activity.create({
+    data: {
+      type: "NOTE",
+      body: data.body.trim(),
+      leadId: data.leadId,
+      createdById: user.id,
+    },
+  });
+  revalidateLeads(data.leadId);
+  return { ok: true, id: activity.id };
+}
+
+export async function promoteLeadToCustomer(
+  raw: unknown,
+): Promise<ActionResult> {
+  const user = await requireCrmWrite();
+  if (!isPiiConfigured()) {
+    return { ok: false, error: "PII database is not configured." };
+  }
+  const data = promoteLeadSchema.parse(raw);
+  const lead = await prismaPii.lead.findUnique({ where: { id: data.leadId } });
+  if (!lead) return { ok: false, error: "Lead not found." };
+  if (lead.customerId) return { ok: true, id: lead.customerId };
+
+  const [firstName, ...rest] = lead.name.trim().split(/\s+/);
+  const customer = await prismaPii.customer.create({
+    data: {
+      type: data.type,
+      displayName: lead.name.trim(),
+      divisionId: lead.divisionId,
+      generalEmail: lead.email,
+      mainPhone: lead.phone,
+      source: `lead:${lead.source}`,
+      notes: lead.message,
+      createdById: user.id,
+      billingProfile: {
+        create: {
+          profileType: defaultBillingType(data.type),
+        },
+      },
+      contacts: {
+        create: {
+          firstName: firstName || lead.name.trim(),
+          lastName: rest.join(" ") || null,
+          directEmail: lead.email,
+          directPhone: lead.phone,
+          roleTag: "CLIENT",
+          isPrimary: true,
+        },
+      },
+    },
+  });
+  await prismaPii.lead.update({
+    where: { id: lead.id },
+    data: { customerId: customer.id },
+  });
+
+  revalidateLeads(lead.id);
+  revalidateClients(customer.id);
+  revalidatePath("/call-log");
+  return { ok: true, id: customer.id };
 }

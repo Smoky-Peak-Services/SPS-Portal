@@ -93,6 +93,9 @@ describe("ops-pii schema guard", () => {
     assert.match(schema, /model Contact \{/);
     assert.match(schema, /model ServiceLocation \{/);
     assert.match(schema, /model BillingProfile \{/);
+    assert.match(schema, /model PhoneEvent \{/);
+    assert.match(schema, /enum PhoneEventKind \{/);
+    assert.match(schema, /externalId/);
     assert.match(schema, /enum ServiceLine \{/);
     assert.equal(schema.includes("model Job {"), false);
     assert.equal(schema.includes("model Ticket {"), false);

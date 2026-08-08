@@ -53,7 +53,7 @@ On 2026-07-19 the jobs/tickets/schedule/CRM buildout was reverted back to a dash
 
 **The rebuild plan going forward is piece by piece, tested at each step, in this order:** quoting/estimating first, because it drives almost everything else (it's the entry point that should create the operational work item directly, ServiceM8/ServiceTitan-style — one work-order entity, no separate ticket-to-job conversion step).
 
-**Schemas now match that baseline plus CRM identity in PII:** ops `prisma/schema.prisma` is auth + org + materials/pricing (no `Job`/`Ticket`). PII owns lead ingest plus CRM (`Customer`, `Contact`, `ServiceLocation`, `BillingProfile`). Don't resurrect the old two-entity Job/Ticket shape when building the new work-order model unless the user asks for it back.
+**Schemas now match that baseline plus CRM identity in PII:** ops `prisma/schema.prisma` is auth + org + materials/pricing (no `Job`/`Ticket`). PII owns lead ingest, Quo `PhoneEvent`, plus CRM (`Customer`, `Contact`, `ServiceLocation`, `BillingProfile`). Don't resurrect the old two-entity Job/Ticket shape when building the new work-order model unless the user asks for it back.
 
 ---
 
@@ -93,7 +93,7 @@ What's actually here, in `src/`, post-reset (§2a) plus materials catalog:
 - **`components/patterns/`** — reusable page building blocks: `PageHeader`, `Panel`, `MetricCard`, `DataTableShell`, `SectionTabs`, `StatusBadge`, `EmptyState`. Use these before inventing new page chrome. Portal `<main>` content is one `max-w-7xl` column via `PortalShell`.
 - **Theme:** dark-only (`html.dark`). Brand assets in `public/brand/` (mark, logo-dark, PWA icons). Colors: teal/cyan primary — not purple.
 
-**Nav (prompt 12 + 20):** Operations has Dashboard, **Clients** (`/clients`), **Catalog** (`/materials`), **Rates** (`/pricing`). Each of Catalog and Rates uses a single horizontal `SectionTabs` strip in the segment `layout.tsx` (no accordions, no third nesting level). Catalog tabs: Materials · Recurring Fees · Catalog I/O · Consumables (`/materials/consumables`) · Equipment & Tools (`/materials/equipment`). Rates tabs: Labor Rates · Complexity Multipliers. Recurring fees live at `/materials/recurring` visually under Catalog but still gate with `requireArea("pricing")`. Clients profile tabs: Root Org · Billing · Contacts · Locations · Activity.
+**Nav (prompt 12 + 20 + 21):** Operations has Dashboard, **Leads** (`/leads`), **Call Log** (`/call-log`), **Clients** (`/clients`), **Catalog** (`/materials`), **Rates** (`/pricing`). Each of Catalog and Rates uses a single horizontal `SectionTabs` strip in the segment `layout.tsx` (no accordions, no third nesting level). Catalog tabs: Materials · Recurring Fees · Catalog I/O · Consumables (`/materials/consumables`) · Equipment & Tools (`/materials/equipment`). Rates tabs: Labor Rates · Complexity Multipliers. Recurring fees live at `/materials/recurring` visually under Catalog but still gate with `requireArea("pricing")`. Clients profile tabs: Root Org · Billing · Contacts · Locations · Activity.
 
 ---
 
@@ -107,8 +107,8 @@ This is the single most important — and most fragile — architectural decisio
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
 | Schema   | `prisma/schema.prisma`                                                                                                                                                                                                                     | `prisma/pii/schema.prisma`                               |
 | Client   | `src/lib/prisma.ts` → `prisma`                                                                                                                                                                                                             | `src/lib/prisma-pii.ts` → `prismaPii`                    |
-| Owns     | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`), consumables (`ConsumableItem`, division-scoped), equipment (`EquipmentItem`, division-scoped), pricing (`LaborRateConfig`, `LaborPosition`, `ComplexityMultiplier`, `RecurringFeeItem`, `ServicePlanRate`) | `Division` (replicated), `Lead`, `Activity`, `IngestKey`, CRM (`Customer`, `Contact`, `ServiceLocation`, `BillingProfile`) |
-| Deferred | Field Ops / work-order models                                                                                                                                                                                                              | Lead promote UI, customer self-service portal            |
+| Owns     | `User`, `Session`, `Account`, `Verification`, `Division`, `DivisionMembership`, `Invitation`, materials catalog (`Material*`), consumables (`ConsumableItem`, division-scoped), equipment (`EquipmentItem`, division-scoped), pricing (`LaborRateConfig`, `LaborPosition`, `ComplexityMultiplier`, `RecurringFeeItem`, `ServicePlanRate`) | `Division` (replicated), `Lead`, `Activity`, `PhoneEvent`, `IngestKey`, CRM (`Customer`, `Contact`, `ServiceLocation`, `BillingProfile`) |
+| Deferred | Field Ops / work-order models                                                                                                                                                                                                              | Customer self-service portal                             |
 | Env vars | `OPS_DATABASE_URL`, `OPS_DIRECT_URL`                                                                                                                                                                                                       | `PII_DATABASE_URL`, `PII_DIRECT_URL`                     |
 | Generate | `npm run db:generate`                                                                                                                                                                                                                      | `npm run db:generate:pii`                                |
 | Migrate  | `npm run db:migrate`                                                                                                                                                                                                                       | `npm run db:migrate:pii`                                 |
@@ -255,15 +255,16 @@ Admin UI: `/materials/recurring` (Catalog section tab; desktop-only). **Still** 
 - **`ServicePlanRate`** (Cabin only today): scoped by `(divisionId, Segment)`, unique SKU in scope; `planType` `MAINTENANCE | INSPECTION | FULL_SERVICE`, `bedrooms`/`maxBathrooms`, nullable `rate` + `isCustomQuote` (custom-quote rows are rate-less "Quoted"). 18 seeded rows (MP/CIP/FSP × 5 standard tiers + 1 custom) from the Cabin workbook via `cabin-service-plans.ts` / `scripts/seed-service-plans.ts`. Plan rates are the **base package rate** that Cabin `BASE_PACKAGE_RATE` complexity rows adjust via `calculateAdjustedPackageRate`. Rate edits via `updateServicePlanRate` (`pricing.write`; standard rows cannot be made rate-less). Tests: `npm run test:pricing-plans`. Sheet quirk kept verbatim: SKU `FSP-2BE-2BS-STD`.
 - Non-goals: no customer/SMA-contract/subscription/invoice; no Stripe; no proration/forfeiture enforcement.
 
-### CRM Customer Profile (prompt 20)
+### CRM Customer Profile (prompt 20) + Leads / Quo (prompt 21)
 
 Salesforce-style Account profile in PII. Hierarchy: owning `Division` → `Customer` (root org) → `BillingProfile` (1:1) + `Contact[]` + `ServiceLocation[]`. Feature: `src/features/crm/`. UI: `/clients` (desktop-only, `requireArea("crm")` → `crm.access`; writes `crm.write`; archive `crm.archive`).
 
 - **Customer.type** `RESIDENTIAL | COMMERCIAL | STR` is a CRM label, not a catalog scope. One `divisionId` per customer (IS or Cabin); no cross-division accounts in v1.
 - **ServiceLocation:** `classification` + `serviceLines[]` (`INTEGRATED_SYSTEMS | CABIN_SERVICES`). Commercial sites → Integrated Systems only. Optional Cabin bedrooms/bathrooms/complexitySelections.
-- **BillingProfile:** Individual (default residential/STR) vs Entity (default commercial). Completeness = name + email + address (app-derived; gates quoting later). Tax-exempt / SMA status stubs only (no W-9 upload yet).
-- **Activity** may attach to customer (and optional location). Lead has optional `customerId` for future promote (no promote UI yet).
-- Non-goals: Job/Ticket buttons, Property naming, customer self-service portal, Stripe customer create.
+- **BillingProfile:** Individual (default residential/STR) vs Entity (default commercial). Completeness = name + email + address (app-derived; gates quoting later). Tax-exempt / SMA stubs only (no W-9 upload yet).
+- **Leads** (`/leads`, `/leads/archive`, `/leads/[id]`): website ingest + manual; status pipeline; **promote** creates Customer + BillingProfile + primary Contact and sets `Lead.customerId`.
+- **Quo / OpenPhone** (`src/features/phone/`): `POST /api/webhooks/openphone` (HMAC via `OPENPHONE_WEBHOOK_SECRET`) upserts PII `PhoneEvent`; when last-10 matches a Contact or open Lead, also upserts `Activity` by `externalId`. Call Log UI at `/call-log` (triage unknown numbers). No auto PHONE Lead for unknowns.
+- Non-goals: Job/Ticket buttons, Property naming, customer self-service portal, Stripe customer create, outbound Quo SMS.
 
 ---
 
@@ -290,7 +291,7 @@ Every Server Action must call `requireUser` / `requireArea` / `requireCapability
 
 ## 7. Mobile vs. desktop surfaces
 
-One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. `/materials`, `/pricing`, `/clients`, and `/settings` (and children) are desktop-only; `MOBILE_FALLBACK_ROUTE` is `/`. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
+One codebase serves both. `src/lib/device-surface.ts` defines `isDesktopOnlyPath()` and `MOBILE_FALLBACK_ROUTE`. `/materials`, `/pricing`, `/clients`, `/leads`, `/call-log`, and `/settings` (and children) are desktop-only; `MOBILE_FALLBACK_ROUTE` is `/`. Server-side, `getServerSurface()` (`get-server-surface.ts`) infers surface from `Sec-CH-UA-Mobile` or the `sps_surface` cookie, defaulting to desktop. Desktop-only server components call `requireDesktopSurface(pathname)` (`require-desktop.ts`) to redirect mobile sessions away. Client-side, `use-device-surface.ts` does the same by viewport width (`MOBILE_MAX_WIDTH = 768`).
 
 Navigation visibility is driven by `src/config/nav.ts` (`capabilities` + `surface` on each item), filtered by `filterNavForCapabilities()`. Register new desktop-only routes in both `device-surface.ts` and `nav.ts`.
 
@@ -362,6 +363,6 @@ npm run sync:divisions-pii   # re-sync Division rows ops -> pii after an ops mig
 
 - `claude/project-context.md` — full scope, stack rationale, reference platforms/repos, build order.
 - `claude/ARCHITECTURE.md` — target layered architecture and worked request traces.
-- `claude/prompts/` — scoped build prompts for each rebuild phase, in order (`01`…`18` materials/pricing/catalog, `19-marketing-lead-form-standard.md`, `20-crm-customer-profile.md`). Prompt 20 adds the CRM Customer profile (PII Customer → BillingProfile → Contacts → ServiceLocations) under `/clients`. Read the next-numbered prompt before starting the next phase of the rebuild. `claude/prompts/samples/` holds real fixture files (prior-build exports, plus the real Stripe `product_tax_codes.csv`) referenced by these prompts — use them as actual test data, not just as descriptions.
+- `claude/prompts/` — scoped build prompts for each rebuild phase, in order (`01`…`18` materials/pricing/catalog, `19-marketing-lead-form-standard.md`, `20-crm-customer-profile.md`, `21-crm-leads-and-quo.md`). Prompt 20 is the Customer profile; prompt 21 adds leads inbox, promote, and Quo Call Log. Read the next-numbered prompt before starting the next phase of the rebuild. `claude/prompts/samples/` holds real fixture files (prior-build exports, plus the real Stripe `product_tax_codes.csv`) referenced by these prompts — use them as actual test data, not just as descriptions.
 - `README.md` — quick-start, env file table, current portal routes.
 - `.cursor/rules/*.mdc` — the same guardrails as short, glob-scoped Cursor rules.

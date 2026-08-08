@@ -91,6 +91,66 @@ export async function getCustomerProfile(id: string) {
   return { ...customer, billingStatus };
 }
 
+const ACTIVE_LEAD_STATUSES = [
+  "INQUIRY",
+  "SITE_VISIT",
+  "ESTIMATE_SENT",
+  "APPROVED",
+] as const;
+
+const ARCHIVED_LEAD_STATUSES = ["WON", "LOST", "DISQUALIFIED"] as const;
+
+export type ListLeadsFilter = {
+  q?: string;
+  divisionId?: string;
+  scope?: "active" | "archive";
+};
+
+export async function listLeads(filter: ListLeadsFilter = {}) {
+  await requireCrmAccess();
+  if (!isPiiConfigured()) return [];
+
+  const q = filter.q?.trim();
+  const scope = filter.scope ?? "active";
+  return prismaPii.lead.findMany({
+    where: {
+      divisionId: filter.divisionId || undefined,
+      status: {
+        in: [...(scope === "archive" ? ARCHIVED_LEAD_STATUSES : ACTIVE_LEAD_STATUSES)],
+      },
+      OR: q
+        ? [
+            { name: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+            { phone: { contains: q, mode: "insensitive" } },
+            { company: { contains: q, mode: "insensitive" } },
+          ]
+        : undefined,
+    },
+    orderBy: [{ updatedAt: "desc" }],
+    include: {
+      orgDivision: { select: { id: true, name: true, slug: true } },
+      customer: { select: { id: true, displayName: true } },
+    },
+  });
+}
+
+export async function getLead(id: string) {
+  await requireCrmAccess();
+  if (!isPiiConfigured()) return null;
+  return prismaPii.lead.findUnique({
+    where: { id },
+    include: {
+      orgDivision: { select: { id: true, name: true, slug: true } },
+      customer: { select: { id: true, displayName: true, type: true } },
+      activities: {
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      },
+    },
+  });
+}
+
 export async function getCustomerForEdit(id: string) {
   await requireCrmAccess();
   if (!isPiiConfigured()) return null;

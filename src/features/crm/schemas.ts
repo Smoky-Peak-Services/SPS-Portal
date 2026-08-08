@@ -179,3 +179,54 @@ export const createCustomerActivitySchema = z.object({
   body: z.string().min(1).max(5000),
   serviceLocationId: optStr,
 });
+
+export const leadSourceEnum = z.enum([
+  "WEBSITE",
+  "PHONE",
+  "REFERRAL",
+  "WALK_IN",
+  "OTHER",
+]);
+
+export const leadStatusEnum = z.enum([
+  "INQUIRY",
+  "SITE_VISIT",
+  "ESTIMATE_SENT",
+  "APPROVED",
+  "WON",
+  "LOST",
+  "DISQUALIFIED",
+]);
+
+export const createLeadSchema = z.object({
+  source: leadSourceEnum.default("PHONE"),
+  divisionId: z.string().min(1, "Division is required"),
+  name: z.string().min(1, "Name is required").max(200),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().max(40).optional().or(z.literal("")),
+  company: optStr,
+  message: z.string().max(5000).optional().or(z.literal("")),
+  budget: z.string().max(60).optional().or(z.literal("")),
+  timeline: z.string().max(60).optional().or(z.literal("")),
+  division: optStr,
+});
+export type CreateLeadInput = z.infer<typeof createLeadSchema>;
+
+export const updateLeadStatusSchema = z.object({
+  id: z.string().min(1),
+  status: leadStatusEnum,
+});
+
+export const deleteLeadSchema = z.object({
+  id: z.string().min(1),
+});
+
+export const promoteLeadSchema = z.object({
+  leadId: z.string().min(1),
+  type: customerTypeEnum,
+});
+
+export const createLeadActivitySchema = z.object({
+  leadId: z.string().min(1),
+  body: z.string().min(1).max(5000),
+});

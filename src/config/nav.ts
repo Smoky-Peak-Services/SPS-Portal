@@ -31,6 +31,20 @@ export const navSections: NavSection[] = [
         surface: "both",
       },
       {
+        label: "Leads",
+        href: "/leads",
+        icon: "Users",
+        capabilities: ["crm.access"],
+        surface: "desktop",
+      },
+      {
+        label: "Call Log",
+        href: "/call-log",
+        icon: "Phone",
+        capabilities: ["crm.access"],
+        surface: "desktop",
+      },
+      {
         label: "Clients",
         href: "/clients",
         icon: "Users",

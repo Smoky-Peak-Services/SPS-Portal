@@ -120,4 +120,5 @@ export type {
   LeadStatus,
   LeadSource,
   ActivityType,
+  PhoneEventKind,
 } from "../../prisma/generated/pii";

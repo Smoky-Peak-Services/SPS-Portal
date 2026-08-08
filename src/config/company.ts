@@ -31,6 +31,11 @@ export interface CrmConfig {
   disqualifyBudgets: string[];
   timelines: string[];
   defaultLeadDivisionSlug: string;
+  /**
+   * Optional Quo/OpenPhone workspace E.164 → division slug map for future
+   * auto-routing. Unused while unknown callers stay Call Log-only.
+   */
+  phoneNumberDivisions?: Record<string, string>;
 }
 
 export interface RetentionConfig {
@@ -138,6 +143,9 @@ export const company: Company = {
     disqualifyBudgets: ["Under $1k"],
     timelines: ["ASAP", "2-4 weeks", "1-3 months", "Just exploring"],
     defaultLeadDivisionSlug: "integrated-systems",
+    phoneNumberDivisions: {
+      // "+18651234567": "cabin-services",
+    },
   },
   retention: {
     customerArchiveYears: 5,

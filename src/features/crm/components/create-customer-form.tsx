@@ -32,8 +32,10 @@ const CONTACT_ROLE_OPTIONS = [
 
 export function CreateCustomerForm({
   divisions,
+  defaults,
 }: {
   divisions: DivisionOpt[];
+  defaults?: { phone?: string; summary?: string };
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -157,7 +159,11 @@ export function CreateCustomerForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="mainPhone">Main phone</Label>
-          <Input id="mainPhone" name="mainPhone" />
+          <Input
+            id="mainPhone"
+            name="mainPhone"
+            defaultValue={defaults?.phone ?? ""}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="generalEmail">General email</Label>
@@ -192,7 +198,11 @@ export function CreateCustomerForm({
           <Input name="contactFirstName" placeholder="First name" />
           <Input name="contactLastName" placeholder="Last name" />
           <Input name="contactEmail" type="email" placeholder="Email" />
-          <Input name="contactPhone" placeholder="Phone" />
+          <Input
+            name="contactPhone"
+            placeholder="Phone"
+            defaultValue={defaults?.phone ?? ""}
+          />
           <FormSelect
             name="contactRoleTag"
             label="Role"
@@ -204,7 +214,12 @@ export function CreateCustomerForm({
 
       <div className="space-y-2">
         <Label htmlFor="summary">Initial request / summary</Label>
-        <Textarea id="summary" name="summary" rows={3} />
+        <Textarea
+          id="summary"
+          name="summary"
+          rows={3}
+          defaultValue={defaults?.summary ?? ""}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>
