@@ -7,7 +7,9 @@ import {
   parseUsPhone,
   verifyOpenPhoneSignature,
   openPhoneWebhookSecret,
+  type QuoWebhookHeaders,
 } from "@/lib/openphone";
+import { fetchCallSummaryFromApi } from "@/lib/quo-api";
 import {
   buildSummaryLine,
   buildTranscriptLine,
@@ -253,6 +255,44 @@ async function handleBetaEvent(
     return "stored:message_received";
   }
 
+  if (type === "call.missed") {
+    if (!resource.id) return "ignored:call_missing_id";
+    const direction =
+      resource.direction === "outgoing" ? "outgoing" : "incoming";
+    await upsertEvent({
+      externalId: resource.id,
+      kind: "MISSED_CALL",
+      direction,
+      externalRaw: parties.externalRaw,
+      workspaceRaw: parties.workspaceRaw,
+      line: "Missed call",
+      occurredAt: when(
+        resource.createdAt ?? resource.completedAt ?? evt.createdAt,
+      ),
+    });
+    return "stored:call_missed";
+  }
+
+  if (type === "call.voicemail.completed") {
+    if (!resource.id) return "ignored:call_missing_id";
+    const direction =
+      resource.direction === "outgoing" ? "outgoing" : "incoming";
+    const url = resource.recordings?.[0]?.url ?? resource.media?.[0]?.url;
+    await upsertEvent({
+      externalId: resource.id,
+      kind: "VOICEMAIL",
+      direction,
+      externalRaw: parties.externalRaw,
+      workspaceRaw: parties.workspaceRaw,
+      line: "Voicemail",
+      recordingUrl: url ?? null,
+      occurredAt: when(
+        resource.createdAt ?? resource.completedAt ?? evt.createdAt,
+      ),
+    });
+    return "stored:call_voicemail";
+  }
+
   if (type === "call.completed") {
     if (!resource.id) return "ignored:call_missing_id";
     const direction =
@@ -333,6 +373,12 @@ async function mergeSummaryOrTranscript(
   let line: string | null = null;
   if (type === "call.summary.completed") {
     line = buildSummaryLine(summary, nextSteps);
+    if (!line) {
+      const enriched = await fetchCallSummaryFromApi(callId);
+      if (enriched) {
+        line = buildSummaryLine(enriched.summary, enriched.nextSteps);
+      }
+    }
     if (!line) return "ignored:empty_summary";
   } else {
     line = buildTranscriptLine(dialogue);
@@ -361,15 +407,19 @@ export type OpenPhoneWebhookResult = {
 
 export async function processOpenPhoneWebhook(
   rawBody: string,
-  signatureHeader: string | null,
+  headers: QuoWebhookHeaders | string | null,
 ): Promise<OpenPhoneWebhookResult> {
   if (process.env.NODE_ENV === "production" && !openPhoneWebhookSecret()) {
     console.error("[openphone] rejected: webhook secret missing in production");
     return { status: 503, body: { error: "Webhook not configured" } };
   }
-  if (!verifyOpenPhoneSignature(rawBody, signatureHeader)) {
+  if (!verifyOpenPhoneSignature(rawBody, headers)) {
+    const h =
+      typeof headers === "string" || headers === null
+        ? { openphoneSignature: headers }
+        : headers;
     console.warn(
-      `[openphone] rejected: bad signature headerPresent=${!!signatureHeader}`,
+      `[openphone] rejected: bad signature legacy=${!!h.openphoneSignature} whsecHeaders=${!!(h.webhookId && h.webhookSignature)}`,
     );
     return { status: 401, body: { error: "bad signature" } };
   }
@@ -398,3 +448,18 @@ export async function processOpenPhoneWebhook(
 
   return { status: 200, body: { ok: true } };
 }
+
+function headersFromRequest(req: {
+  headers: { get(name: string): string | null };
+}): QuoWebhookHeaders {
+  return {
+    openphoneSignature:
+      req.headers.get("openphone-signature") ??
+      req.headers.get("x-openphone-signature"),
+    webhookId: req.headers.get("webhook-id"),
+    webhookTimestamp: req.headers.get("webhook-timestamp"),
+    webhookSignature: req.headers.get("webhook-signature"),
+  };
+}
+
+export { headersFromRequest };

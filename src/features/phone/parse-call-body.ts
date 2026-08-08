@@ -3,6 +3,8 @@ export type ParsedCallBody = {
   transcript: string | null;
   summary: string | null;
   nextSteps: string | null;
+  /** Inbound SMS text without the "SMS: " prefix (latest if multiple). */
+  smsPreview: string | null;
 };
 
 function isStatusLine(line: string): boolean {
@@ -26,6 +28,7 @@ export function parseCallBody(body: string | null): ParsedCallBody {
   let transcript: string | null = null;
   let summary: string | null = null;
   let nextSteps: string | null = null;
+  let smsPreview: string | null = null;
 
   for (const line of lines) {
     if (line.startsWith("Transcript: ")) {
@@ -39,10 +42,13 @@ export function parseCallBody(body: string | null): ParsedCallBody {
       } else {
         summary = rest;
       }
+    } else if (line.startsWith("SMS: ")) {
+      smsPreview = line.slice("SMS: ".length);
+      statusLine = line;
     } else if (isStatusLine(line)) {
       statusLine = line;
     }
   }
 
-  return { statusLine, transcript, summary, nextSteps };
+  return { statusLine, transcript, summary, nextSteps, smsPreview };
 }

@@ -11,6 +11,7 @@ import {
   X,
   UserPlus,
   ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ export interface CallLogRow {
   statusLine: string | null;
   summary: string | null;
   transcript: string | null;
+  smsPreview: string | null;
   latestRecordingUrl: string | null;
   match: Match;
 }
@@ -97,6 +99,42 @@ function KindChips({ counts }: { counts: CallLogRow["counts"] }) {
   );
 }
 
+function ExpandableText({
+  label,
+  text,
+  clampClass = "line-clamp-2",
+}: {
+  label: string;
+  text: string;
+  clampClass?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        className="flex items-center gap-1 text-xs font-medium text-foreground/80 hover:underline"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5" />
+        )}
+        {label}
+      </button>
+      <p
+        className={cn(
+          "mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground",
+          !open && clampClass,
+        )}
+      >
+        {text}
+      </p>
+    </div>
+  );
+}
+
 export function CallLogClient({
   rows,
   canWrite,
@@ -116,6 +154,13 @@ export function CallLogClient({
 
   function dismiss(key: string) {
     if (!canWrite) return;
+    if (
+      !window.confirm(
+        "Dismiss this number from the Call Log? Use this for spam or people who are not interested. It does not create a lead or client.",
+      )
+    ) {
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const res = await dismissPhoneNumber(key);
@@ -128,10 +173,7 @@ export function CallLogClient({
     });
   }
 
-  function triageHref(
-    mode: "lead" | "customer",
-    row: CallLogRow,
-  ): string {
+  function triageHref(mode: "lead" | "customer", row: CallLogRow): string {
     const params = new URLSearchParams();
     if (row.partyE164) params.set("phone", row.partyE164);
     if (row.leadMessage) params.set("message", row.leadMessage);
@@ -141,6 +183,12 @@ export function CallLogClient({
 
   return (
     <div>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Inbound Quo calls, voicemails, and texts (last 14 days). Unknown numbers
+        stay here until you triage — they never auto-create leads or clients.
+        Dismiss spam or solicitors.
+      </p>
+
       {error ? (
         <p className="mb-4 text-sm text-destructive" role="alert">
           {error}
@@ -152,8 +200,9 @@ export function CallLogClient({
           <Phone className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm font-medium">No calls or texts yet</p>
           <p className="max-w-sm text-xs text-muted-foreground">
-            As calls, voicemails and texts come into your Quo number, they show
-            up here for the last 14 days.
+            After Quo webhooks are registered and{" "}
+            <code className="text-[11px]">OP_WEBHOOK_SECRET</code> is set on
+            Vercel, new activity appears here.
           </p>
         </div>
       ) : (
@@ -161,7 +210,7 @@ export function CallLogClient({
           {visibleRows.map((row) => (
             <div
               key={row.key}
-              className="relative flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="relative flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -191,22 +240,30 @@ export function CallLogClient({
                 <div className="mt-2">
                   <KindChips counts={row.counts} />
                 </div>
-                {row.statusLine ? (
+                {row.statusLine && !row.smsPreview ? (
                   <p className="mt-1 text-xs text-muted-foreground">
                     {row.statusLine}
                   </p>
                 ) : null}
+                {row.smsPreview ? (
+                  <ExpandableText label="Text message" text={row.smsPreview} />
+                ) : null}
                 {row.summary ? (
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {row.summary}
-                  </p>
+                  <ExpandableText label="Call summary" text={row.summary} />
+                ) : null}
+                {row.transcript ? (
+                  <ExpandableText
+                    label="Transcript"
+                    text={row.transcript}
+                    clampClass="line-clamp-3"
+                  />
                 ) : null}
                 {row.latestRecordingUrl ? (
                   <a
                     href={row.latestRecordingUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 inline-block text-xs text-primary hover:underline"
+                    className="mt-1.5 inline-block text-xs text-primary hover:underline"
                   >
                     Recording
                   </a>
@@ -242,7 +299,7 @@ export function CallLogClient({
                       <ChevronDown className="ml-1 h-3.5 w-3.5" />
                     </Button>
                     {openMenu === row.key ? (
-                      <div className="absolute right-0 z-10 mt-1 w-44 rounded-md border border-border bg-popover p-1 shadow-md">
+                      <div className="absolute right-0 z-10 mt-1 w-48 rounded-md border border-border bg-popover p-1 shadow-md">
                         <Link
                           href={triageHref("lead", row)}
                           className="block rounded px-2 py-1.5 text-sm hover:bg-muted"
@@ -268,9 +325,10 @@ export function CallLogClient({
                     variant="ghost"
                     disabled={pending}
                     onClick={() => dismiss(row.key)}
-                    title="Dismiss"
+                    title="Dismiss (spam / not interested)"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="mr-1 h-4 w-4" />
+                    Dismiss
                   </Button>
                 ) : null}
               </div>

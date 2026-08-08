@@ -35,6 +35,7 @@ export default async function CallLogPage() {
     statusLine: g.statusLine,
     summary: g.summary,
     transcript: g.transcript,
+    smsPreview: g.smsPreview,
     latestRecordingUrl: g.latestRecordingUrl,
     match: g.match,
   }));
@@ -43,7 +44,7 @@ export default async function CallLogPage() {
     <div className="space-y-6">
       <PageHeader
         title="Call Log"
-        description="Inbound Quo calls, voicemails, and texts from the last 14 days. Triage unknown numbers into a lead or client."
+        description="Inbound Quo calls, voicemails, texts, and AI summaries. Unknown numbers stay here until you triage; dismiss spam without creating CRM records."
       />
       <CallLogClient rows={rows} canWrite={canWriteCrm(user)} />
     </div>

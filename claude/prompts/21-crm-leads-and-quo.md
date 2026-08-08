@@ -16,9 +16,9 @@ Lead inbox for website-ingested and manual leads, promote-to-customer, and Quo (
 | `/leads` | Active pipeline (Inquiry → Approved) |
 | `/leads/new` | Manual lead (Call Log triage prefills `?phone=&message=`) |
 | `/leads/archive` | Won / Lost / Disqualified |
-| `/leads/[id]` | Detail, status, notes, promote |
-| `/call-log` | Last 14 days PhoneEvents, dismiss, triage |
-| `POST /webhooks/openphone` | Public Quo webhook (HMAC; legacy URL Quo uses) |
+| `/leads/[id]` | Detail, status, notes, promote, delete |
+| `/call-log` | Last 14 days PhoneEvents, dismiss spam, triage |
+| `POST /webhooks/openphone` | Public Quo webhook (preferred URL) |
 | `POST /api/webhooks/openphone` | Same handler (alternate path) |
 
 Desktop-only. Capabilities: `crm.access` / `crm.write` / `crm.archive` (reuse).
@@ -27,21 +27,45 @@ Desktop-only. Capabilities: `crm.access` / `crm.write` / `crm.archive` (reuse).
 
 - `src/features/phone/` — webhook, payload parse, match-target, call-log queries/UI
 - `src/features/crm/` — lead list/detail actions, promote, schemas
-- `src/lib/openphone.ts`, `src/lib/phone-parse.ts`, `src/lib/phone-format.ts`
+- `src/lib/openphone.ts` — dual signature verify (Quo `whsec_` + legacy OpenPhone)
+- `src/lib/quo-api.ts` — register webhooks / fetch summaries
+- `src/lib/phone-parse.ts`, `src/lib/phone-format.ts`
+
+## Quo setup (required for Call Log)
+
+1. Deploy portal with dual signature verify + `/webhooks/openphone` public.
+2. Register webhooks (uses `OP_API_KEY`):
+
+```bash
+npm run register:quo-webhooks
+# optional smoke: npm run register:quo-webhooks -- --test message.received
+```
+
+3. Copy the printed `whsec_…` key to **Vercel** as `OP_WEBHOOK_SECRET` (or `OPENPHONE_WEBHOOK_SECRET`). Redeploy.
+4. Quo webhook URL: `https://portal.smokypeak.tech/webhooks/openphone`
+5. Events subscribed: `call.completed`, `call.missed`, `call.voicemail.completed`, `call.recording.completed`, `call.summary.completed`, `call.transcript.completed`, `message.received`.
+
+Signature schemes accepted:
+
+- **Current Quo:** headers `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,<base64>`) with `whsec_…` key ([docs](https://www.quo.com/docs/2026-03-30/webhooks-signature-validation))
+- **Legacy OpenPhone:** `openphone-signature` / `hmac;1;<ts>;<sig>`
 
 ## Env
 
-- `OPENPHONE_WEBHOOK_SECRET` (or `OP_WEBHOOK_SECRET`) — base64 signing key from Quo; comma-separated for multiple keys. Required in production on Vercel.
-- Quo webhook URL: `https://portal.smokypeak.tech/webhooks/openphone` (also `/api/webhooks/openphone`).
+- `OP_API_KEY` / `OPENPHONE_API_KEY` — register webhooks + optional summary enrich
+- `OP_PHONE_NUMBER` / `SERVICE_PHONE` — workspace number for PN matching
+- `OP_WEBHOOK_SECRET` / `OPENPHONE_WEBHOOK_SECRET` — `whsec_…` from register script (or legacy base64). Required in production on Vercel.
+- `OP_API_WEBHOOK_URL` — optional override for register script URL
 
 ## Non-goals
 
-- Outbound Quo SMS API, proposal nudges, AWS Lambda ingress cutover
-- Emergency circuit breaker / on-call payroll
+- Outbound Quo SMS send UI, proposal nudges, AWS Lambda ingress cutover
 - Auto PHONE Lead creation for unknown callers
+- Full historical backfill via list-calls (API requires known participant)
 - Quote / Job / Ticket from CRM
 
-## Tests
+## Tests / verify
 
-- `npm run test:phone` — payload + match helpers
-- `npm run test:schema-guard` after PII schema changes
+- `npm run test:phone` — payload + match + signature helpers
+- Deploy → register → set `whsec_` on Vercel → Quo test event → row on `/call-log`
+- Dismiss spam → gone; no Lead created

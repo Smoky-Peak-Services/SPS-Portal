@@ -25,6 +25,7 @@ export interface CallLogGroup {
   statusLine: string | null;
   summary: string | null;
   transcript: string | null;
+  smsPreview: string | null;
   latestRecordingUrl: string | null;
   match: CallLogMatch;
 }
@@ -32,9 +33,11 @@ export interface CallLogGroup {
 function buildLeadMessage(
   summary: string | null,
   transcript: string | null,
+  smsPreview: string | null,
 ): string | null {
   const parts: string[] = [];
   if (summary) parts.push(summary);
+  if (smsPreview) parts.push(`SMS: ${smsPreview}`);
   if (transcript) parts.push(`Transcript: ${transcript}`);
   return parts.length > 0 ? parts.join("\n\n") : null;
 }
@@ -72,18 +75,33 @@ export async function recentCallLog(): Promise<CallLogGroup[]> {
           ? formatPhoneDisplay(displayRaw)
           : "Unknown caller",
         partyE164,
-        leadMessage: buildLeadMessage(parsed.summary, parsed.transcript),
+        leadMessage: null,
         lastAt: e.occurredAt,
         total: 0,
         counts: { calls: 0, missed: 0, voicemails: 0, sms: 0 },
         statusLine: parsed.statusLine,
         summary: parsed.summary,
         transcript: parsed.transcript,
+        smsPreview: parsed.smsPreview,
         latestRecordingUrl: e.recordingUrl,
         match: null,
       };
       groups.set(key, g);
+    } else {
+      const parsed = parseCallBody(e.body);
+      // Events are newest-first; only fill fields still empty from older rows.
+      if (!g.statusLine && parsed.statusLine) g.statusLine = parsed.statusLine;
+      if (!g.summary && parsed.summary) g.summary = parsed.summary;
+      if (!g.transcript && parsed.transcript) g.transcript = parsed.transcript;
+      if (!g.smsPreview && parsed.smsPreview) g.smsPreview = parsed.smsPreview;
+      if (!g.latestRecordingUrl && e.recordingUrl)
+        g.latestRecordingUrl = e.recordingUrl;
     }
+    g.leadMessage = buildLeadMessage(
+      g.summary,
+      g.transcript,
+      g.smsPreview,
+    );
     g.total += 1;
     if (e.kind === "CALL") g.counts.calls += 1;
     else if (e.kind === "MISSED_CALL") g.counts.missed += 1;

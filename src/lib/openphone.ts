@@ -28,6 +28,15 @@ export function openPhoneWebhookSecret(): string {
   ).trim();
 }
 
+export type QuoWebhookHeaders = {
+  /** Legacy OpenPhone: hmac;1;<ts>;<sig> */
+  openphoneSignature?: string | null;
+  /** Quo 2026 Svix-style */
+  webhookId?: string | null;
+  webhookTimestamp?: string | null;
+  webhookSignature?: string | null;
+};
+
 function safeEq(a: string, b: string): boolean {
   try {
     const ba = Buffer.from(a);
@@ -38,29 +47,79 @@ function safeEq(a: string, b: string): boolean {
   }
 }
 
-/**
- * Verify an OpenPhone / Quo webhook signature.
- *
- * Header format: `hmac;1;<timestamp>;<base64sig>`. Signed data is
- * `<timestamp>.<body>`; signing key is base64-decoded from
- * OPENPHONE_WEBHOOK_SECRET ("Reveal signing secret" in Quo).
- *
- * If the secret is unset we accept only outside production (local dev).
- */
-export function verifyOpenPhoneSignature(
-  rawBody: string,
-  header: string | null,
-): boolean {
-  const secretRaw = openPhoneWebhookSecret();
-  if (!secretRaw) {
-    return process.env.NODE_ENV !== "production";
-  }
-  if (!header) return false;
-
-  const secrets = secretRaw
+function secretList(): string[] {
+  return openPhoneWebhookSecret()
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/** Decode a Quo whsec_… signing key to raw HMAC key bytes. */
+export function decodeWhsecKey(secret: string): Buffer | null {
+  const t = secret.trim();
+  if (!t.startsWith("whsec_")) return null;
+  try {
+    return Buffer.from(t.slice("whsec_".length), "base64");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Quo 2026 signature: HMAC-SHA256 over `{id}.{timestamp}.{rawBody}`,
+ * key = base64-decode(whsec_… remainder). Header: `v1,<base64>` entries.
+ */
+export function verifyQuoWhsecSignature(
+  rawBody: string,
+  webhookId: string | null | undefined,
+  webhookTimestamp: string | null | undefined,
+  webhookSignature: string | null | undefined,
+  secrets: string[] = secretList(),
+): boolean {
+  if (!webhookId || !webhookTimestamp || !webhookSignature) return false;
+
+  const ts = Number(webhookTimestamp);
+  if (!Number.isFinite(ts)) return false;
+  // Reject stale deliveries (replay protection); allow 5 minutes skew.
+  const skewSec = Math.abs(Math.floor(Date.now() / 1000) - ts);
+  if (skewSec > 5 * 60) return false;
+
+  const signed = `${webhookId}.${webhookTimestamp}.${rawBody}`;
+  const provided = webhookSignature
+    .split(" ")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const [ver, sig] = p.split(",", 2);
+      return ver === "v1" && sig ? sig : null;
+    })
+    .filter((s): s is string => !!s);
+
+  if (provided.length === 0) return false;
+
+  for (const secret of secrets) {
+    const key = decodeWhsecKey(secret);
+    if (!key) continue;
+    const computed = createHmac("sha256", key)
+      .update(signed, "utf8")
+      .digest("base64");
+    for (const sig of provided) {
+      if (safeEq(computed, sig)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Legacy OpenPhone header: `hmac;1;<timestamp>;<base64sig>`.
+ * Signed data is `<timestamp>.<body>`; key is base64-decoded secret.
+ */
+export function verifyLegacyOpenPhoneSignature(
+  rawBody: string,
+  header: string | null | undefined,
+  secrets: string[] = secretList(),
+): boolean {
+  if (!header) return false;
 
   const bodies = [rawBody];
   try {
@@ -70,6 +129,8 @@ export function verifyOpenPhoneSignature(
   }
 
   for (const secret of secrets) {
+    // Skip whsec_ secrets for legacy path (wrong encoding).
+    if (secret.startsWith("whsec_")) continue;
     const keyRaw = Buffer.from(secret, "base64");
     const keys = [keyRaw, Buffer.from(keyRaw.toString("binary"), "utf8")];
 
@@ -90,4 +151,43 @@ export function verifyOpenPhoneSignature(
     }
   }
   return false;
+}
+
+/**
+ * Verify Quo/OpenPhone webhook: accept either current whsec_ scheme or legacy
+ * openphone-signature. Unset secret accepts only outside production (local dev).
+ */
+export function verifyOpenPhoneSignature(
+  rawBody: string,
+  headers: QuoWebhookHeaders | string | null,
+): boolean {
+  const secretRaw = openPhoneWebhookSecret();
+  if (!secretRaw) {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  const h: QuoWebhookHeaders =
+    typeof headers === "string" || headers === null
+      ? { openphoneSignature: headers }
+      : headers;
+
+  const secrets = secretList();
+
+  if (
+    verifyQuoWhsecSignature(
+      rawBody,
+      h.webhookId,
+      h.webhookTimestamp,
+      h.webhookSignature,
+      secrets,
+    )
+  ) {
+    return true;
+  }
+
+  return verifyLegacyOpenPhoneSignature(
+    rawBody,
+    h.openphoneSignature ?? null,
+    secrets,
+  );
 }
