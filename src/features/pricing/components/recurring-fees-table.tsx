@@ -14,6 +14,7 @@ import {
   deleteRecurringFeeItem,
   updateRecurringFeeItem,
 } from "@/features/pricing/actions";
+import { CatalogEditRollup } from "@/components/patterns/catalog-edit-rollup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -328,54 +329,63 @@ function RecurringFeeEditCard({
     );
   }
 
-  return (
-    <form
-      onSubmit={onSubmit}
-      className="space-y-3 rounded-lg border border-border bg-card p-4"
-    >
-      <FeeFieldGrid
-        pending={pending}
-        feeType={feeType}
-        valueType={valueType}
-        defaultBillingCycle={row.billingCycle}
-        onFeeTypeChange={onFeeTypeChange}
-        onValueTypeChange={setValueType}
-        defaults={{
-          sku: row.sku,
-          description: row.description,
-          baseCost: row.baseCost.toString(),
-          directPurchaseRate: row.directPurchaseRate.toString(),
-          smaBundledRate: row.smaBundledRate.toString(),
-          notes: row.notes,
-          sortOrder: String(row.sortOrder),
-          isActive: row.isActive,
-          systemValueMin: row.systemValueMin?.toString() ?? "",
-          systemValueMax: row.systemValueMax?.toString() ?? "",
-        }}
-        showTierBounds={isTier}
-        showStoredHint
-      />
+const feeTypeLabel =
+    FEE_TYPES.find((t) => t.value === row.feeType)?.label ?? row.feeType;
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={pending} size="sm">
-          {pending ? "Saving…" : "Save"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pending}
-          onClick={onDelete}
-        >
-          Delete
-        </Button>
-        {error ? (
-          <span className="text-sm text-destructive" role="alert">
-            {error}
-          </span>
-        ) : null}
-      </div>
-    </form>
+  return (
+    <CatalogEditRollup
+      title={row.description}
+      meta={
+        <span className="font-mono">
+          {row.sku} · {feeTypeLabel} · {row.isActive ? "Active" : "Inactive"}
+        </span>
+      }
+    >
+      <form onSubmit={onSubmit} className="space-y-3">
+        <FeeFieldGrid
+          pending={pending}
+          feeType={feeType}
+          valueType={valueType}
+          defaultBillingCycle={row.billingCycle}
+          onFeeTypeChange={onFeeTypeChange}
+          onValueTypeChange={setValueType}
+          defaults={{
+            sku: row.sku,
+            description: row.description,
+            baseCost: row.baseCost.toString(),
+            directPurchaseRate: row.directPurchaseRate.toString(),
+            smaBundledRate: row.smaBundledRate.toString(),
+            notes: row.notes,
+            sortOrder: String(row.sortOrder),
+            isActive: row.isActive,
+            systemValueMin: row.systemValueMin?.toString() ?? "",
+            systemValueMax: row.systemValueMax?.toString() ?? "",
+          }}
+          showTierBounds={isTier}
+          showStoredHint
+        />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={pending} size="sm">
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={onDelete}
+          >
+            Delete
+          </Button>
+          {error ? (
+            <span className="text-sm text-destructive" role="alert">
+              {error}
+            </span>
+          ) : null}
+        </div>
+      </form>
+    </CatalogEditRollup>
   );
 }
 

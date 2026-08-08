@@ -7,6 +7,7 @@ import {
   deleteEquipment,
   updateEquipment,
 } from "@/features/equipment/actions";
+import { CatalogEditRollup } from "@/components/patterns/catalog-edit-rollup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -194,24 +195,42 @@ function EquipmentEditCard({
     });
   }
 
+const metaParts = [
+    row.sku ? `SKU ${row.sku}` : null,
+    row.unit ? row.unit : null,
+    !row.isActive ? "inactive" : null,
+  ].filter(Boolean);
+
+  if (!canWrite) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-4 text-sm">
+        <div className="font-medium">{row.name}</div>
+        {metaParts.length > 0 ? (
+          <div className="font-mono text-xs text-muted-foreground">
+            {metaParts.join(" · ")}
+          </div>
+        ) : null}
+        {row.notes ? (
+          <p className="mt-2 text-xs text-muted-foreground">{row.notes}</p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <form
-      onSubmit={onSave}
-      className="space-y-3 rounded-lg border border-border bg-card p-4"
+    <CatalogEditRollup
+      title={row.name}
+      meta={
+        metaParts.length > 0 ? (
+          <span className="font-mono">{metaParts.join(" · ")}</span>
+        ) : undefined
+      }
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-medium text-foreground">{row.name}</h3>
-          {row.sku ? (
-            <p className="text-xs text-muted-foreground">SKU {row.sku}</p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canWrite ? (
-            <Button type="submit" size="sm" disabled={pending}>
-              {pending ? "Saving…" : "Save"}
-            </Button>
-          ) : null}
+      <form onSubmit={onSave} className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
           {canDelete ? (
             <Button
               type="button"
@@ -224,22 +243,21 @@ function EquipmentEditCard({
             </Button>
           ) : null}
         </div>
-      </div>
-      <EquipmentFields
-        pending={pending || !canWrite}
-        defaults={{
-          name: row.name,
-          sku: row.sku ?? "",
-          unit: row.unit ?? "",
-          supplier: row.supplier ?? "",
-          notes: row.notes ?? "",
-          sortOrder: String(row.sortOrder),
-          isActive: row.isActive,
-        }}
-        readOnly={!canWrite}
-      />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-    </form>
+        <EquipmentFields
+          pending={pending}
+          defaults={{
+            name: row.name,
+            sku: row.sku ?? "",
+            unit: row.unit ?? "",
+            supplier: row.supplier ?? "",
+            notes: row.notes ?? "",
+            sortOrder: String(row.sortOrder),
+            isActive: row.isActive,
+          }}
+        />
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </form>
+    </CatalogEditRollup>
   );
 }
 

@@ -8,6 +8,7 @@ import type {
 } from "@prisma/client";
 import { updateComplexityMultiplier } from "@/features/pricing/actions";
 import { AFTER_HOURS_COMPLEXITY_SLUG } from "@/features/pricing/is-com-complexity";
+import { CatalogEditRollup } from "@/components/patterns/catalog-edit-rollup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -136,98 +137,107 @@ function ComplexityEditCard({
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="space-y-3 rounded-lg border border-border bg-card p-4"
+    <CatalogEditRollup
+      title={row.category}
+      meta={
+        <span className="font-mono">
+          {appliedToLabel(row.appliedTo)} · {row.multiplierType} ·{" "}
+          {formatValue(row)}
+          {!row.isActive ? " · inactive" : ""}
+          {isAfterHours ? " · stacks with AFTER_HOURS rate type" : ""}
+        </span>
+      }
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          name="name"
-          defaultValue={row.name}
-          disabled={pending}
-          required
-          className="min-w-[12rem] flex-1"
-        />
-        <Input
-          name="category"
-          defaultValue={row.category}
-          disabled={pending}
-          required
-          className="w-40"
-          title="Free-text category (e.g. Structural, Amenity)"
-        />
-        <select
-          name="multiplierType"
-          defaultValue={row.multiplierType}
-          disabled={pending}
-          className="flex h-9 rounded-md border border-input bg-background px-2 text-sm"
-        >
-          <option value="PERCENT">Percent</option>
-          <option value="FIXED">Fixed $</option>
-        </select>
-        <select
-          name="appliedTo"
-          defaultValue={row.appliedTo}
-          disabled={pending}
-          className="flex h-9 rounded-md border border-input bg-background px-2 text-sm"
-        >
-          {APPLIED_TO_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <Input
-          name="value"
-          type="number"
-          step="0.0001"
-          min="0"
-          defaultValue={row.value.toString()}
-          disabled={pending}
-          required
-          className="w-28"
-          title="Percent rows: decimal rate (0.08 = 8%). Fixed rows: dollars."
-        />
-        <Input
-          name="sortOrder"
-          type="number"
-          step="1"
-          defaultValue={row.sortOrder}
-          disabled={pending}
-          required
-          className="w-20"
-        />
-        <label className="flex items-center gap-1.5 text-xs">
-          <input
-            type="checkbox"
-            name="isActive"
-            defaultChecked={row.isActive}
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            name="name"
+            defaultValue={row.name}
             disabled={pending}
+            required
+            className="min-w-[12rem] flex-1"
           />
-          Active
-        </label>
-        <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "…" : "Save"}
-        </Button>
-      </div>
-      <div className="font-mono text-xs text-muted-foreground">
-        {row.slug} · currently {formatValue(row)} on{" "}
-        {appliedToLabel(row.appliedTo)}
-        {isAfterHours ? " · stacks with AFTER_HOURS rate type" : ""}
-      </div>
-      <textarea
-        name="description"
-        defaultValue={row.description}
-        disabled={pending}
-        required
-        rows={3}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
-      />
-      {error ? (
-        <p className="text-xs text-red-700" role="alert">
-          {error}
-        </p>
-      ) : null}
-    </form>
+          <Input
+            name="category"
+            defaultValue={row.category}
+            disabled={pending}
+            required
+            className="w-40"
+            title="Free-text category (e.g. Structural, Amenity)"
+          />
+          <select
+            name="multiplierType"
+            defaultValue={row.multiplierType}
+            disabled={pending}
+            className="flex h-9 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="PERCENT">Percent</option>
+            <option value="FIXED">Fixed $</option>
+          </select>
+          <select
+            name="appliedTo"
+            defaultValue={row.appliedTo}
+            disabled={pending}
+            className="flex h-9 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {APPLIED_TO_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <Input
+            name="value"
+            type="number"
+            step="0.0001"
+            min="0"
+            defaultValue={row.value.toString()}
+            disabled={pending}
+            required
+            className="w-28"
+            title="Percent rows: decimal rate (0.08 = 8%). Fixed rows: dollars."
+          />
+          <Input
+            name="sortOrder"
+            type="number"
+            step="1"
+            defaultValue={row.sortOrder}
+            disabled={pending}
+            required
+            className="w-20"
+          />
+          <label className="flex items-center gap-1.5 text-xs">
+            <input
+              type="checkbox"
+              name="isActive"
+              defaultChecked={row.isActive}
+              disabled={pending}
+            />
+            Active
+          </label>
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "…" : "Save"}
+          </Button>
+        </div>
+        <div className="font-mono text-xs text-muted-foreground">
+          {row.slug} · currently {formatValue(row)} on{" "}
+          {appliedToLabel(row.appliedTo)}
+          {isAfterHours ? " · stacks with AFTER_HOURS rate type" : ""}
+        </div>
+        <textarea
+          name="description"
+          defaultValue={row.description}
+          disabled={pending}
+          required
+          rows={3}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+        />
+        {error ? (
+          <p className="text-xs text-red-700" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </form>
+    </CatalogEditRollup>
   );
 }

@@ -8,6 +8,7 @@ import {
   updateConsumable,
 } from "@/features/consumables/actions";
 import { sellPriceFrom } from "@/features/consumables/schemas";
+import { CatalogEditRollup } from "@/components/patterns/catalog-edit-rollup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -295,63 +296,71 @@ function ConsumableEditCard({
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="space-y-3 rounded-lg border border-border bg-card p-4"
+    <CatalogEditRollup
+      title={row.description}
+      meta={
+        <span className="font-mono">
+          {row.sku}
+          {row.unit ? ` · ${row.unit}` : ""}
+          {!row.isActive ? " · inactive" : ""}
+        </span>
+      }
     >
-      <ConsumableFields
-        pending={pending}
-        isMarketRate={isMarketRate}
-        onMarketRateChange={setIsMarketRate}
-        defaults={{
-          description: row.description,
-          sku: row.sku,
-          category: row.category ?? "",
-          manufacturer: row.manufacturer ?? "",
-          partNumber: row.partNumber ?? "",
-          unit: row.unit,
-          wasteFactorPct: row.wasteFactorPct.toString(),
-          baseCost: row.baseCost?.toString() ?? "",
-          markupPct: row.markupPct.toString(),
-          laborUnits: row.laborUnits.toString(),
-          supplier: row.supplier ?? "",
-          notes: row.notes ?? "",
-          sortOrder: String(row.sortOrder),
-          isActive: row.isActive,
-        }}
-      />
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span>
-          Sell (derived from saved values):{" "}
-          {row.isMarketRate ? "Market rate" : money(sell)}
-        </span>
-        <span>
-          Labor (derived): {money(blendedLaborRate)}/hr · cost{" "}
-          {money(laborCost)} (units × blended rate)
-        </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Saving…" : "Save"}
-        </Button>
-        {canDelete ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={onDelete}
-          >
-            Delete
-          </Button>
-        ) : null}
-        {error ? (
-          <span className="text-sm text-destructive" role="alert">
-            {error}
+      <form onSubmit={onSubmit} className="space-y-3">
+        <ConsumableFields
+          pending={pending}
+          isMarketRate={isMarketRate}
+          onMarketRateChange={setIsMarketRate}
+          defaults={{
+            description: row.description,
+            sku: row.sku,
+            category: row.category ?? "",
+            manufacturer: row.manufacturer ?? "",
+            partNumber: row.partNumber ?? "",
+            unit: row.unit,
+            wasteFactorPct: row.wasteFactorPct.toString(),
+            baseCost: row.baseCost?.toString() ?? "",
+            markupPct: row.markupPct.toString(),
+            laborUnits: row.laborUnits.toString(),
+            supplier: row.supplier ?? "",
+            notes: row.notes ?? "",
+            sortOrder: String(row.sortOrder),
+            isActive: row.isActive,
+          }}
+        />
+        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <span>
+            Sell (derived from saved values):{" "}
+            {row.isMarketRate ? "Market rate" : money(sell)}
           </span>
-        ) : null}
-      </div>
-    </form>
+          <span>
+            Labor (derived): {money(blendedLaborRate)}/hr · cost{" "}
+            {money(laborCost)} (units × blended rate)
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          {canDelete ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={onDelete}
+            >
+              Delete
+            </Button>
+          ) : null}
+          {error ? (
+            <span className="text-sm text-destructive" role="alert">
+              {error}
+            </span>
+          ) : null}
+        </div>
+      </form>
+    </CatalogEditRollup>
   );
 }
 
