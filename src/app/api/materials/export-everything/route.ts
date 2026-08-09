@@ -17,15 +17,8 @@ import {
   type CatalogScopeExport,
 } from "@/features/materials/export-everything";
 import { scopeCodeFor } from "@/features/materials/scope-code";
+import { todayStampInCompanyTz } from "@/lib/datetime";
 import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
-
-function todayStamp(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -267,7 +260,7 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="materials_everything_${todayStamp()}.xlsx"`,
+      "Content-Disposition": `attachment; filename="materials_everything_${todayStampInCompanyTz()}.xlsx"`,
       "Cache-Control": "no-store",
     },
   });

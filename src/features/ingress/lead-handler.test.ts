@@ -5,7 +5,9 @@ import {
   normalizeLeadBody,
   peelLegacyMessage,
   resolveCompany,
+  resolveIngestDivisionSlug,
 } from "./lead-handler";
+import { company } from "@/config/company";
 
 describe("resolveCompany", () => {
   it("defaults blank to Residential", () => {
@@ -59,5 +61,26 @@ describe("normalizeLeadBody", () => {
     }) as Record<string, unknown>;
     assert.equal(out.division, "Parent company / general inquiry");
     assert.equal(out.message, "Call me");
+  });
+});
+
+describe("resolveIngestDivisionSlug", () => {
+  it("routes empty string to the CRM default division", () => {
+    assert.equal(
+      resolveIngestDivisionSlug(""),
+      company.crm.defaultLeadDivisionSlug,
+    );
+    assert.equal(
+      resolveIngestDivisionSlug("   "),
+      company.crm.defaultLeadDivisionSlug,
+    );
+    assert.equal(
+      resolveIngestDivisionSlug(undefined),
+      company.crm.defaultLeadDivisionSlug,
+    );
+  });
+
+  it("keeps a provided slug", () => {
+    assert.equal(resolveIngestDivisionSlug("cabin-services"), "cabin-services");
   });
 });

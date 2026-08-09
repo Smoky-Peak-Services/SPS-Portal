@@ -87,8 +87,10 @@ export function AddressAutocomplete({
   const focusedRef = useRef(false);
   const regionRef = useRef(v.region);
   const valuesRef = useRef(v);
-  regionRef.current = v.region;
-  valuesRef.current = v;
+  useEffect(() => {
+    regionRef.current = v.region;
+    valuesRef.current = v;
+  }, [v]);
 
   const stateReady = isUsRegionCode(v.region);
   const showDropdown =
@@ -307,7 +309,7 @@ export function AddressAutocomplete({
             name={names.line1}
             required={required}
             autoComplete="off"
-            disabled={!stateReady}
+            readOnly={!stateReady}
             value={v.line1}
             onChange={(e) => queryLine1(e.target.value)}
             onFocus={() => {
@@ -377,7 +379,7 @@ export function AddressAutocomplete({
         <Input
           id={names.line2}
           name={names.line2}
-          disabled={!stateReady}
+          readOnly={!stateReady}
           value={v.line2}
           onChange={(e) => setV((p) => ({ ...p, line2: e.target.value }))}
           placeholder="Apt, suite, floor"
@@ -391,7 +393,7 @@ export function AddressAutocomplete({
             id={names.city}
             name={names.city}
             required={required}
-            disabled={!stateReady}
+            readOnly={!stateReady}
             value={v.city}
             onChange={(e) => {
               setLowConfidence(false);
@@ -412,7 +414,7 @@ export function AddressAutocomplete({
             id={names.postal}
             name={names.postal}
             required={required}
-            disabled={!stateReady}
+            readOnly={!stateReady}
             value={v.postal}
             onChange={(e) => {
               setLowConfidence(false);

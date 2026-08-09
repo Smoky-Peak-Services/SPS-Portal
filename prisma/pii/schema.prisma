@@ -136,6 +136,7 @@ model Customer {
   @@index([displayName])
   @@index([divisionId])
   @@index([archivedAt])
+  @@index([archivedAt, displayName])
   @@map("customer")
 }
 
@@ -174,6 +175,8 @@ model Contact {
   lastName    String?
   directEmail String?
   directPhone String?
+  /// Last 10 digits of directPhone, normalized. Written by the app, never by hand.
+  directPhoneNat String?
   roleTag     ContactRoleTag?
   isPrimary   Boolean         @default(false)
   isBilling   Boolean         @default(false)
@@ -182,6 +185,7 @@ model Contact {
   updatedAt   DateTime        @updatedAt
 
   @@index([customerId])
+  @@index([directPhoneNat])
   @@map("contact")
 }
 
@@ -222,13 +226,17 @@ model Lead {
   company     String?
   email       String?
   phone       String?
+  /// Last 10 digits of phone, normalized. Written by the app, never by hand.
+  phoneNat    String?
   message     String?
   timeline    String?
   budget      String?
   source      LeadSource @default(WEBSITE)
   status      LeadStatus @default(INQUIRY)
-  customerId  String?
+  customerId  String?    @unique
   customer    Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  /// Optional ingest idempotency key (marketing form / CDN retries).
+  externalId  String?    @unique
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   closedAt    DateTime?
@@ -240,7 +248,8 @@ model Lead {
   @@index([divisionId])
   @@index([status])
   @@index([email])
-  @@index([customerId])
+  @@index([phoneNat])
+  @@index([status, updatedAt])
   @@map("lead")
 }
 
@@ -252,8 +261,10 @@ model Activity {
   /// OpenPhone/Quo message or call id — unique so lifecycle events merge onto one row.
   externalId        String?          @unique
   leadId            String?
-  lead              Lead?            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  /// SetNull so lead archive/purge cannot wipe a promoted customer's activity trail.
+  lead              Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
   customerId        String?
+  /// Cascade: deleting a customer intentionally removes their activity history.
   customer          Customer?        @relation(fields: [customerId], references: [id], onDelete: Cascade)
   contactId         String?
   contact           Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -266,6 +277,8 @@ model Activity {
   @@index([customerId])
   @@index([contactId])
   @@index([serviceLocationId])
+  @@index([customerId, createdAt])
+  @@index([leadId, createdAt])
   @@map("activity")
 }
 
@@ -286,6 +299,7 @@ model PhoneEvent {
 
   @@index([occurredAt])
   @@index([partyNat])
+  @@index([dismissed, occurredAt])
   @@map("phone_event")
 }
 

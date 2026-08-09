@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
-import { requireArea } from "@/lib/session";
 import { listDivisionsForMaterials } from "@/features/materials/actions";
 import { getActiveScope } from "@/features/scope/get-active-scope";
 import { AttributeForm } from "@/features/materials/components/attribute-form";
@@ -14,7 +13,6 @@ export default async function NewAttributePage({
   searchParams: Promise<{ divisionId?: string; segment?: string }>;
 }) {
   await requireDesktopSurface("/materials/attributes/new");
-  await requireArea("materials");
   const { divisionId, segment } = await getActiveScope(await searchParams);
   const divisions = await listDivisionsForMaterials();
 

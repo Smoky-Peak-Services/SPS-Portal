@@ -14,6 +14,7 @@ import { Panel } from "@/components/patterns/panel";
 import { EmptyState } from "@/components/patterns/empty-state";
 import { Button } from "@/components/ui/button";
 import { formatPhoneDisplay } from "@/lib/phone-format";
+import { formatInCompanyTz } from "@/lib/datetime";
 
 export default async function LeadDetailPage({
   params,
@@ -130,7 +131,9 @@ export default async function LeadDetailPage({
                 >
                   <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span>{a.type}</span>
-                    <span>{a.createdAt.toLocaleString()}</span>
+                    <span>
+                      {formatInCompanyTz(a.createdAt, "MMM d, yyyy h:mm a")}
+                    </span>
                   </div>
                   {a.body ? (
                     <p className="mt-1 whitespace-pre-wrap">{a.body}</p>

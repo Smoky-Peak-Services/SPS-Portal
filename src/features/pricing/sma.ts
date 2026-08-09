@@ -1,19 +1,6 @@
 /**
  * Module A — annual SMA engine (prompt 11).
- *
- * Total Annual SMA Price = Base Rate + System Value Modifier
- *
- * Bank of Hours (pre-purchased discounted service hours) is deferred — not
- * priced here until that catalog piece is rebuilt.
- *
- * SVM is applied to systemMaterialValue (material value only) — never total
- * project value including labor.
- *
- * SMA and monthly services are separate code paths; this module never prices
- * MONTHLY_SERVICE rows.
- *
- * purchaseType (DIRECT | SMA_BUNDLED) selects both the base-tier column and the
- * SVM % together.
+ * Decimal internals; round once on SVM amount and document total.
  */
 import {
   calculateAnnualSmaPriceInputSchema,
@@ -22,7 +9,7 @@ import {
   type SmaSvmInput,
 } from "./schemas";
 import { selectSmaBaseTier } from "./sma-tier";
-import { roundMoney } from "./rate-for";
+import { roundMoneyDecimal, toDecimal } from "./rate-for";
 
 export { selectSmaBaseTier } from "./sma-tier";
 
@@ -66,10 +53,10 @@ export function calculateAnnualSmaPrice(raw: {
     input.svm.directPurchaseRate,
     input.svm.smaBundledRate,
   );
-  // SVM on material value only — never include labor in the basis.
-  const svmAmount = roundMoney(input.systemMaterialValue * svmPct);
-
-  const total = roundMoney(baseRate + svmAmount);
+  const svmAmount = roundMoneyDecimal(
+    toDecimal(input.systemMaterialValue).mul(svmPct),
+  ).toNumber();
+  const total = roundMoneyDecimal(toDecimal(baseRate).add(svmAmount)).toNumber();
 
   return {
     purchaseType: input.purchaseType,

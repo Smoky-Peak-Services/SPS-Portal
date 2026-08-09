@@ -17,6 +17,7 @@ export function positionsToQuotedInput(
     | "afterHoursRate"
     | "holidayRate"
     | "actualCostOfLabor"
+    | "discountedRate"
   >[],
 ): QuotedLaborPositionInput[] {
   return positions.map((p) => ({
@@ -28,6 +29,8 @@ export function positionsToQuotedInput(
     afterHoursRate: Number(p.afterHoursRate),
     holidayRate: Number(p.holidayRate),
     actualCostOfLabor: Number(p.actualCostOfLabor),
+    discountedRate:
+      p.discountedRate == null ? null : Number(p.discountedRate),
   }));
 }
 

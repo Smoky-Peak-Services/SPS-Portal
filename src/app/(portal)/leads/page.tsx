@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireDesktopSurface } from "@/lib/require-desktop";
 import { requireArea } from "@/lib/session";
 import { isPiiConfigured } from "@/lib/prisma-pii";
-import { listCrmDivisions, listLeads } from "@/features/crm/queries";
+import { listCrmDivisions, listLeadBoard } from "@/features/crm/queries";
 import { canWriteCrm } from "@/features/crm/authz";
 import { LeadsFilterBar } from "@/features/crm/components/leads-filter-bar";
 import { LeadStatusSelect } from "@/features/crm/components/lead-status-select";
@@ -43,15 +43,15 @@ export default async function LeadsPage({
     );
   }
 
-  const [divisions, leads] = await Promise.all([
+  const [divisions, board] = await Promise.all([
     listCrmDivisions(),
-    listLeads({
+    listLeadBoard({
       q: sp.q,
       divisionId: sp.divisionId,
-      scope: "active",
     }),
   ]);
   const canWrite = canWriteCrm(user);
+  const totalOpen = COLUMNS.reduce((n, col) => n + board.counts[col], 0);
 
   return (
     <div className="space-y-6">
@@ -78,7 +78,7 @@ export default async function LeadsPage({
         divisionId={sp.divisionId}
       />
 
-      {leads.length === 0 ? (
+      {totalOpen === 0 ? (
         <EmptyState
           title="No open leads"
           description="Website form submissions and manually created leads appear here."
@@ -86,7 +86,8 @@ export default async function LeadsPage({
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {COLUMNS.map((col) => {
-            const items = leads.filter((l) => l.status === col);
+            const items = board.columns[col];
+            const count = board.counts[col];
             return (
               <div
                 key={col}
@@ -94,7 +95,7 @@ export default async function LeadsPage({
               >
                 <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <span>{LABELS[col]}</span>
-                  <span>{items.length}</span>
+                  <span>{count}</span>
                 </div>
                 <div className="space-y-2">
                   {items.map((lead) => (
@@ -129,6 +130,11 @@ export default async function LeadsPage({
                       ) : null}
                     </div>
                   ))}
+                  {count > items.length ? (
+                    <p className="text-xs text-muted-foreground">
+                      Showing {items.length} of {count}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             );

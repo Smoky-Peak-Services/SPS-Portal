@@ -18,6 +18,7 @@ export default async function ClientsPage({
     q?: string;
     divisionId?: string;
     type?: string;
+    cursor?: string;
   }>;
 }) {
   await requireDesktopSurface("/clients");
@@ -39,16 +40,27 @@ export default async function ClientsPage({
     );
   }
 
-  const [divisions, customers] = await Promise.all([
+  const [divisions, { rows: customers, nextCursor }] = await Promise.all([
     listCrmDivisions(),
     listCustomers({
       q: sp.q,
       divisionId: sp.divisionId,
       type,
       archived: false,
+      cursor: sp.cursor,
     }),
   ]);
   const canWrite = canWriteCrm(user);
+
+  const nextHref = (() => {
+    if (!nextCursor) return null;
+    const params = new URLSearchParams();
+    if (sp.q) params.set("q", sp.q);
+    if (sp.divisionId) params.set("divisionId", sp.divisionId);
+    if (sp.type) params.set("type", sp.type);
+    params.set("cursor", nextCursor);
+    return `/clients?${params.toString()}`;
+  })();
 
   return (
     <div className="space-y-6">
@@ -89,46 +101,55 @@ export default async function ClientsPage({
           }
         />
       ) : (
-        <DataTableShell>
-          <table className="w-full text-left text-sm">
-            <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Division</th>
-                <th className="px-4 py-3">Contacts</th>
-                <th className="px-4 py-3">Sites</th>
-                <th className="px-4 py-3">Billing</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((c) => (
-                <tr key={c.id} className="border-b border-border/60">
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/clients/${c.id}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {c.displayName}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">
-                      {c.mainPhone || c.generalEmail || "—"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">{c.type}</td>
-                  <td className="px-4 py-3">{c.division.name}</td>
-                  <td className="px-4 py-3">{c._count.contacts}</td>
-                  <td className="px-4 py-3">{c._count.serviceLocations}</td>
-                  <td className="px-4 py-3">
-                    {c.billingProfile && isBillingComplete(c.billingProfile)
-                      ? "Complete"
-                      : "Incomplete"}
-                  </td>
+        <>
+          <DataTableShell>
+            <table className="w-full text-left text-sm">
+              <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Division</th>
+                  <th className="px-4 py-3">Contacts</th>
+                  <th className="px-4 py-3">Sites</th>
+                  <th className="px-4 py-3">Billing</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </DataTableShell>
+              </thead>
+              <tbody>
+                {customers.map((c) => (
+                  <tr key={c.id} className="border-b border-border/60">
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/clients/${c.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {c.displayName}
+                      </Link>
+                      <div className="text-xs text-muted-foreground">
+                        {c.mainPhone || c.generalEmail || "—"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">{c.type}</td>
+                    <td className="px-4 py-3">{c.division.name}</td>
+                    <td className="px-4 py-3">{c._count.contacts}</td>
+                    <td className="px-4 py-3">{c._count.serviceLocations}</td>
+                    <td className="px-4 py-3">
+                      {c.billingProfile && isBillingComplete(c.billingProfile)
+                        ? "Complete"
+                        : "Incomplete"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </DataTableShell>
+          {nextHref ? (
+            <div className="flex justify-end">
+              <Button asChild variant="outline">
+                <Link href={nextHref}>Next page</Link>
+              </Button>
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   );

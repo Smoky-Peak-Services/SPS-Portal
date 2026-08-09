@@ -89,8 +89,8 @@ What's actually here, in `src/`, post-reset (§2a) plus materials catalog:
 - **`config/`** — `company.ts` (company/division/feature-flag source of truth) and `permissions.ts` (roles + area access rules).
 - **`proxy.ts`** — the edge auth gate. This repo's equivalent of `middleware.ts` (Next 16 naming). Checks only for a session cookie's presence and redirects to `/sign-in`; it does not check roles. Update `PUBLIC_PREFIXES` here when adding a new unauthenticated route (e.g. a new public API endpoint).
 - **`components/ui/`** — shadcn primitives (`components.json`, dark tokens in `globals.css`). Prefer these over ad-hoc markup.
-- **`components/layout/`** — `AppLogo`, `AppSidebar`, `AppHeader` (portal chrome).
-- **`components/patterns/`** — reusable page building blocks: `PageHeader`, `Panel`, `MetricCard`, `DataTableShell`, `SectionTabs`, `StatusBadge`, `EmptyState`. Use these before inventing new page chrome. Portal `<main>` content is one `max-w-7xl` column via `PortalShell`.
+- **`components/layout/`** — `AppLogo`, `AppSidebar` (portal chrome).
+- **`components/patterns/`** — reusable page building blocks: `PageHeader`, `Panel`, `MetricCard`, `DataTableShell`, `SectionTabs`, `StatusBadge` (kept for quoting), `EmptyState`. Use these before inventing new page chrome. Portal `<main>` content is one `max-w-7xl` column via `PortalShell`.
 - **Theme:** dark-only (`html.dark`). Brand assets in `public/brand/` (mark, logo-dark, PWA icons). Colors: teal/cyan primary — not purple.
 
 **Nav (prompt 12 + 20 + 21):** Operations has Dashboard, **Leads** (`/leads`), **Call Log** (`/call-log`), **Clients** (`/clients`), **Catalog** (`/materials`), **Rates** (`/pricing`). Each of Catalog and Rates uses a single horizontal `SectionTabs` strip in the segment `layout.tsx` (no accordions, no third nesting level). Catalog tabs: Materials · Recurring Fees · Catalog I/O · Consumables (`/materials/consumables`) · Equipment & Tools (`/materials/equipment`). Rates tabs: Labor Rates · Complexity Multipliers. Recurring fees live at `/materials/recurring` visually under Catalog but still gate with `requireArea("pricing")`. Clients profile tabs: Root Org · Billing · Contacts · Locations · Activity.
@@ -218,6 +218,15 @@ Specialized equipment, rentals, lifts — shared by a division (IS Commercial an
 - **No seed**, no Excel IO, no labor/tax/attributes, no quote consumption yet.
 - Tests: `npm run test:equipment`.
 
+### Money scale (prompt 25)
+
+Pricing engines use `Decimal` internally (`@prisma/client/runtime/library`). Round **once** at persist or display boundaries — not at every intermediate accumulation. Convention for future quote lines:
+
+- **Line-level** unit and extended amounts: `Decimal(14,4)`
+- **Document-level** totals: `Decimal(12,2)`
+
+Catalog storage today may still use `Decimal(12,2)` (labor/plans) or `Decimal(12,4)` (recurring/consumables); quote snapshots adopt the convention above when that schema lands. `LaborRateType` includes `DISCOUNTED` (Cabin `discountedRate` / `discountedMultiplier`).
+
 ### Pricing — labor rates (prompt 09, generalized in 14)
 
 Feature code: `src/features/pricing/`. Admin UI: `/pricing/labor-rates` (desktop-only, `requireArea("pricing")` → `pricing.access`; edits need `pricing.write`).
@@ -277,7 +286,7 @@ Better Auth (`src/lib/auth.ts`) handles sign-in only — invite-only, no public 
 **Capabilities (not hard-coded role lists)** gate access. Catalog: `src/config/capabilities.ts`. Persisted matrix: `RoleCapability` + optional `UserCapabilityOverride` (`ALLOW` / `DENY`; deny wins). Seed with `seedCapabilities` (also via `db:seed`). Admins edit `/settings/permissions` and `/settings/users`.
 
 - `requireUser()` resolves `SessionUser.capabilities`.
-- `requireArea(area)` / `canAccess(user, area)` check `{area}.access` (settings = permissions or users manage). Areas include `dashboard`, `materials`, `pricing`, `crm`, `settings`.
+- `requireArea(area)` / `canAccess(user, area)` check `{area}.access` (settings = permissions or users manage). Areas include `materials`, `pricing`, `crm`, `settings`. The dashboard (`/`) is signed-in-only (`requireUser()`); there is no `dashboard.access` capability. `defaultRouteForRole` still returns `"/"`.
 - `requireCapability` / `assertCapability` for action-level gates (see `src/features/materials/authz.ts`; pricing write = `pricing.write`).
 - Do not authorize with `user.role === "admin"` — use capabilities such as `materials.force_delete`.
 
@@ -285,7 +294,7 @@ Every Server Action must call `requireUser` / `requireArea` / `requireCapability
 
 `proxy.ts` only checks session cookie presence.
 
-`Invitation` still models invite-only flow. `canInvite(actorRole, targetRole)` governs who can invite whom.
+The invite flow is **not built yet**. The `Invitation` model and `/accept-invite` public route exist as scaffolding; `canInvite` / `INVITABLE_ROLES` in `permissions.ts` have no call sites. New Better Auth users default to `field_tech` (not `power_user`).
 
 ---
 
@@ -317,7 +326,23 @@ Four files, four purposes (see `README.md` for the full table):
 - `.env.vercel.example` — key-name template, safe to commit.
 - `.env.example` — documented key names, safe to commit.
 
-Key naming: `OPS_DATABASE_URL`/`OPS_DIRECT_URL` (ops DB), `PII_DATABASE_URL`/`PII_DIRECT_URL` (PII DB, local/seed/migrate only), `CLIENT_DB_SECRET_ARN`/`AWS_ROLE_ARN`/`AWS_REGION` (Vercel portal → Secrets Manager for PII; reuse original portal ARNs), `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`, `INGEST_SERVER_SECRET` (optional shared secret for the lead-ingest endpoint), `SEED_ADMIN_*` (local seed only). Never invent a new env var name without checking `.env.example` first — the naming convention (`OPS_` / `PII_` prefix) is how the two-database split stays legible in config.
+Key naming (check `.env.example` before inventing new names):
+
+| Var | Purpose |
+| --- | --- |
+| `OPS_DATABASE_URL` / `OPS_DIRECT_URL` | Ops DB |
+| `PII_DATABASE_URL` / `PII_DIRECT_URL` | PII DB (local / seed / migrate only) |
+| `CLIENT_DB_SECRET_ARN` / `AWS_ROLE_ARN` / `AWS_REGION` | Vercel portal → Secrets Manager for PII |
+| `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` | Better Auth |
+| `NEXT_PUBLIC_APP_URL` | Public app origin (client-safe) |
+| `NEXT_PUBLIC_SESSION_IDLE_MINUTES` | Client idle timeout; default 45; must stay below Better Auth `expiresIn` |
+| `INGEST_SERVER_SECRET` | Optional shared secret for lead ingest |
+| `GEOAPIFY_API_KEY` | Address autocomplete / static maps (server-only) |
+| `OPENPHONE_API_KEY` | Quo/OpenPhone REST (canonical). Alias: `OP_API_KEY` (deprecated) |
+| `OPENPHONE_WEBHOOK_SECRET` | Webhook HMAC / `whsec_` (canonical). Alias: `OP_WEBHOOK_SECRET` (deprecated; still preferred when both are set so a fresh Quo key is not shadowed) |
+| `SERVICE_PHONE` | Workspace phone for Quo helpers (canonical). Alias: `OP_PHONE_NUMBER` (deprecated) |
+| `SEED_ADMIN_*` | Local seed only |
+| `ALLOW_UNSIGNED_QUO_WEBHOOKS` | Local unsigned webhook testing only; never on Vercel |
 
 Secrets never live in code or get committed in an env file. Production PII connection strings live in AWS Secrets Manager (`sps/clients-db/*`); the portal only stores the ARN and assumes `AWS_ROLE_ARN` via Vercel OIDC.
 
@@ -331,7 +356,8 @@ npm run build                # prisma generate (both schemas) + next build
 npm run typecheck            # tsc --noEmit
 npm run lint                 # eslint
 npm run format                # prettier --write .
-npm run test:schema-guard    # ops/PII boundary guard — run after touching either schema
+npm test                     # all `src/**/*.test.ts` (includes validation + schema-guard)
+npm run test:schema-guard    # ops/PII boundary guard only — run after touching either schema
 
 npm run db:generate          # prisma generate, ops schema
 npm run db:generate:pii      # prisma generate, pii schema

@@ -1,4 +1,4 @@
-import { requireCapability, requireUser, type SessionUser } from "@/lib/session";
+import { requireCapability, type SessionUser } from "@/lib/session";
 import { userCan } from "@/config/permissions";
 
 export async function requireCrmAccess(): Promise<SessionUser> {
@@ -6,12 +6,10 @@ export async function requireCrmAccess(): Promise<SessionUser> {
 }
 
 export async function requireCrmWrite(): Promise<SessionUser> {
-  await requireUser();
   return requireCapability("crm.write");
 }
 
 export async function requireCrmArchive(): Promise<SessionUser> {
-  await requireUser();
   return requireCapability("crm.archive");
 }
 

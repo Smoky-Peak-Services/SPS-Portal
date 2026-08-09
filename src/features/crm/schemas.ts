@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isUsRegionCode } from "./us-regions";
 
 export const customerTypeEnum = z.enum(["RESIDENTIAL", "COMMERCIAL", "STR"]);
 export const contactRoleTagEnum = z.enum([
@@ -28,19 +29,58 @@ export const smaStatusEnum = z.enum([
   "INACTIVE",
 ]);
 
-const optStr = z.string().optional().or(z.literal(""));
+/** Null-tolerant optional string (disabled FormData fields submit as null). */
+const optStr = z.preprocess(
+  (v) => (v == null ? "" : String(v)),
+  z.string().max(2000),
+);
+
+const optStrShort = z.preprocess(
+  (v) => (v == null ? "" : String(v)),
+  z.string().max(200),
+);
+
+const optStrCity = z.preprocess(
+  (v) => (v == null ? "" : String(v)),
+  z.string().max(100),
+);
+
+const optStrPostal = z.preprocess(
+  (v) => (v == null ? "" : String(v)),
+  z.string().max(20),
+);
 
 const optCoord = z
   .union([z.coerce.number(), z.literal("")])
   .optional()
-  .transform((v) => (v === "" || v === undefined ? null : Number(v)));
+  .transform((v) =>
+    v === "" ? null : v === undefined ? undefined : Number(v),
+  );
+
+const optRegion = z.preprocess((v) => {
+  const s = (v == null ? "" : String(v)).trim().toUpperCase();
+  return s;
+}, z.string().refine((s) => s === "" || isUsRegionCode(s), {
+  message: "Invalid state",
+}));
+
+const requiredRegion = z.preprocess((v) => {
+  const s = (v == null ? "" : String(v)).trim().toUpperCase();
+  return s;
+}, z.string().refine((s) => isUsRegionCode(s), { message: "State is required" }));
+
+const optCountry = z.preprocess((v) => {
+  const s = (v == null ? "US" : String(v)).trim().toUpperCase();
+  if (s === "USA" || s === "UNITED STATES") return "US";
+  return s || "US";
+}, z.string().max(2));
 
 const hqAddressFields = {
-  hqLine1: optStr,
-  hqLine2: optStr,
-  hqCity: optStr,
-  hqRegion: optStr,
-  hqPostal: optStr,
+  hqLine1: optStrShort,
+  hqLine2: optStrShort,
+  hqCity: optStrCity,
+  hqRegion: optRegion,
+  hqPostal: optStrPostal,
   hqLat: optCoord,
   hqLng: optCoord,
 };
@@ -49,17 +89,17 @@ export const createCustomerSchema = z.object({
   type: customerTypeEnum,
   displayName: z.string().min(1, "Name is required").max(200),
   divisionId: z.string().min(1, "Division is required"),
-  mainPhone: optStr,
+  mainPhone: optStrShort,
   generalEmail: z.string().email().optional().or(z.literal("")),
-  website: optStr,
+  website: optStrShort,
   summary: optStr,
-  source: optStr,
+  source: optStrShort,
   notes: optStr,
   ...hqAddressFields,
-  contactFirstName: optStr,
-  contactLastName: optStr,
+  contactFirstName: optStrShort,
+  contactLastName: optStrShort,
   contactEmail: z.string().email().optional().or(z.literal("")),
-  contactPhone: optStr,
+  contactPhone: optStrShort,
   contactRoleTag: contactRoleTagEnum.optional(),
 });
 export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
@@ -69,10 +109,10 @@ export const updateCustomerSchema = z.object({
   type: customerTypeEnum.optional(),
   displayName: z.string().min(1).max(200).optional(),
   divisionId: z.string().min(1).optional(),
-  generalEmail: optStr,
-  mainPhone: optStr,
-  website: optStr,
-  source: optStr,
+  generalEmail: optStrShort,
+  mainPhone: optStrShort,
+  website: optStrShort,
+  source: optStrShort,
   notes: optStr,
   summary: optStr,
   ...hqAddressFields,
@@ -85,18 +125,18 @@ export const updateCustomerSchema = z.object({
 export const updateBillingProfileSchema = z.object({
   rootOrgId: z.string().min(1),
   profileType: billingProfileTypeEnum,
-  billingName: optStr,
+  billingName: optStrShort,
   billingEmail: z.string().email().optional().or(z.literal("")),
-  billingPhone: optStr,
-  billingLine1: optStr,
-  billingLine2: optStr,
-  billingCity: optStr,
-  billingRegion: optStr,
-  billingPostal: optStr,
+  billingPhone: optStrShort,
+  billingLine1: optStrShort,
+  billingLine2: optStrShort,
+  billingCity: optStrCity,
+  billingRegion: optRegion,
+  billingPostal: optStrPostal,
   billingLat: optCoord,
   billingLng: optCoord,
-  pointOfContactId: optStr,
-  taxExemptionNumber: optStr,
+  pointOfContactId: optStrShort,
+  taxExemptionNumber: optStrShort,
   taxExemptEntityType: taxExemptEntityTypeEnum.optional().nullable(),
   taxExemptCertOnFile: z.coerce.boolean().optional(),
   smaStatus: smaStatusEnum.optional().nullable(),
@@ -105,9 +145,9 @@ export const updateBillingProfileSchema = z.object({
 export const createContactSchema = z.object({
   customerId: z.string().min(1),
   firstName: z.string().min(1).max(100),
-  lastName: optStr,
+  lastName: optStrShort,
   directEmail: z.string().email().optional().or(z.literal("")),
-  directPhone: optStr,
+  directPhone: optStrShort,
   roleTag: contactRoleTagEnum.optional(),
   isPrimary: z.coerce.boolean().optional(),
   isBilling: z.coerce.boolean().optional(),
@@ -116,9 +156,9 @@ export const createContactSchema = z.object({
 export const updateContactSchema = z.object({
   id: z.string().min(1),
   firstName: z.string().min(1).max(100).optional(),
-  lastName: optStr,
+  lastName: optStrShort,
   directEmail: z.string().email().optional().or(z.literal("")),
-  directPhone: optStr,
+  directPhone: optStrShort,
   roleTag: contactRoleTagEnum.optional().nullable(),
   isPrimary: z.coerce.boolean().optional(),
   isBilling: z.coerce.boolean().optional(),
@@ -130,15 +170,24 @@ export const deleteContactSchema = z.object({
 
 export const createServiceLocationSchema = z.object({
   customerId: z.string().min(1),
-  siteName: optStr,
+  siteName: optStrShort,
   classification: serviceLocationClassificationEnum,
   serviceLines: z.array(serviceLineEnum).min(1),
-  line1: z.string().min(1).max(200),
-  line2: optStr,
-  city: z.string().min(1).max(100),
-  region: z.string().min(1).max(50),
-  postalCode: z.string().min(1).max(20),
-  country: z.string().max(2).optional().default("US"),
+  line1: z.preprocess(
+    (v) => (v == null ? "" : String(v)),
+    z.string().min(1).max(200),
+  ),
+  line2: optStrShort,
+  city: z.preprocess(
+    (v) => (v == null ? "" : String(v)),
+    z.string().min(1).max(100),
+  ),
+  region: requiredRegion,
+  postalCode: z.preprocess(
+    (v) => (v == null ? "" : String(v)),
+    z.string().min(1).max(20),
+  ),
+  country: optCountry.optional().default("US"),
   latitude: optCoord,
   longitude: optCoord,
   notes: optStr,
@@ -149,15 +198,15 @@ export const createServiceLocationSchema = z.object({
 
 export const updateServiceLocationSchema = z.object({
   id: z.string().min(1),
-  siteName: optStr,
+  siteName: optStrShort,
   classification: serviceLocationClassificationEnum.optional(),
   serviceLines: z.array(serviceLineEnum).min(1).optional(),
   line1: z.string().min(1).max(200).optional(),
-  line2: optStr,
+  line2: optStrShort,
   city: z.string().min(1).max(100).optional(),
-  region: z.string().min(1).max(50).optional(),
+  region: optRegion.optional(),
   postalCode: z.string().min(1).max(20).optional(),
-  country: z.string().max(2).optional(),
+  country: optCountry.optional(),
   latitude: optCoord,
   longitude: optCoord,
   notes: optStr,
@@ -176,8 +225,8 @@ export const archiveCustomerSchema = z.object({
 
 export const createCustomerActivitySchema = z.object({
   customerId: z.string().min(1),
-  body: z.string().min(1).max(5000),
-  serviceLocationId: optStr,
+  body: z.string().trim().min(1).max(5000),
+  serviceLocationId: optStrShort,
 });
 
 export const leadSourceEnum = z.enum([
@@ -204,11 +253,11 @@ export const createLeadSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().max(40).optional().or(z.literal("")),
-  company: optStr,
+  company: optStrShort,
   message: z.string().max(5000).optional().or(z.literal("")),
   budget: z.string().max(60).optional().or(z.literal("")),
   timeline: z.string().max(60).optional().or(z.literal("")),
-  division: optStr,
+  division: optStrShort,
 });
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 
@@ -228,5 +277,5 @@ export const promoteLeadSchema = z.object({
 
 export const createLeadActivitySchema = z.object({
   leadId: z.string().min(1),
-  body: z.string().min(1).max(5000),
+  body: z.string().trim().min(1).max(5000),
 });

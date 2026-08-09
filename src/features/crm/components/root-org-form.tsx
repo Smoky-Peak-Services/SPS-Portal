@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { updateCustomer } from "@/features/crm/actions";
 import { AddressAutocomplete } from "@/features/crm/components/address-autocomplete";
 import {
@@ -66,13 +66,9 @@ export function RootOrgForm({
 
   const lockedSlug = lockedDivisionSlugForCustomerType(type);
   const divisionLocked = lockedSlug != null;
-
-  useEffect(() => {
-    if (allowedDivisions.length === 0) return;
-    if (!allowedDivisions.some((d) => d.id === divisionId)) {
-      setDivisionId(allowedDivisions[0]!.id);
-    }
-  }, [allowedDivisions, divisionId]);
+  const resolvedDivisionId = allowedDivisions.some((d) => d.id === divisionId)
+    ? divisionId
+    : (allowedDivisions[0]?.id ?? "");
 
   if (!canWrite) {
     return (
@@ -104,40 +100,44 @@ export function RootOrgForm({
         e.preventDefault();
         setError(null);
         setMessage(null);
-        if (!divisionId) {
+        if (!resolvedDivisionId) {
           setError("Owning division is required.");
           return;
         }
         const fd = new FormData(e.currentTarget);
         start(async () => {
-          const result = await updateCustomer({
-            id: customer.id,
-            type,
-            displayName: fd.get("displayName"),
-            divisionId,
-            mainPhone: fd.get("mainPhone"),
-            generalEmail: fd.get("generalEmail"),
-            website: fd.get("website"),
-            summary: fd.get("summary"),
-            notes: fd.get("notes"),
-            source: fd.get("source"),
-            hqLine1: fd.get("hqLine1"),
-            hqLine2: fd.get("hqLine2"),
-            hqCity: fd.get("hqCity"),
-            hqRegion: fd.get("hqRegion"),
-            hqPostal: fd.get("hqPostal"),
-            hqLat: fd.get("hqLat"),
-            hqLng: fd.get("hqLng"),
-            useAsBillingAddress: fd.get("useAsBillingAddress") === "on",
-            createServiceLocationFromRoot:
-              fd.get("createServiceLocationFromRoot") === "on",
-          });
-          if (!result.ok) {
-            setError(result.error);
-            return;
+          try {
+            const result = await updateCustomer({
+              id: customer.id,
+              type,
+              displayName: fd.get("displayName"),
+              divisionId: resolvedDivisionId,
+              mainPhone: fd.get("mainPhone"),
+              generalEmail: fd.get("generalEmail"),
+              website: fd.get("website"),
+              summary: fd.get("summary"),
+              notes: fd.get("notes"),
+              source: fd.get("source"),
+              hqLine1: fd.get("hqLine1"),
+              hqLine2: fd.get("hqLine2"),
+              hqCity: fd.get("hqCity"),
+              hqRegion: fd.get("hqRegion"),
+              hqPostal: fd.get("hqPostal"),
+              hqLat: fd.get("hqLat"),
+              hqLng: fd.get("hqLng"),
+              useAsBillingAddress: fd.get("useAsBillingAddress") === "on",
+              createServiceLocationFromRoot:
+                fd.get("createServiceLocationFromRoot") === "on",
+            });
+            if (!result.ok) {
+              setError(result.error);
+              return;
+            }
+            setMessage("Saved.");
+            router.refresh();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not save");
           }
-          setMessage("Saved.");
-          router.refresh();
         });
       }}
     >
@@ -167,14 +167,14 @@ export function RootOrgForm({
               <Input
                 id="divisionId"
                 name="divisionId"
-                value={divisionId}
+                value={resolvedDivisionId}
                 type="hidden"
                 readOnly
               />
               <Input
                 value={
-                  allowedDivisions.find((d) => d.id === divisionId)?.name ??
-                  "Not configured"
+                  allowedDivisions.find((d) => d.id === resolvedDivisionId)
+                    ?.name ?? "Not configured"
                 }
                 disabled
                 readOnly
@@ -189,7 +189,7 @@ export function RootOrgForm({
                 value: d.id,
                 label: d.name,
               }))}
-              value={divisionId}
+              value={resolvedDivisionId}
               onValueChange={setDivisionId}
               required
             />
@@ -292,7 +292,7 @@ export function RootOrgForm({
       <Input type="hidden" name="source" defaultValue={customer.source ?? ""} />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
-      <Button type="submit" disabled={pending || !divisionId}>
+      <Button type="submit" disabled={pending || !resolvedDivisionId}>
         {pending ? "Saving…" : "Save client profile"}
       </Button>
     </form>

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -60,7 +61,8 @@ async function loadCapabilities(
   });
 }
 
-export async function requireUser(): Promise<SessionUser> {
+/** Deduped per RSC request (layout + page both call requireUser / requireCapability). */
+export const requireUser = cache(async (): Promise<SessionUser> => {
   const session = await getSession();
   if (!session?.user?.id) {
     redirect("/sign-in");
@@ -86,7 +88,7 @@ export async function requireUser(): Promise<SessionUser> {
     phone: user.phone,
     capabilities,
   };
-}
+});
 
 export async function requireArea(area: Area): Promise<SessionUser> {
   const user = await requireUser();

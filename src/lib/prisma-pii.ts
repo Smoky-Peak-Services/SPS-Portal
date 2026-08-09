@@ -29,11 +29,6 @@ export function isPiiConfigured(): boolean {
   );
 }
 
-/** @deprecated Prefer isPiiConfigured(). */
-export function isPiiDatabaseSplit(): boolean {
-  return isPiiConfigured();
-}
-
 async function resolvePiiUrl(): Promise<string> {
   // Local / seed / Prisma CLI: direct URL wins when set.
   const direct = (process.env.PII_DATABASE_URL ?? "").trim();
@@ -82,7 +77,13 @@ async function createClient(): Promise<PrismaClient> {
 }
 
 function getClient(): Promise<PrismaClient> {
-  return (g.piiClientPromise ??= createClient());
+  if (!g.piiClientPromise) {
+    g.piiClientPromise = createClient().catch((err) => {
+      g.piiClientPromise = undefined;
+      throw err;
+    });
+  }
+  return g.piiClientPromise;
 }
 
 type AnyFn = (...args: unknown[]) => unknown;

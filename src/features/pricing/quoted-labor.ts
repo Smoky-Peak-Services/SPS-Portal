@@ -1,20 +1,22 @@
 /**
  * Module A — quoted (job) labor: weighted blend across INSTALL positions.
  *
- * Service Technician (LAB-COM-SVC-SIS / context=SERVICE) must NEVER appear here,
- * in a quote line, or in any estimating template — validate via quotedAllocationSchema.
+ * Internals use Decimal; money is rounded once per role line and once on the
+ * document totals (sum of exact role amounts, then cent-round). Hours for
+ * clean percentage splits stay exact (50% of 100h = 50).
  *
  * Cost basis note: the rate sheet stores a single actualCostOfLabor per role with no
- * after-hours/holiday cost variant. costBasis is therefore independent of rateType,
- * so AFTER_HOURS / HOLIDAY jobs show inflated margin (bill rises, modeled cost does not).
- * If true off-hours margin is needed, add cost multipliers to the sheet — do not invent them.
+ * after-hours/holiday cost variant. costBasis is therefore independent of rateType.
  */
+import { Prisma } from "@prisma/client";
 import {
   distributeQuotedLaborInputSchema,
   type QuotedLaborPositionInput,
   type LaborRateTypeInput,
 } from "./schemas";
-import { rateFor, roundMoney } from "./rate-for";
+import { rateFor, roundMoneyDecimal, toDecimal } from "./rate-for";
+
+const Decimal = Prisma.Decimal;
 
 export type QuotedRoleBreakdown = {
   sku: string;
@@ -48,29 +50,36 @@ export function distributeQuotedLabor(
   });
 
   const roles: QuotedRoleBreakdown[] = [];
-  let billable = 0;
-  let costBasis = 0;
+  let billableExact = new Decimal(0);
+  let costExact = new Decimal(0);
+  const totalH = toDecimal(parsed.totalHours);
 
   for (const p of parsed.positions) {
-    const hours = roundMoney(parsed.totalHours * (p.quotedAllocationPct / 100));
+    const hours = totalH.mul(p.quotedAllocationPct).div(100);
     const rateUsed = rateFor(p, parsed.rateType);
-    const roleBillable = roundMoney(hours * rateUsed);
-    const roleCost = roundMoney(hours * p.actualCostOfLabor);
+    const roleBillableExact = hours.mul(rateUsed);
+    const roleCostExact = hours.mul(p.actualCostOfLabor);
+    billableExact = billableExact.add(roleBillableExact);
+    costExact = costExact.add(roleCostExact);
     roles.push({
       sku: p.sku,
       title: p.title,
-      hours,
+      hours: hours.toNumber(),
       allocationPct: p.quotedAllocationPct,
       rateUsed,
-      billable: roleBillable,
-      cost: roleCost,
+      billable: roundMoneyDecimal(roleBillableExact).toNumber(),
+      cost: roundMoneyDecimal(roleCostExact).toNumber(),
     });
-    billable = roundMoney(billable + roleBillable);
-    costBasis = roundMoney(costBasis + roleCost);
   }
 
+  const billable = roundMoneyDecimal(billableExact).toNumber();
+  const costBasis = roundMoneyDecimal(costExact).toNumber();
   const blendedMarginPct =
-    billable > 0 ? roundMoney(((billable - costBasis) / billable) * 100) : 0;
+    billable > 0
+      ? roundMoneyDecimal(
+          toDecimal(billable).sub(costBasis).div(billable).mul(100),
+        ).toNumber()
+      : 0;
 
   return {
     rateType: parsed.rateType,

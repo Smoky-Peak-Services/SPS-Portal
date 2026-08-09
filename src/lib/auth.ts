@@ -3,6 +3,11 @@ import { nextCookies } from "better-auth/next-js";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@/lib/prisma";
 
+const authSecret = process.env.BETTER_AUTH_SECRET;
+if (!authSecret) {
+  throw new Error("BETTER_AUTH_SECRET is not set — refusing to start.");
+}
+
 const baseURL =
   process.env.BETTER_AUTH_URL ??
   process.env.NEXT_PUBLIC_APP_URL ??
@@ -14,8 +19,9 @@ const trustedOrigins = Array.from(
     [
       baseURL,
       process.env.NEXT_PUBLIC_APP_URL,
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
+      ...(process.env.NODE_ENV !== "production"
+        ? ["http://localhost:3000", "http://127.0.0.1:3000"]
+        : []),
     ].filter((v): v is string => Boolean(v)),
   ),
 );
@@ -27,7 +33,7 @@ const trustedOrigins = Array.from(
  * nextCookies must be last in plugins.
  */
 export const auth = betterAuth({
-  secret: process.env.BETTER_AUTH_SECRET,
+  secret: authSecret,
   baseURL,
   trustedOrigins,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -40,7 +46,7 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: "power_user",
+        defaultValue: "field_tech",
         input: false,
       },
       phone: {

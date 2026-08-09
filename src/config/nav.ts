@@ -27,7 +27,6 @@ export const navSections: NavSection[] = [
         label: "Dashboard",
         href: "/",
         icon: "LayoutDashboard",
-        capabilities: ["dashboard.access"],
         surface: "both",
       },
       {
@@ -139,10 +138,3 @@ export function filterFooterForCapabilities(
       itemAllowedOnSurface(item, surface),
   );
 }
-
-/** @deprecated Use filterNavForCapabilities */
-export const filterNavForRole = (
-  _role: unknown,
-  sections?: NavSection[],
-  surface?: DeviceSurface,
-) => filterNavForCapabilities(new Set(["dashboard.access"]), sections, surface);

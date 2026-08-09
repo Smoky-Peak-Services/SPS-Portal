@@ -17,11 +17,18 @@ const MATERIALS_PATHS = [
   "/materials/categories",
   "/materials/attributes",
   "/materials/items",
+  "/materials/consumables",
+  "/materials/equipment",
   "/materials/import-export",
 ] as const;
 
-function revalidateMaterials() {
+type MaterialsKind = "domains" | "categories" | "attributes" | "items";
+
+function revalidateMaterials(kind?: MaterialsKind, id?: string) {
   for (const p of MATERIALS_PATHS) revalidatePath(p);
+  if (kind && id) {
+    revalidatePath(`/materials/${kind}/${id}`);
+  }
 }
 
 async function requireDeleteAccess(): Promise<SessionUser> {
@@ -49,26 +56,8 @@ export async function deleteMaterialItem(raw: unknown) {
   });
   if (!item) throw new Error("Item not found");
   await prisma.materialItem.delete({ where: { id } });
-  revalidateMaterials();
+  revalidateMaterials("items", item.id);
   return { id: item.id, name: item.name };
-}
-
-export async function deleteMaterialUnit(raw: unknown) {
-  await requireForceDeleteAccess();
-  const { id } = deleteByIdSchema.parse(raw);
-  const unit = await prisma.materialUnit.findUnique({
-    where: { id },
-    select: { id: true, code: true, _count: { select: { items: true } } },
-  });
-  if (!unit) throw new Error("Unit not found");
-  if (unit._count.items > 0) {
-    throw new Error(
-      `Unit ${unit.code} is still referenced by ${unit._count.items} item(s) — remove or reassign them first`,
-    );
-  }
-  await prisma.materialUnit.delete({ where: { id } });
-  revalidateMaterials();
-  return { id: unit.id, code: unit.code };
 }
 
 export async function deleteMaterialDomain(raw: unknown) {
@@ -89,7 +78,7 @@ export async function deleteMaterialDomain(raw: unknown) {
     );
   }
   await prisma.materialDomain.delete({ where: { id } });
-  revalidateMaterials();
+  revalidateMaterials("domains", domain.id);
   return { id: domain.id, name: domain.name };
 }
 
@@ -122,7 +111,7 @@ export async function forceDeleteMaterialDomain(raw: unknown) {
     await tx.materialDomain.delete({ where: { id } });
   });
 
-  revalidateMaterials();
+  revalidateMaterials("domains", domain.id);
   return { id: domain.id, name: domain.name };
 }
 
@@ -144,7 +133,7 @@ export async function deleteMaterialCategory(raw: unknown) {
     );
   }
   await prisma.materialCategory.delete({ where: { id } });
-  revalidateMaterials();
+  revalidateMaterials("categories", category.id);
   return { id: category.id, name: category.name };
 }
 
@@ -167,7 +156,7 @@ export async function forceDeleteMaterialCategory(raw: unknown) {
     await tx.materialCategory.delete({ where: { id } });
   });
 
-  revalidateMaterials();
+  revalidateMaterials("categories", category.id);
   return { id: category.id, name: category.name };
 }
 
@@ -190,7 +179,7 @@ export async function deleteMaterialAttribute(raw: unknown) {
     );
   }
   await prisma.materialAttribute.delete({ where: { id } });
-  revalidateMaterials();
+  revalidateMaterials("attributes", attr.id);
   return { id: attr.id, name: attr.name };
 }
 
@@ -233,7 +222,7 @@ export async function forceDeleteMaterialAttribute(raw: unknown) {
     await tx.materialAttribute.delete({ where: { id } });
   });
 
-  revalidateMaterials();
+  revalidateMaterials("attributes", attr.id);
   return { id: attr.id, name: attr.name };
 }
 
@@ -246,6 +235,7 @@ export async function deleteMaterialAttributeOption(raw: unknown) {
     select: {
       id: true,
       label: true,
+      attributeId: true,
       _count: {
         select: { itemValues: true, defaultFor: true },
       },
@@ -258,7 +248,7 @@ export async function deleteMaterialAttributeOption(raw: unknown) {
     );
   }
   await prisma.materialAttributeOption.delete({ where: { id } });
-  revalidateMaterials();
+  revalidateMaterials("attributes", option.attributeId);
   return { id: option.id, label: option.label };
 }
 
@@ -268,7 +258,7 @@ export async function forceDeleteMaterialAttributeOption(raw: unknown) {
   const { id, confirmName } = forceDeleteSchema.parse(raw);
   const option = await prisma.materialAttributeOption.findUnique({
     where: { id },
-    select: { id: true, label: true },
+    select: { id: true, label: true, attributeId: true },
   });
   if (!option) throw new Error("Option not found");
   if (!namesMatch(option.label, confirmName)) {
@@ -288,6 +278,6 @@ export async function forceDeleteMaterialAttributeOption(raw: unknown) {
     await tx.materialAttributeOption.delete({ where: { id } });
   });
 
-  revalidateMaterials();
+  revalidateMaterials("attributes", option.attributeId);
   return { id: option.id, label: option.label };
 }

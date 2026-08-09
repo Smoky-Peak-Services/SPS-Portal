@@ -4,37 +4,69 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Guards the ops/PII boundary: ops schema must not grow customer address/email/phone columns.
- * PII schema owns lead ingest + CRM identity models.
+ * Guards the ops/PII boundary: ops schema must not grow customer
+ * address/email/phone columns. Auth-owned User / Invitation identity fields
+ * are explicitly allowlisted. PII schema owns lead ingest + CRM identity.
  */
-const FORBIDDEN_OPS_FIELDS = [
-  "displayName",
-  "generalEmail",
-  "mainPhone",
-  "hqLine1",
-  "billingEmail",
-  "billingPhone",
-  "billingLine1",
-  "directEmail",
-  "directPhone",
-];
+
+/** Field names matching these patterns on String columns are forbidden in ops. */
+const PII_FIELD_PATTERN =
+  /^\s*(\w*(?:email|phone|line1|line2|postal|address|displayName)\w*)\s+String/i;
+
+/**
+ * Auth models may keep staff/invite identity strings. Keyed as `Model.field`.
+ */
+const OPS_PII_ALLOWLIST = new Set([
+  "User.email",
+  "User.name",
+  "User.phone",
+  "Invitation.email",
+  // Better Auth session metadata — not customer identity.
+  "Session.ipAddress",
+]);
+
+function forbiddenOpsPiiFields(schema: string): string[] {
+  const hits: string[] = [];
+  let currentModel: string | null = null;
+
+  for (const line of schema.split(/\r?\n/)) {
+    const modelMatch = /^\s*model\s+(\w+)\s*\{/.exec(line);
+    if (modelMatch) {
+      currentModel = modelMatch[1] ?? null;
+      continue;
+    }
+    if (/^\s*\}/.test(line)) {
+      currentModel = null;
+      continue;
+    }
+    if (!currentModel) continue;
+
+    const fieldMatch = PII_FIELD_PATTERN.exec(line);
+    if (!fieldMatch) continue;
+
+    const field = fieldMatch[1]!;
+    const key = `${currentModel}.${field}`;
+    if (!OPS_PII_ALLOWLIST.has(key)) {
+      hits.push(key);
+    }
+  }
+
+  return hits;
+}
 
 describe("ops-pii schema guard", () => {
-  it("ops schema has no PII identity columns", () => {
+  it("ops schema has no PII identity columns (pattern denylist)", () => {
     const schema = readFileSync(
       join(process.cwd(), "prisma", "schema.prisma"),
       "utf8",
     );
 
-    for (const field of FORBIDDEN_OPS_FIELDS) {
-      assert.equal(
-        schema.includes(`${field} `) ||
-          schema.includes(`${field}\n`) ||
-          schema.includes(`${field}\t`),
-        false,
-        `ops schema must not contain PII field "${field}"`,
-      );
-    }
+    const hits = forbiddenOpsPiiFields(schema);
+    assert.deepEqual(
+      hits,
+      [],
+      `ops schema must not contain PII identity fields: ${hits.join(", ")}`,
+    );
   });
 
   it("ops schema is auth + org + materials + pricing (no Field Ops Job/Ticket)", () => {

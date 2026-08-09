@@ -12,7 +12,8 @@ type Activity = {
   id: string;
   type: string;
   body: string | null;
-  createdAt: Date;
+  /** Preformatted on the server (company TZ). */
+  createdAtLabel: string;
   serviceLocation: { id: string; siteName: string | null; line1: string } | null;
 };
 
@@ -45,19 +46,26 @@ export function ActivityPanel({
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
-            const fd = new FormData(e.currentTarget);
+            const form = e.currentTarget;
+            const fd = new FormData(form);
             start(async () => {
-              const result = await createCustomerActivity({
-                customerId,
-                body: fd.get("body"),
-                serviceLocationId: fd.get("serviceLocationId") || "",
-              });
-              if (!result.ok) {
-                setError(result.error);
-                return;
+              try {
+                const result = await createCustomerActivity({
+                  customerId,
+                  body: fd.get("body"),
+                  serviceLocationId: fd.get("serviceLocationId") || "",
+                });
+                if (!result.ok) {
+                  setError(result.error);
+                  return;
+                }
+                form.reset();
+                router.refresh();
+              } catch (err) {
+                setError(
+                  err instanceof Error ? err.message : "Could not add note",
+                );
               }
-              e.currentTarget.reset();
-              router.refresh();
             });
           }}
         >
@@ -92,7 +100,7 @@ export function ActivityPanel({
               <div className="mb-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <span>{a.type}</span>
                 <span>·</span>
-                <span>{new Date(a.createdAt).toLocaleString()}</span>
+                <span>{a.createdAtLabel}</span>
                 {a.serviceLocation ? (
                   <>
                     <span>·</span>

@@ -54,7 +54,36 @@ export function toE164(raw: string | null | undefined): string | null {
   return parseUsPhone(raw)?.e164 ?? null;
 }
 
+/**
+ * What we persist. Prefer E.164 so match keys are consistent, but never drop
+ * a number we can't parse — keep the trimmed input.
+ */
+export function phoneForStorage(raw: string | null | undefined): string | null {
+  const t = (raw ?? "").trim();
+  if (!t) return null;
+  return toE164(t) ?? t;
+}
+
 /** Last 10 digits of a valid US number — null for Quo ids and invalid numbers. */
 export function phoneNational(raw: string | null | undefined): string | null {
   return parseUsPhone(raw)?.national10 ?? null;
+}
+
+/**
+ * Last-10 NANP digits from a US phone string (formatted or E.164).
+ * Used for Contact.directPhoneNat / Lead.phoneNat (match index).
+ * Accepts "(865) 555-1234"; refuses longer international digit strings so
+ * last-10 of +49… cannot alias a Miami NANP number.
+ */
+export function phoneNat10(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const parsed = parseUsPhone(raw);
+  if (parsed) return parsed.national10;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10 && isValidUsNational10(digits)) return digits;
+  if (digits.length === 11 && digits.startsWith("1")) {
+    const national10 = digits.slice(1);
+    return isValidUsNational10(national10) ? national10 : null;
+  }
+  return null;
 }

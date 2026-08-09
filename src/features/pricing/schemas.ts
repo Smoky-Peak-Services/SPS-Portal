@@ -5,6 +5,7 @@ export const laborRateTypeSchema = z.enum([
   "STANDARD",
   "AFTER_HOURS",
   "HOLIDAY",
+  "DISCOUNTED",
 ]);
 
 export type LaborRateTypeInput = z.infer<typeof laborRateTypeSchema>;
@@ -19,6 +20,7 @@ export const quotedLaborPositionSchema = z.object({
   afterHoursRate: z.number(),
   holidayRate: z.number(),
   actualCostOfLabor: z.number(),
+  discountedRate: z.number().nullable().optional(),
 });
 
 export type QuotedLaborPositionInput = z.infer<
@@ -71,6 +73,7 @@ export const serviceLaborPositionSchema = z.object({
   afterHoursRate: z.number(),
   holidayRate: z.number(),
   actualCostOfLabor: z.number(),
+  discountedRate: z.number().nullable().optional(),
 });
 
 export const calculateServiceTicketLaborInputSchema = z.object({

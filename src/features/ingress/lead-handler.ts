@@ -1,9 +1,15 @@
 import { createHash } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isPiiConfigured, prismaPii } from "@/lib/prisma-pii";
+import { safeEq } from "@/lib/openphone-signature";
 import { company } from "@/config/company";
+import {
+  createLeadRecord,
+  resolveLeadCompany,
+} from "@/features/crm/create-lead-record";
 
-const DEFAULT_COMPANY = "Residential";
+const SOFT_DEDUPE_MS = 5 * 60 * 1000;
 
 const leadBodySchema = z.object({
   name: z.string().min(1).max(200),
@@ -19,8 +25,17 @@ const leadBodySchema = z.object({
   budget: z.string().max(100).optional(),
   timeline: z.string().max(100).optional(),
   /** Org routing only when auth is secret-only (no x-ingest-key). */
-  divisionSlug: z.string().optional(),
+  divisionSlug: z.string().trim().optional(),
+  /** Optional idempotency key → Lead.externalId (CDN / double-submit). */
+  idempotencyKey: z.string().trim().min(1).max(200).optional(),
 });
+
+/** Empty / whitespace divisionSlug falls back to CRM default. */
+export function resolveIngestDivisionSlug(
+  raw: string | undefined | null,
+): string {
+  return raw?.trim() || company.crm.defaultLeadDivisionSlug;
+}
 
 function asTrimmedString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -98,8 +113,7 @@ export function peelLegacyMessage(message: string | undefined): {
 }
 
 export function resolveCompany(raw: string | undefined): string {
-  const trimmed = raw?.trim();
-  return trimmed ? trimmed : DEFAULT_COMPANY;
+  return resolveLeadCompany(raw);
 }
 
 export function composeMessage(
@@ -119,7 +133,7 @@ function hashKey(raw: string) {
 }
 
 export type LeadIngestResult =
-  | { ok: true; leadId: string }
+  | { ok: true; leadId: string; duplicate?: boolean }
   | { ok: false; status: number; error: string; reason?: "pii_unconfigured" };
 
 /**
@@ -130,7 +144,7 @@ export type LeadIngestResult =
  * is also present). Secret-only requests use body `divisionSlug` or the CRM default.
  *
  * Form fields: `company` (default Residential), `division` (inquiry-type label),
- * `message` / optional `subject`.
+ * `message` / optional `subject`, optional `idempotencyKey`.
  */
 export async function handleLeadIngest(
   body: unknown,
@@ -151,10 +165,15 @@ export async function handleLeadIngest(
   }
 
   const data = parsed.data;
-  let divisionSlug = data.divisionSlug ?? company.crm.defaultLeadDivisionSlug;
+  let divisionSlug = resolveIngestDivisionSlug(data.divisionSlug);
 
   const serverSecret = process.env.INGEST_SERVER_SECRET?.trim();
-  const trusted = !!(serverSecret && headers.ingestSecret === serverSecret);
+  const providedSecret = headers.ingestSecret?.trim() ?? "";
+  const trusted = !!(
+    serverSecret &&
+    providedSecret &&
+    safeEq(providedSecret, serverSecret)
+  );
   const rawKey = headers.ingestKey?.trim() || null;
 
   if (!trusted && !rawKey) {
@@ -183,39 +202,72 @@ export async function handleLeadIngest(
     return { ok: false, status: 400, error: "Unknown division" };
   }
 
-  const disqualified =
-    data.budget && company.crm.disqualifyBudgets.includes(data.budget);
+  const name = data.name.trim();
+  const email = data.email?.trim() || null;
+  const externalId = data.idempotencyKey?.trim() || null;
 
   try {
-    const lead = await prismaPii.lead.create({
-      data: {
-        divisionId: orgDivision.id,
-        name: data.name,
-        email: data.email || null,
-        phone: data.phone || null,
-        division: data.division?.trim() || null,
-        company: resolveCompany(data.company),
-        message: composeMessage(data.subject, data.message),
-        budget: data.budget || null,
-        timeline: data.timeline || null,
-        source: "WEBSITE",
-        status: disqualified ? "DISQUALIFIED" : "INQUIRY",
-        closedAt: disqualified ? new Date() : null,
-        activities: {
-          create: {
-            type: "STATUS_CHANGE",
-            body: disqualified
-              ? "Auto-disqualified by budget"
-              : "Lead ingested from website",
-          },
+    if (externalId) {
+      const existingByKey = await prismaPii.lead.findUnique({
+        where: { externalId },
+        select: { id: true },
+      });
+      if (existingByKey) {
+        return { ok: true, leadId: existingByKey.id, duplicate: true };
+      }
+    } else if (email) {
+      const since = new Date(Date.now() - SOFT_DEDUPE_MS);
+      const softDup = await prismaPii.lead.findFirst({
+        where: {
+          divisionId: orgDivision.id,
+          email,
+          name,
+          createdAt: { gte: since },
         },
-      },
+        select: { id: true },
+        orderBy: { createdAt: "desc" },
+      });
+      if (softDup) {
+        return { ok: true, leadId: softDup.id, duplicate: true };
+      }
+    }
+
+    const lead = await createLeadRecord(prismaPii, {
+      divisionId: orgDivision.id,
+      name,
+      email,
+      phone: data.phone || null,
+      division: data.division?.trim() || null,
+      company: data.company,
+      message: composeMessage(data.subject, data.message),
+      budget: data.budget || null,
+      timeline: data.timeline || null,
+      source: "WEBSITE",
+      activityBody: "Lead ingested from website",
+      externalId,
     });
+
+    revalidatePath("/leads");
+    if (data.phone) revalidatePath("/call-log");
 
     return { ok: true, leadId: lead.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    // Race on unique externalId: treat as successful duplicate.
+    if (
+      externalId &&
+      typeof err === "object" &&
+      err &&
+      "code" in err &&
+      (err as { code?: string }).code === "P2002"
+    ) {
+      const again = await prismaPii.lead.findUnique({
+        where: { externalId },
+        select: { id: true },
+      });
+      if (again) return { ok: true, leadId: again.id, duplicate: true };
+    }
     console.error("[ingest] lead.create failed:", message);
-    return { ok: false, status: 500, error: `Lead create failed: ${message}` };
+    return { ok: false, status: 500, error: "Ingest failed" };
   }
 }

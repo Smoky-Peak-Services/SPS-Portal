@@ -161,38 +161,47 @@ export function LocationsPanel({
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
-            const fd = new FormData(e.currentTarget);
+            const form = e.currentTarget;
+            const fd = new FormData(form);
             const serviceLines = isCommercial
               ? (["INTEGRATED_SYSTEMS"] as const)
               : (fd.getAll("serviceLines") as string[]);
             start(async () => {
-              const result = await createServiceLocation({
-                customerId,
-                siteName: fd.get("siteName"),
-                classification,
-                serviceLines:
-                  serviceLines.length > 0
-                    ? serviceLines
-                    : ["INTEGRATED_SYSTEMS"],
-                line1: fd.get("line1"),
-                line2: fd.get("line2"),
-                city: fd.get("city"),
-                region: fd.get("region"),
-                postalCode: fd.get("postalCode"),
-                latitude: fd.get("latitude"),
-                longitude: fd.get("longitude"),
-                bedrooms: fd.get("bedrooms") || null,
-                bathrooms: fd.get("bathrooms") || null,
-              });
-              if (!result.ok) {
-                setError(result.error);
-                return;
+              try {
+                const result = await createServiceLocation({
+                  customerId,
+                  siteName: fd.get("siteName"),
+                  classification,
+                  serviceLines:
+                    serviceLines.length > 0
+                      ? serviceLines
+                      : ["INTEGRATED_SYSTEMS"],
+                  line1: fd.get("line1"),
+                  line2: fd.get("line2"),
+                  city: fd.get("city"),
+                  region: fd.get("region"),
+                  postalCode: fd.get("postalCode"),
+                  latitude: fd.get("latitude"),
+                  longitude: fd.get("longitude"),
+                  bedrooms: fd.get("bedrooms") || null,
+                  bathrooms: fd.get("bathrooms") || null,
+                });
+                if (!result.ok) {
+                  setError(result.error);
+                  return;
+                }
+                setClassification("RESIDENTIAL");
+                setIsChecked(true);
+                setCabinChecked(false);
+                form.reset();
+                router.refresh();
+              } catch (err) {
+                setError(
+                  err instanceof Error
+                    ? err.message
+                    : "Could not add service location",
+                );
               }
-              setClassification("RESIDENTIAL");
-              setIsChecked(true);
-              setCabinChecked(false);
-              e.currentTarget.reset();
-              router.refresh();
             });
           }}
         >

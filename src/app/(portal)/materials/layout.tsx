@@ -3,7 +3,7 @@ import {
   SectionTabs,
   type SectionTab,
 } from "@/components/patterns/section-tabs";
-import { requireUser } from "@/lib/session";
+import { requireArea } from "@/lib/session";
 import { userCan } from "@/config/permissions";
 import { resolveActiveScope } from "@/features/scope/active-scope";
 import {
@@ -17,7 +17,7 @@ export default async function MaterialsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
+  const user = await requireArea("materials");
 
   const tabs: SectionTab[] = [{ label: "Materials", href: "/materials" }];
 

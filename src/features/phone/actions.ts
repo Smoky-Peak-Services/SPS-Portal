@@ -4,18 +4,26 @@ import { revalidatePath } from "next/cache";
 import { isPiiConfigured, prismaPii } from "@/lib/prisma-pii";
 import { requireCrmWrite } from "@/features/crm/authz";
 import { dismissWhereForGroupKey } from "@/features/phone/group-key";
+import { dismissPhoneNumberSchema } from "@/features/phone/schemas";
 
 export type PhoneActionResult = { ok: true } | { ok: false; error: string };
 
 /** Hide every event from a number so the Call Log stays clean. */
 export async function dismissPhoneNumber(
-  groupKey: string,
+  raw: unknown,
 ): Promise<PhoneActionResult> {
   await requireCrmWrite();
   if (!isPiiConfigured()) {
     return { ok: false, error: "PII database is not configured." };
   }
-  if (!groupKey) return { ok: false, error: "Invalid number" };
+  let groupKey: string;
+  try {
+    ({ groupKey } = dismissPhoneNumberSchema.parse(
+      typeof raw === "string" ? { groupKey: raw } : raw,
+    ));
+  } catch {
+    return { ok: false, error: "Invalid number" };
+  }
   try {
     const result = await prismaPii.phoneEvent.updateMany({
       where: dismissWhereForGroupKey(groupKey),

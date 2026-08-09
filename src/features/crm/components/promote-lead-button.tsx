@@ -34,15 +34,21 @@ export function PromoteLeadButton({ leadId }: { leadId: string }) {
         onClick={() => {
           setError(null);
           start(async () => {
-            const result = await promoteLeadToCustomer({ leadId, type });
-            if (!result.ok) {
-              setError(result.error);
-              return;
+            try {
+              const result = await promoteLeadToCustomer({ leadId, type });
+              if (!result.ok) {
+                setError(result.error);
+                return;
+              }
+              if (result.id) {
+                router.push(`/clients/${result.id}`);
+              }
+              router.refresh();
+            } catch (err) {
+              setError(
+                err instanceof Error ? err.message : "Could not promote lead",
+              );
             }
-            if (result.id) {
-              router.push(`/clients/${result.id}`);
-            }
-            router.refresh();
           });
         }}
       >

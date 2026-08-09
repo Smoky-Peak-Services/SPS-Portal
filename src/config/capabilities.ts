@@ -101,12 +101,6 @@ export const CAPABILITIES = [
     description: "Change user roles and per-user capability overrides.",
     sortOrder: 110,
   },
-  {
-    id: "dashboard.access",
-    label: "Dashboard — access",
-    description: "Open the portal dashboard.",
-    sortOrder: 1,
-  },
 ] as const;
 
 export type CapabilityId = (typeof CAPABILITIES)[number]["id"];
@@ -118,7 +112,6 @@ export const DEFAULT_ROLE_CAPABILITIES: Record<Role, readonly CapabilityId[]> =
   {
     admin: ALL_CAPABILITY_IDS,
     power_user: [
-      "dashboard.access",
       "materials.access",
       "materials.catalog.write",
       "materials.attributes.write",
@@ -134,7 +127,6 @@ export const DEFAULT_ROLE_CAPABILITIES: Record<Role, readonly CapabilityId[]> =
       "crm.archive",
     ],
     sales: [
-      "dashboard.access",
       "materials.access",
       "materials.financials.view",
       "pricing.access",
@@ -142,7 +134,6 @@ export const DEFAULT_ROLE_CAPABILITIES: Record<Role, readonly CapabilityId[]> =
       "crm.write",
     ],
     accounting: [
-      "dashboard.access",
       "materials.access",
       "materials.financials.view",
       "materials.financials.write",
@@ -153,13 +144,12 @@ export const DEFAULT_ROLE_CAPABILITIES: Record<Role, readonly CapabilityId[]> =
       "crm.write",
     ],
     field_supervisor: [
-      "dashboard.access",
       "materials.access",
       "materials.financials.view",
       "pricing.access",
       "crm.access",
     ],
-    field_tech: ["dashboard.access"],
+    field_tech: [],
   };
 
 export async function seedCapabilities(prisma: PrismaClient): Promise<void> {

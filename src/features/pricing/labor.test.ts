@@ -11,8 +11,9 @@ import {
   IS_RES_LABOR_MULTIPLIERS,
   IS_RES_LABOR_POSITIONS,
 } from "./is-res-rates";
+import { installAllocationSumOk } from "./allocation-sum";
 import { distributeQuotedLabor } from "./quoted-labor";
-import { roundMoney } from "./rate-for";
+import { rateFor, roundMoney } from "./rate-for";
 import { recomputeRates } from "./recompute";
 import { quotedAllocationSchema, laborRateTypeSchema } from "./schemas";
 import { calculateServiceTicketLabor } from "./service-labor";
@@ -220,6 +221,28 @@ describe("per-scope blends (prompt 14)", () => {
     }
   });
 
+  it("Cabin DISCOUNTED blend is below STANDARD billable", () => {
+    const withDisc = cabinInstall.map((p, i) => {
+      const seed = CABIN_LABOR_POSITIONS.filter((r) => r.context === "INSTALL")[
+        i
+      ]!;
+      return {
+        ...p,
+        discountedRate: roundMoney(seed.discountedRate!),
+      };
+    });
+    const std = distributeQuotedLabor(100, withDisc, "STANDARD");
+    const disc = distributeQuotedLabor(100, withDisc, "DISCOUNTED");
+    assert.ok(disc.billable < std.billable);
+    assert.equal(
+      disc.roles[0]!.rateUsed,
+      roundMoney(
+        CABIN_LABOR_POSITIONS.find((p) => p.context === "INSTALL")!
+          .discountedRate!,
+      ),
+    );
+  });
+
   it("IS-Res positions carry no discounted rates", () => {
     for (const p of IS_RES_LABOR_POSITIONS) {
       assert.equal(p.discountedRate, null, p.sku);
@@ -230,6 +253,77 @@ describe("per-scope blends (prompt 14)", () => {
 describe("laborRateTypeSchema", () => {
   it("rejects unknown rate types", () => {
     assert.throws(() => laborRateTypeSchema.parse("WEEKEND"), ZodError);
+  });
+
+  it("accepts DISCOUNTED", () => {
+    assert.equal(laborRateTypeSchema.parse("DISCOUNTED"), "DISCOUNTED");
+  });
+});
+
+describe("rateFor DISCOUNTED", () => {
+  it("returns discountedRate for Cabin positions", () => {
+    const p = CABIN_LABOR_POSITIONS.find((r) => r.context === "INSTALL")!;
+    assert.ok(p);
+    assert.ok(p.discountedRate != null);
+    assert.equal(
+      rateFor(
+        {
+          standardBillingRate: p.standardBillingRate,
+          afterHoursRate: p.afterHoursRate,
+          holidayRate: p.holidayRate,
+          actualCostOfLabor: p.actualCostOfLabor,
+          discountedRate: roundMoney(p.discountedRate!),
+        },
+        "DISCOUNTED",
+      ),
+      roundMoney(p.discountedRate!),
+    );
+  });
+
+  it("throws when discountedRate is missing", () => {
+    assert.throws(
+      () =>
+        rateFor(
+          {
+            standardBillingRate: 1,
+            afterHoursRate: 1,
+            holidayRate: 1,
+            actualCostOfLabor: 1,
+          },
+          "DISCOUNTED",
+        ),
+      /no discountedRate/,
+    );
+  });
+});
+
+describe("installAllocationSumOk", () => {
+  const cabinInstall = CABIN_LABOR_POSITIONS.filter(
+    (p) => p.context === "INSTALL",
+  ).map((p, i) => ({
+    id: `id-${i}`,
+    context: p.context,
+    quotedAllocationPct: p.quotedAllocationPct,
+  }));
+
+  it("accepts a save that keeps INSTALL at 100", () => {
+    const first = cabinInstall[0]!;
+    const result = installAllocationSumOk(cabinInstall, {
+      id: first.id,
+      quotedAllocationPct: first.quotedAllocationPct,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.sum, 100);
+  });
+
+  it("rejects a save that leaves INSTALL off 100", () => {
+    const first = cabinInstall[0]!;
+    const result = installAllocationSumOk(cabinInstall, {
+      id: first.id,
+      quotedAllocationPct: first.quotedAllocationPct - 10,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.sum, 90);
   });
 });
 

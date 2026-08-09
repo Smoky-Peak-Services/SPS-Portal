@@ -1,5 +1,6 @@
 import { company } from "@/config/company";
 import type { Segment } from "@prisma/client";
+import { todayStampInCompanyTz } from "@/lib/datetime";
 import {
   listCustomerScopes,
   resolveScope,
@@ -67,8 +68,7 @@ export function parseScopeFromFilename(filename: string): {
 }
 
 export function exportFileName(scopeCode: string, date = new Date()): string {
-  const ymd = date.toISOString().slice(0, 10);
-  return `catalog_${scopeCode}_${ymd}.xlsx`;
+  return `catalog_${scopeCode}_${todayStampInCompanyTz(date)}.xlsx`;
 }
 
 export function divisionSlugForCode(code: string): string | undefined {

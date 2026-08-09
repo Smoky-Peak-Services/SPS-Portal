@@ -4,9 +4,9 @@ import { formatPhoneDisplay } from "@/lib/phone-format";
 import {
   externalPartyE164,
   phoneEventGroupKey,
-  phoneLast10,
 } from "@/features/phone/group-key";
 import { parseCallBody } from "@/features/phone/parse-call-body";
+import { buildPhoneMatchDisplayMap } from "@/features/phone/match-target";
 import { isValidUsNational10 } from "@/lib/phone-parse";
 
 export type CallLogMatch =
@@ -54,7 +54,7 @@ export async function recentCallLog(): Promise<CallLogGroup[]> {
   const events = await prismaPii.phoneEvent.findMany({
     where: { occurredAt: { gte: since }, dismissed: false },
     orderBy: { occurredAt: "desc" },
-    take: 500,
+    take: 2000,
   });
   if (events.length === 0) return [];
 
@@ -109,11 +109,18 @@ export async function recentCallLog(): Promise<CallLogGroup[]> {
     else if (e.kind === "SMS") g.counts.sms += 1;
   }
 
+  const keys = [...groups.keys()].filter((k) => isValidUsNational10(k));
+  if (keys.length === 0) {
+    return [...groups.values()].sort(
+      (a, b) => b.lastAt.getTime() - a.lastAt.getTime(),
+    );
+  }
+
   const [contacts, leads] = await Promise.all([
     prismaPii.contact.findMany({
-      where: { directPhone: { not: null } },
+      where: { directPhoneNat: { in: keys } },
       select: {
-        directPhone: true,
+        directPhoneNat: true,
         customer: {
           select: {
             id: true,
@@ -122,41 +129,24 @@ export async function recentCallLog(): Promise<CallLogGroup[]> {
           },
         },
       },
-      take: 2000,
     }),
     prismaPii.lead.findMany({
-      where: { phone: { not: null } },
+      where: {
+        phoneNat: { in: keys },
+        status: { notIn: ["WON", "LOST", "DISQUALIFIED"] },
+      },
       select: {
         id: true,
         name: true,
-        phone: true,
+        phoneNat: true,
         orgDivision: { select: { slug: true } },
       },
-      orderBy: { createdAt: "desc" },
-      take: 2000,
     }),
   ]);
 
+  const matchByNat = buildPhoneMatchDisplayMap({ contacts, leads });
   for (const g of groups.values()) {
-    const c = contacts.find((x) => phoneLast10(x.directPhone) === g.key);
-    if (c?.customer) {
-      g.match = {
-        kind: "customer",
-        id: c.customer.id,
-        name: c.customer.displayName,
-        divisionSlug: c.customer.division.slug,
-      };
-      continue;
-    }
-    const l = leads.find((x) => phoneLast10(x.phone) === g.key);
-    if (l) {
-      g.match = {
-        kind: "lead",
-        id: l.id,
-        name: l.name,
-        divisionSlug: l.orgDivision.slug,
-      };
-    }
+    g.match = matchByNat.get(g.key) ?? null;
   }
 
   return [...groups.values()].sort(

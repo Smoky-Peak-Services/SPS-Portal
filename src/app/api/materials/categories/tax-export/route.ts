@@ -8,15 +8,8 @@ import {
   type ExportCategoryTaxRow,
   type StripeTaxCodeRef,
 } from "@/features/materials/category-tax-io";
+import { todayStampInCompanyTz } from "@/lib/datetime";
 import { loadPermissionSubject, subjectCan } from "@/lib/permission-subject";
-
-function todayStamp(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -104,7 +97,7 @@ export async function GET(req: NextRequest) {
     categories: exportRows,
     taxRefs,
   });
-  const filename = `categories_tax_${todayStamp()}.xlsx`;
+  const filename = `categories_tax_${todayStampInCompanyTz()}.xlsx`;
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,

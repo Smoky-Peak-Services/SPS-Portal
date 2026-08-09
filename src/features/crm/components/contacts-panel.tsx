@@ -121,24 +121,31 @@ export function ContactsPanel({
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
-            const fd = new FormData(e.currentTarget);
+            const form = e.currentTarget;
+            const fd = new FormData(form);
             start(async () => {
-              const result = await createContact({
-                customerId,
-                firstName: fd.get("firstName"),
-                lastName: fd.get("lastName"),
-                directEmail: fd.get("directEmail"),
-                directPhone: fd.get("directPhone"),
-                roleTag: fd.get("roleTag") || undefined,
-                isPrimary: fd.get("isPrimary") === "on",
-                isBilling: fd.get("isBilling") === "on",
-              });
-              if (!result.ok) {
-                setError(result.error);
-                return;
+              try {
+                const result = await createContact({
+                  customerId,
+                  firstName: fd.get("firstName"),
+                  lastName: fd.get("lastName"),
+                  directEmail: fd.get("directEmail"),
+                  directPhone: fd.get("directPhone"),
+                  roleTag: fd.get("roleTag") || undefined,
+                  isPrimary: fd.get("isPrimary") === "on",
+                  isBilling: fd.get("isBilling") === "on",
+                });
+                if (!result.ok) {
+                  setError(result.error);
+                  return;
+                }
+                form.reset();
+                router.refresh();
+              } catch (err) {
+                setError(
+                  err instanceof Error ? err.message : "Could not add contact",
+                );
               }
-              e.currentTarget.reset();
-              router.refresh();
             });
           }}
         >

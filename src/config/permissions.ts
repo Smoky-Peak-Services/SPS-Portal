@@ -26,9 +26,11 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   field_tech: "Field Technician",
 };
 
-/** Areas still used for route grouping; access = `{area}.access` capability. */
+/**
+ * Areas still used for route grouping; access = `{area}.access` capability.
+ * Dashboard is signed-in-only (no capability) — see prompt 26.
+ */
 export const AREA_ACCESS_CAPABILITY = {
-  dashboard: "dashboard.access",
   materials: "materials.access",
   pricing: "pricing.access",
   crm: "crm.access",
@@ -136,6 +138,7 @@ export function canManageUsers(role: AppRole): boolean {
   return INVITABLE_ROLES[role].length > 0;
 }
 
-export function defaultRouteForRole(_role: AppRole): string {
+export function defaultRouteForRole(role: AppRole): string {
+  void role;
   return "/";
 }

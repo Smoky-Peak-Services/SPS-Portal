@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { resolveScope } from "@/features/materials/scope";
 import { assertCapability, requireArea, type SessionUser } from "@/lib/session";
 import { recomputeRates, type LaborRateMultipliers } from "./recompute";
+import { installAllocationSumOk } from "./allocation-sum";
+import { smaTierOverlapError } from "./sma-overlap";
 import {
   createRecurringFeeItemSchema,
   deleteRecurringFeeItemSchema,
@@ -106,41 +108,39 @@ export async function updateLaborRateConfig(raw: unknown) {
   assertPricingWrite(user);
   const data = updateLaborRateConfigSchema.parse(raw);
 
-  const config = await prisma.laborRateConfig.update({
-    where: { id: data.id },
-    data: {
-      burdenMultiplier: new Prisma.Decimal(data.burdenMultiplier),
-      standardBillingMultiplier: new Prisma.Decimal(
-        data.standardBillingMultiplier,
-      ),
-      afterHoursMultiplier: new Prisma.Decimal(data.afterHoursMultiplier),
-      holidayMultiplier: new Prisma.Decimal(data.holidayMultiplier),
-      ...(data.discountedMultiplier !== undefined
-        ? {
-            discountedMultiplier:
-              data.discountedMultiplier === null
-                ? null
-                : new Prisma.Decimal(data.discountedMultiplier),
-          }
-        : {}),
-    },
-  });
+  await prisma.$transaction(async (tx) => {
+    const config = await tx.laborRateConfig.update({
+      where: { id: data.id },
+      data: {
+        burdenMultiplier: new Prisma.Decimal(data.burdenMultiplier),
+        standardBillingMultiplier: new Prisma.Decimal(
+          data.standardBillingMultiplier,
+        ),
+        afterHoursMultiplier: new Prisma.Decimal(data.afterHoursMultiplier),
+        holidayMultiplier: new Prisma.Decimal(data.holidayMultiplier),
+        ...(data.discountedMultiplier !== undefined
+          ? {
+              discountedMultiplier:
+                data.discountedMultiplier === null
+                  ? null
+                  : new Prisma.Decimal(data.discountedMultiplier),
+            }
+          : {}),
+      },
+    });
 
-  // Multipliers drive every position in the scope: recompute and persist the
-  // derived columns for all of them (other scopes untouched).
-  const multipliers = multipliersFromConfig(config);
-  const positions = await prisma.laborPosition.findMany({
-    where: { divisionId: config.divisionId, segment: config.segment },
-    select: { id: true, baseHourlyRate: true },
-  });
-  await prisma.$transaction(
-    positions.map((p) =>
-      prisma.laborPosition.update({
+    const multipliers = multipliersFromConfig(config);
+    const positions = await tx.laborPosition.findMany({
+      where: { divisionId: config.divisionId, segment: config.segment },
+      select: { id: true, baseHourlyRate: true },
+    });
+    for (const p of positions) {
+      await tx.laborPosition.update({
         where: { id: p.id },
         data: derivedRateData(multipliers, Number(p.baseHourlyRate)),
-      }),
-    ),
-  );
+      });
+    }
+  });
 
   revalidateLaborRates();
   return { ok: true as const };
@@ -156,7 +156,7 @@ export async function updateLaborPosition(raw: unknown) {
     select: { divisionId: true, segment: true },
   });
   if (!position) {
-    throw new Error("Position not found");
+    return { ok: false as const, error: "Position not found" };
   }
   const config = await prisma.laborRateConfig.findUnique({
     where: {
@@ -167,20 +167,46 @@ export async function updateLaborPosition(raw: unknown) {
     },
   });
   if (!config) {
-    throw new Error(
-      "No labor rate config for this scope — seed it before editing positions",
-    );
+    return {
+      ok: false as const,
+      error:
+        "No labor rate config for this scope — seed it before editing positions",
+    };
   }
 
-  await prisma.laborPosition.update({
-    where: { id: data.id },
-    data: {
-      title: data.title,
-      baseHourlyRate: new Prisma.Decimal(data.baseHourlyRate),
-      ...derivedRateData(multipliersFromConfig(config), data.baseHourlyRate),
-      quotedAllocationPct: new Prisma.Decimal(data.quotedAllocationPct),
-      sortOrder: data.sortOrder,
+  const siblings = await prisma.laborPosition.findMany({
+    where: {
+      divisionId: position.divisionId,
+      segment: position.segment,
     },
+    select: { id: true, context: true, quotedAllocationPct: true },
+  });
+  const allocCheck = installAllocationSumOk(
+    siblings.map((s) => ({
+      id: s.id,
+      context: s.context,
+      quotedAllocationPct: Number(s.quotedAllocationPct),
+    })),
+    { id: data.id, quotedAllocationPct: data.quotedAllocationPct },
+  );
+  if (!allocCheck.ok) {
+    return {
+      ok: false as const,
+      error: `INSTALL quotedAllocationPct must sum to 100 (would be ${allocCheck.sum})`,
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.laborPosition.update({
+      where: { id: data.id },
+      data: {
+        title: data.title,
+        baseHourlyRate: new Prisma.Decimal(data.baseHourlyRate),
+        ...derivedRateData(multipliersFromConfig(config), data.baseHourlyRate),
+        quotedAllocationPct: new Prisma.Decimal(data.quotedAllocationPct),
+        sortOrder: data.sortOrder,
+      },
+    });
   });
   revalidateLaborRates();
   return { ok: true as const };
@@ -268,6 +294,69 @@ function recurringFeeMoneyData(data: {
   };
 }
 
+async function assertSmaTierNoOverlap(args: {
+  divisionId: string;
+  segment: "COMMERCIAL" | "RESIDENTIAL" | "STR";
+  candidate: {
+    id?: string;
+    sku: string;
+    feeType: string;
+    systemValueMin?: number | null;
+    systemValueMax?: number | null;
+  };
+}) {
+  if (args.candidate.feeType !== "SMA_BASE_TIER") return;
+  const existing = await prisma.recurringFeeItem.findMany({
+    where: {
+      divisionId: args.divisionId,
+      segment: args.segment,
+      feeType: "SMA_BASE_TIER",
+    },
+    select: {
+      id: true,
+      sku: true,
+      systemValueMin: true,
+      systemValueMax: true,
+    },
+  });
+  const err = smaTierOverlapError(
+    {
+      id: args.candidate.id,
+      sku: args.candidate.sku,
+      systemValueMin: args.candidate.systemValueMin ?? null,
+      systemValueMax: args.candidate.systemValueMax ?? null,
+    },
+    existing.map((t) => ({
+      id: t.id,
+      sku: t.sku,
+      systemValueMin:
+        t.systemValueMin == null ? null : Number(t.systemValueMin),
+      systemValueMax:
+        t.systemValueMax == null ? null : Number(t.systemValueMax),
+    })),
+  );
+  if (err) throw new Error(err);
+}
+
+function recurringUniqueError(err: unknown, sku: string): never {
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === "P2002"
+  ) {
+    const target = err.meta?.target;
+    const fields = Array.isArray(target) ? target.join(",") : String(target ?? "");
+    if (fields.includes("svm") || fields.includes("feeType")) {
+      throw new Error(
+        "This scope already has an SMA SVM row — only one SVM percent is allowed",
+      );
+    }
+    throw new Error(
+      `SKU "${sku}" already exists in this scope — pick a unique SKU`,
+    );
+  }
+  throw err;
+}
+
 export async function createRecurringFeeItem(raw: unknown) {
   const user = await requireArea("pricing");
   assertPricingWrite(user);
@@ -281,6 +370,12 @@ export async function createRecurringFeeItem(raw: unknown) {
     throw new Error("Division not found");
   }
   const { segment: scopedSegment } = resolveScope(division.slug, data.segment);
+
+  await assertSmaTierNoOverlap({
+    divisionId: division.id,
+    segment: scopedSegment,
+    candidate: data,
+  });
 
   try {
     await prisma.recurringFeeItem.create({
@@ -300,15 +395,7 @@ export async function createRecurringFeeItem(raw: unknown) {
       },
     });
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === "P2002"
-    ) {
-      throw new Error(
-        `SKU "${data.sku}" already exists in this scope — pick a unique SKU`,
-      );
-    }
-    throw err;
+    recurringUniqueError(err, data.sku);
   }
 
   revalidateRecurring();
@@ -319,6 +406,18 @@ export async function updateRecurringFeeItem(raw: unknown) {
   const user = await requireArea("pricing");
   assertPricingWrite(user);
   const data = updateRecurringFeeItemSchema.parse(raw);
+
+  const existing = await prisma.recurringFeeItem.findUnique({
+    where: { id: data.id },
+    select: { divisionId: true, segment: true },
+  });
+  if (!existing) throw new Error("Recurring fee not found");
+
+  await assertSmaTierNoOverlap({
+    divisionId: existing.divisionId,
+    segment: existing.segment,
+    candidate: { ...data, id: data.id },
+  });
 
   try {
     await prisma.recurringFeeItem.update({
@@ -337,15 +436,7 @@ export async function updateRecurringFeeItem(raw: unknown) {
       },
     });
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === "P2002"
-    ) {
-      throw new Error(
-        `SKU "${data.sku}" already exists in this scope — pick a unique SKU`,
-      );
-    }
-    throw err;
+    recurringUniqueError(err, data.sku);
   }
 
   revalidateRecurring();

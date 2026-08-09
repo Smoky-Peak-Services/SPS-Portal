@@ -1,26 +1,12 @@
 /**
  * Complexity hours adjuster (prompt 10, generalized in prompt 14).
- *
- * STRICT RULE: this engine ONLY ever touches labor hours. Never multiply a
- * labor dollar amount, billable total, cost basis, or project price here.
- * Dollar-based BASE_PACKAGE_RATE rows belong to calculateAdjustedPackageRate
- * (package-rate.ts) and are rejected, as are FIXED rows.
- *
- * PERCENT multipliers add hours against their appliedTo bucket:
- * TOTAL_LABOR uses totalHours; PROGRAMMING_LABOR / NETWORK_LABOR use the
- * itemized bucket when provided, otherwise fall back to totalHours.
- *
- * Additive (not compounded): each rate is applied independently against its
- * bucket, then the additions are summed. No cap.
- *
- * After Hours Required Installation (0.20) may intentionally stack with
- * LaborRateType.AFTER_HOURS (higher $/hr) — deliberate per the sheet note;
- * do not auto-block the combination.
- *
- * totalHours from this function is what later quoting passes into
- * distributeQuotedLabor (prompt 09) — no quote entity wiring here yet.
+ * Internals use Decimal; round once per multiplier addition and once on totals
+ * so results match prior cent-rounded hours tests.
  */
-import { roundMoney } from "./rate-for";
+import { Prisma } from "@prisma/client";
+import { roundMoneyDecimal, toDecimal } from "./rate-for";
+
+const Decimal = Prisma.Decimal;
 
 export type ComplexityHoursInput = {
   totalHours: number;
@@ -33,7 +19,10 @@ export type ActiveComplexityMultiplier = {
   slug?: string;
   multiplierType: "PERCENT" | "FIXED";
   appliedTo:
-    "TOTAL_LABOR" | "PROGRAMMING_LABOR" | "NETWORK_LABOR" | "BASE_PACKAGE_RATE";
+    | "TOTAL_LABOR"
+    | "PROGRAMMING_LABOR"
+    | "NETWORK_LABOR"
+    | "BASE_PACKAGE_RATE";
   value: number;
 };
 
@@ -72,7 +61,7 @@ export function calculateAdjustedLaborHours(
   }
 
   const perMultiplier: ComplexityHoursBreakdown[] = [];
-  let additionalHours = 0;
+  let additionalExact = new Decimal(0);
 
   for (const m of activeMultipliers) {
     if (m.multiplierType !== "PERCENT") {
@@ -98,22 +87,27 @@ export function calculateAdjustedLaborHours(
           ? (hours.networkHours ?? hours.totalHours)
           : hours.totalHours;
 
-    const add = roundMoney(bucketHours * m.value);
+    const addExact = toDecimal(bucketHours).mul(m.value);
+    const add = roundMoneyDecimal(addExact);
+    additionalExact = additionalExact.add(addExact);
     perMultiplier.push({
       name: m.name,
       slug: m.slug,
       appliedTo: m.appliedTo,
       rate: m.value,
       baseHours: bucketHours,
-      additionalHours: add,
+      additionalHours: add.toNumber(),
     });
-    additionalHours = roundMoney(additionalHours + add);
   }
+
+  const additionalHours = roundMoneyDecimal(additionalExact).toNumber();
 
   return {
     baseHours: hours.totalHours,
     perMultiplier,
     additionalHours,
-    totalHours: roundMoney(hours.totalHours + additionalHours),
+    totalHours: roundMoneyDecimal(
+      toDecimal(hours.totalHours).add(additionalExact),
+    ).toNumber(),
   };
 }

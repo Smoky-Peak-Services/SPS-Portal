@@ -84,30 +84,36 @@ export function BillingProfileForm({
             setError(null);
             const fd = new FormData(e.currentTarget);
             start(async () => {
-              const result = await updateBillingProfile({
-                rootOrgId,
-                profileType: fd.get("profileType"),
-                billingName: fd.get("billingName"),
-                billingEmail: fd.get("billingEmail"),
-                billingPhone: fd.get("billingPhone"),
-                billingLine1: fd.get("billingLine1"),
-                billingLine2: fd.get("billingLine2"),
-                billingCity: fd.get("billingCity"),
-                billingRegion: fd.get("billingRegion"),
-                billingPostal: fd.get("billingPostal"),
-                billingLat: fd.get("billingLat"),
-                billingLng: fd.get("billingLng"),
-                pointOfContactId: fd.get("pointOfContactId") || "",
-                taxExemptionNumber: fd.get("taxExemptionNumber"),
-                taxExemptEntityType: fd.get("taxExemptEntityType") || null,
-                taxExemptCertOnFile: fd.get("taxExemptCertOnFile") === "on",
-                smaStatus: fd.get("smaStatus") || null,
-              });
-              if (!result.ok) {
-                setError(result.error);
-                return;
+              try {
+                const result = await updateBillingProfile({
+                  rootOrgId,
+                  profileType: fd.get("profileType"),
+                  billingName: fd.get("billingName"),
+                  billingEmail: fd.get("billingEmail"),
+                  billingPhone: fd.get("billingPhone"),
+                  billingLine1: fd.get("billingLine1"),
+                  billingLine2: fd.get("billingLine2"),
+                  billingCity: fd.get("billingCity"),
+                  billingRegion: fd.get("billingRegion"),
+                  billingPostal: fd.get("billingPostal"),
+                  billingLat: fd.get("billingLat"),
+                  billingLng: fd.get("billingLng"),
+                  pointOfContactId: fd.get("pointOfContactId") || "",
+                  taxExemptionNumber: fd.get("taxExemptionNumber"),
+                  taxExemptEntityType: fd.get("taxExemptEntityType") || null,
+                  taxExemptCertOnFile: fd.get("taxExemptCertOnFile") === "on",
+                  smaStatus: fd.get("smaStatus") || null,
+                });
+                if (!result.ok) {
+                  setError(result.error);
+                  return;
+                }
+                router.refresh();
+              } catch (err) {
+                setError(
+                  err instanceof Error ? err.message : "Could not save billing",
+                );
               }
-              router.refresh();
             });
           }}
         >

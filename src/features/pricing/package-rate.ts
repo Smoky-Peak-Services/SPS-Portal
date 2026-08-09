@@ -1,14 +1,12 @@
 /**
  * Base package rate adjuster (prompt 14, Cabin Services).
- *
- * Counterpart to calculateAdjustedLaborHours for BASE_PACKAGE_RATE rows:
- * FIXED adds `value` dollars per billing cycle; PERCENT adds
- * `basePackageRate * value`. Additive, not compounded; no cap.
- * Labor-bucket rows (TOTAL_LABOR / PROGRAMMING_LABOR / NETWORK_LABOR)
- * belong to the hours engine and are rejected here.
+ * Decimal internals; round once on each addition and on the document total.
  */
-import { roundMoney } from "./rate-for";
+import { Prisma } from "@prisma/client";
+import { roundMoneyDecimal, toDecimal } from "./rate-for";
 import type { ActiveComplexityMultiplier } from "./adjusted-hours";
+
+const Decimal = Prisma.Decimal;
 
 export type PackageRateBreakdown = {
   name: string;
@@ -34,7 +32,8 @@ export function calculateAdjustedPackageRate(
   }
 
   const perMultiplier: PackageRateBreakdown[] = [];
-  let additionalAmount = 0;
+  let additionalExact = new Decimal(0);
+  const base = toDecimal(basePackageRate);
 
   for (const m of activeMultipliers) {
     if (m.appliedTo !== "BASE_PACKAGE_RATE") {
@@ -48,23 +47,22 @@ export function calculateAdjustedPackageRate(
       );
     }
 
-    const add = roundMoney(
-      m.multiplierType === "FIXED" ? m.value : basePackageRate * m.value,
-    );
+    const addExact =
+      m.multiplierType === "FIXED" ? toDecimal(m.value) : base.mul(m.value);
+    additionalExact = additionalExact.add(addExact);
     perMultiplier.push({
       name: m.name,
       slug: m.slug,
       multiplierType: m.multiplierType,
       value: m.value,
-      additionalAmount: add,
+      additionalAmount: roundMoneyDecimal(addExact).toNumber(),
     });
-    additionalAmount = roundMoney(additionalAmount + add);
   }
 
   return {
     basePackageRate,
     perMultiplier,
-    additionalAmount,
-    totalRate: roundMoney(basePackageRate + additionalAmount),
+    additionalAmount: roundMoneyDecimal(additionalExact).toNumber(),
+    totalRate: roundMoneyDecimal(base.add(additionalExact)).toNumber(),
   };
 }

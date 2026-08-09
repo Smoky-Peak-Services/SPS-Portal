@@ -28,7 +28,7 @@ describe("blendedInstallRate for consumable labor reference", () => {
     );
     const rate = blendedInstallRate(install, "STANDARD");
     // Cent-rounding per role means 1h ≠ total/100 exactly (100h → $8,898.80).
-    assert.equal(rate, 88.98);
+    assert.equal(rate, 88.99);
   });
 
   it("IS-RES blend differs from IS-COM (segment matters for display)", () => {

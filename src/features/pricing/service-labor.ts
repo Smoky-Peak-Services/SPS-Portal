@@ -1,14 +1,15 @@
 /**
  * Module B — service ticket labor: flat hours × Service Technician rates.
- * Kept separate from quoted-labor so INSTALL blend and SERVICE billing never cross-contaminate.
- *
- * Cost basis note: same as Module A — single actualCostOfLabor; rateType does not change cost.
+ * Internals use Decimal; round once on billable / cost / margin outputs.
  */
+import { Prisma } from "@prisma/client";
 import {
   calculateServiceTicketLaborInputSchema,
   type LaborRateTypeInput,
 } from "./schemas";
-import { rateFor, roundMoney, type RateColumns } from "./rate-for";
+import { rateFor, roundMoneyDecimal, toDecimal, type RateColumns } from "./rate-for";
+
+const Decimal = Prisma.Decimal;
 
 export type ServiceLaborPosition = RateColumns & {
   sku: string;
@@ -39,12 +40,17 @@ export function calculateServiceTicketLabor(
   });
 
   const rateUsed = rateFor(parsed.position, parsed.rateType);
-  const billable = roundMoney(parsed.hoursLogged * rateUsed);
-  const costBasis = roundMoney(
-    parsed.hoursLogged * parsed.position.actualCostOfLabor,
-  );
+  const hours = toDecimal(parsed.hoursLogged);
+  const billable = roundMoneyDecimal(hours.mul(rateUsed)).toNumber();
+  const costBasis = roundMoneyDecimal(
+    hours.mul(parsed.position.actualCostOfLabor),
+  ).toNumber();
   const marginPct =
-    billable > 0 ? roundMoney(((billable - costBasis) / billable) * 100) : 0;
+    billable > 0
+      ? roundMoneyDecimal(
+          new Decimal(billable).sub(costBasis).div(billable).mul(100),
+        ).toNumber()
+      : 0;
 
   return {
     sku: parsed.position.sku,

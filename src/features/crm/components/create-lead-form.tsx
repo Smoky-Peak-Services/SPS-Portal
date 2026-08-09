@@ -43,23 +43,29 @@ export function CreateLeadForm({
         setError(null);
         const fd = new FormData(e.currentTarget);
         start(async () => {
-          const result = await createLead({
-            source: fd.get("source"),
-            divisionId: fd.get("divisionId"),
-            name: fd.get("name"),
-            email: fd.get("email"),
-            phone: fd.get("phone"),
-            company: fd.get("company"),
-            message: fd.get("message"),
-            budget: fd.get("budget"),
-            timeline: fd.get("timeline"),
-          });
-          if (!result.ok) {
-            setError(result.error);
-            return;
+          try {
+            const result = await createLead({
+              source: fd.get("source"),
+              divisionId: fd.get("divisionId"),
+              name: fd.get("name"),
+              email: fd.get("email"),
+              phone: fd.get("phone"),
+              company: fd.get("company"),
+              message: fd.get("message"),
+              budget: fd.get("budget"),
+              timeline: fd.get("timeline"),
+            });
+            if (!result.ok) {
+              setError(result.error);
+              return;
+            }
+            router.push(result.id ? `/leads/${result.id}` : "/leads");
+            router.refresh();
+          } catch (err) {
+            setError(
+              err instanceof Error ? err.message : "Could not create lead",
+            );
           }
-          router.push(result.id ? `/leads/${result.id}` : "/leads");
-          router.refresh();
         });
       }}
     >

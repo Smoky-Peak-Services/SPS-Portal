@@ -13,7 +13,7 @@ import { formatPhoneDisplay } from "@/lib/phone-format";
 export default async function LeadsArchivePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; divisionId?: string }>;
+  searchParams: Promise<{ q?: string; divisionId?: string; cursor?: string }>;
 }) {
   await requireDesktopSurface("/leads/archive");
   await requireArea("crm");
@@ -28,14 +28,24 @@ export default async function LeadsArchivePage({
     );
   }
 
-  const [divisions, leads] = await Promise.all([
+  const [divisions, { rows: leads, nextCursor }] = await Promise.all([
     listCrmDivisions(),
     listLeads({
       q: sp.q,
       divisionId: sp.divisionId,
       scope: "archive",
+      cursor: sp.cursor,
     }),
   ]);
+
+  const nextHref = (() => {
+    if (!nextCursor) return null;
+    const params = new URLSearchParams();
+    if (sp.q) params.set("q", sp.q);
+    if (sp.divisionId) params.set("divisionId", sp.divisionId);
+    params.set("cursor", nextCursor);
+    return `/leads/archive?${params.toString()}`;
+  })();
 
   return (
     <div className="space-y-6">
@@ -61,53 +71,62 @@ export default async function LeadsArchivePage({
           description="Closed leads will appear here."
         />
       ) : (
-        <DataTableShell>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Division</th>
-                <th className="px-3 py-2 font-medium">Phone</th>
-                <th className="px-3 py-2 font-medium">Client</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((lead) => (
-                <tr
-                  key={lead.id}
-                  className="border-b border-border/60 last:border-0"
-                >
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/leads/${lead.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {lead.name}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">{lead.status}</td>
-                  <td className="px-3 py-2">{lead.orgDivision.name}</td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {lead.phone ? formatPhoneDisplay(lead.phone) : "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    {lead.customer ? (
-                      <Link
-                        href={`/clients/${lead.customer.id}`}
-                        className="hover:underline"
-                      >
-                        {lead.customer.displayName}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
+        <>
+          <DataTableShell>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="px-3 py-2 font-medium">Name</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Division</th>
+                  <th className="px-3 py-2 font-medium">Phone</th>
+                  <th className="px-3 py-2 font-medium">Client</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </DataTableShell>
+              </thead>
+              <tbody>
+                {leads.map((lead) => (
+                  <tr
+                    key={lead.id}
+                    className="border-b border-border/60 last:border-0"
+                  >
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/leads/${lead.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {lead.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2">{lead.status}</td>
+                    <td className="px-3 py-2">{lead.orgDivision.name}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {lead.phone ? formatPhoneDisplay(lead.phone) : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {lead.customer ? (
+                        <Link
+                          href={`/clients/${lead.customer.id}`}
+                          className="hover:underline"
+                        >
+                          {lead.customer.displayName}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </DataTableShell>
+          {nextHref ? (
+            <div className="flex justify-end">
+              <Button asChild variant="outline">
+                <Link href={nextHref}>Next page</Link>
+              </Button>
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   );

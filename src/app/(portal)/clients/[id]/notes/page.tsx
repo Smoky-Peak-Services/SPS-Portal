@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireArea } from "@/lib/session";
+import { formatInCompanyTz } from "@/lib/datetime";
 import { getCustomerProfile } from "@/features/crm/queries";
 import { canWriteCrm } from "@/features/crm/authz";
 import { ActivityPanel } from "@/features/crm/components/activity-panel";
@@ -15,6 +16,14 @@ export default async function ClientNotesPage({
   const customer = await getCustomerProfile(id);
   if (!customer) notFound();
 
+  const activities = customer.activities.map((a) => ({
+    id: a.id,
+    type: a.type,
+    body: a.body,
+    createdAtLabel: formatInCompanyTz(a.createdAt, "MMM d, yyyy h:mm a"),
+    serviceLocation: a.serviceLocation,
+  }));
+
   return (
     <Panel
       title="Notes"
@@ -22,7 +31,7 @@ export default async function ClientNotesPage({
     >
       <ActivityPanel
         customerId={customer.id}
-        activities={customer.activities}
+        activities={activities}
         locations={customer.serviceLocations}
         canWrite={canWriteCrm(user)}
       />

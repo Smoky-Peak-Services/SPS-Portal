@@ -3,8 +3,8 @@
  * Always upserts PhoneEvent; attaches Activity when Contact or open Lead matches.
  */
 import { isPiiConfigured, prismaPii, type PhoneEventKind } from "@/lib/prisma-pii";
+import { parseUsPhone } from "@/lib/phone-parse";
 import {
-  parseUsPhone,
   verifyOpenPhoneSignature,
   openPhoneWebhookSecret,
   type QuoWebhookHeaders,
@@ -19,9 +19,15 @@ import {
   resolveLegacyParties,
 } from "@/features/phone/openphone-payload";
 import {
+  isPrismaUniqueViolation,
   mergeBody,
   upsertMatchedActivity,
 } from "@/features/phone/match-target";
+import {
+  parseOccurredAt,
+  resultFromWebhookError,
+  type OpenPhoneWebhookResult,
+} from "@/features/phone/openphone-webhook-helpers";
 
 type Media = { url?: string | null; type?: string; duration?: number };
 type PhoneObject = {
@@ -76,6 +82,38 @@ type OpenPhoneEvent = {
   };
 };
 
+async function applyPhoneEventUpdate(
+  existing: {
+    id: string;
+    body: string | null;
+    partyNat: string | null;
+    fromE164: string | null;
+    toE164: string | null;
+  },
+  opts: {
+    line: string;
+    recordingUrl?: string | null;
+    partyNat: string | null;
+    fromE164: string | null;
+    toE164: string | null;
+  },
+) {
+  await prismaPii.phoneEvent.update({
+    where: { id: existing.id },
+    data: {
+      body: mergeBody(existing.body, opts.line),
+      ...(opts.recordingUrl ? { recordingUrl: opts.recordingUrl } : {}),
+      ...(!existing.partyNat && opts.partyNat
+        ? { partyNat: opts.partyNat }
+        : {}),
+      ...(!existing.fromE164 && opts.fromE164
+        ? { fromE164: opts.fromE164 }
+        : {}),
+      ...(!existing.toE164 && opts.toE164 ? { toE164: opts.toE164 } : {}),
+    },
+  });
+}
+
 async function upsertEvent(opts: {
   externalId: string;
   kind: PhoneEventKind;
@@ -86,49 +124,74 @@ async function upsertEvent(opts: {
   recordingUrl?: string | null;
   occurredAt: Date;
 }) {
-  const existing = await prismaPii.phoneEvent.findUnique({
-    where: { externalId: opts.externalId },
-    select: { id: true, body: true, partyNat: true },
-  });
-
-  if (existing) {
-    await prismaPii.phoneEvent.update({
-      where: { id: existing.id },
-      data: {
-        body: mergeBody(existing.body, opts.line),
-        ...(opts.recordingUrl ? { recordingUrl: opts.recordingUrl } : {}),
-      },
-    });
-    await upsertMatchedActivity({
-      externalId: opts.externalId,
-      kind: opts.kind,
-      partyNat: existing.partyNat,
-      line: opts.line,
-    });
-    return;
-  }
-
   const incoming = opts.direction === "incoming";
   const ext = parseUsPhone(opts.externalRaw);
   const ws = parseUsPhone(opts.workspaceRaw);
   const partyNat = ext?.national10 ?? null;
-  await prismaPii.phoneEvent.create({
-    data: {
-      externalId: opts.externalId,
-      kind: opts.kind,
-      direction: opts.direction,
-      fromE164: incoming ? (ext?.e164 ?? null) : (ws?.e164 ?? null),
-      toE164: incoming ? (ws?.e164 ?? null) : (ext?.e164 ?? null),
-      partyNat,
-      body: opts.line || null,
-      recordingUrl: opts.recordingUrl ?? null,
-      occurredAt: opts.occurredAt,
+  const fromE164 = incoming ? (ext?.e164 ?? null) : (ws?.e164 ?? null);
+  const toE164 = incoming ? (ws?.e164 ?? null) : (ext?.e164 ?? null);
+  const patch = {
+    line: opts.line,
+    recordingUrl: opts.recordingUrl,
+    partyNat,
+    fromE164,
+    toE164,
+  };
+
+  const existing = await prismaPii.phoneEvent.findUnique({
+    where: { externalId: opts.externalId },
+    select: {
+      id: true,
+      body: true,
+      partyNat: true,
+      fromE164: true,
+      toE164: true,
     },
   });
+
+  if (existing) {
+    await applyPhoneEventUpdate(existing, patch);
+  } else {
+    try {
+      await prismaPii.phoneEvent.create({
+        data: {
+          externalId: opts.externalId,
+          kind: opts.kind,
+          direction: opts.direction,
+          fromE164,
+          toE164,
+          partyNat,
+          body: opts.line || null,
+          recordingUrl: opts.recordingUrl ?? null,
+          occurredAt: opts.occurredAt,
+        },
+      });
+    } catch (err) {
+      if (!isPrismaUniqueViolation(err)) throw err;
+      const again = await prismaPii.phoneEvent.findUnique({
+        where: { externalId: opts.externalId },
+        select: {
+          id: true,
+          body: true,
+          partyNat: true,
+          fromE164: true,
+          toE164: true,
+        },
+      });
+      if (!again) throw err;
+      await applyPhoneEventUpdate(again, patch);
+    }
+  }
+
+  const resolved = await prismaPii.phoneEvent.findUnique({
+    where: { externalId: opts.externalId },
+    select: { partyNat: true },
+  });
+
   await upsertMatchedActivity({
     externalId: opts.externalId,
     kind: opts.kind,
-    partyNat,
+    partyNat: resolved?.partyNat ?? partyNat,
     line: opts.line,
   });
 }
@@ -139,12 +202,11 @@ function isBeta(evt: OpenPhoneEvent): boolean {
 
 async function handleEvent(evt: OpenPhoneEvent): Promise<string> {
   const type = evt.type ?? "";
-  const when = (s?: string) => (s ? new Date(s) : new Date());
 
   if (isBeta(evt)) {
-    return handleBetaEvent(evt, type, when);
+    return handleBetaEvent(evt, type, parseOccurredAt);
   }
-  return handleLegacyEvent(evt, type, when);
+  return handleLegacyEvent(evt, type, parseOccurredAt);
 }
 
 async function handleLegacyEvent(
@@ -364,16 +426,11 @@ async function mergeSummaryOrTranscript(
   nextSteps: string[] | null | undefined,
   dialogue: { content?: string }[] | null | undefined,
 ): Promise<string> {
-  const existing = await prismaPii.phoneEvent.findUnique({
-    where: { externalId: callId },
-    select: { id: true, body: true, partyNat: true, kind: true },
-  });
-  if (!existing) return "ignored:no_existing_call";
-
   let line: string | null = null;
   if (type === "call.summary.completed") {
     line = buildSummaryLine(summary, nextSteps);
     if (!line) {
+      // In-request enrich; move off the webhook path if this stays slow.
       const enriched = await fetchCallSummaryFromApi(callId);
       if (enriched) {
         line = buildSummaryLine(enriched.summary, enriched.nextSteps);
@@ -383,6 +440,37 @@ async function mergeSummaryOrTranscript(
   } else {
     line = buildTranscriptLine(dialogue);
     if (!line) return "ignored:empty_transcript";
+  }
+
+  const existing = await prismaPii.phoneEvent.findUnique({
+    where: { externalId: callId },
+    select: { id: true, body: true, partyNat: true, kind: true },
+  });
+
+  if (!existing) {
+    // Summary/transcript can land before call.completed — placeholder row.
+    await prismaPii.phoneEvent.upsert({
+      where: { externalId: callId },
+      create: {
+        externalId: callId,
+        kind: "CALL",
+        direction: "incoming",
+        body: line,
+        occurredAt: new Date(),
+      },
+      update: {
+        body: line,
+      },
+    });
+    await upsertMatchedActivity({
+      externalId: callId,
+      kind: "CALL",
+      partyNat: null,
+      line,
+    });
+    return type === "call.summary.completed"
+      ? "stored:call_summary_placeholder"
+      : "stored:call_transcript_placeholder";
   }
 
   await prismaPii.phoneEvent.update({
@@ -400,17 +488,16 @@ async function mergeSummaryOrTranscript(
     : "stored:call_transcript";
 }
 
-export type OpenPhoneWebhookResult = {
-  status: number;
-  body: Record<string, unknown>;
-};
+export type { OpenPhoneWebhookResult };
 
 export async function processOpenPhoneWebhook(
   rawBody: string,
   headers: QuoWebhookHeaders | string | null,
 ): Promise<OpenPhoneWebhookResult> {
-  if (process.env.NODE_ENV === "production" && !openPhoneWebhookSecret()) {
-    console.error("[openphone] rejected: webhook secret missing in production");
+  const secretConfigured = !!openPhoneWebhookSecret();
+  const allowUnsigned = process.env.ALLOW_UNSIGNED_QUO_WEBHOOKS === "1";
+  if (!secretConfigured && !allowUnsigned) {
+    console.error("[openphone] rejected: webhook secret not configured");
     return { status: 503, body: { error: "Webhook not configured" } };
   }
   if (!verifyOpenPhoneSignature(rawBody, headers)) {
@@ -442,8 +529,12 @@ export async function processOpenPhoneWebhook(
       `[openphone] processed type=${evt.type ?? "unknown"} id=${id} action=${action}`,
     );
   } catch (e) {
-    console.error("[openphone] handler error", e);
-    return { status: 500, body: { error: "processing failed" } };
+    if (isPrismaUniqueViolation(e)) {
+      console.warn("[openphone] duplicate externalId — treating as success");
+    } else {
+      console.error("[openphone] handler error", e);
+    }
+    return resultFromWebhookError(e);
   }
 
   return { status: 200, body: { ok: true } };
@@ -462,4 +553,4 @@ function headersFromRequest(req: {
   };
 }
 
-export { headersFromRequest };
+export { headersFromRequest, parseOccurredAt, resultFromWebhookError };

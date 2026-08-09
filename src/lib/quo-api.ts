@@ -1,7 +1,8 @@
 /**
- * Quo (OpenPhone) REST helpers — server-only (uses API key).
+ * Quo (OpenPhone) REST helpers — uses API key.
  * Docs: https://www.quo.com/docs/mdx/api-reference/introduction
  */
+import "server-only";
 import { parseUsPhone } from "@/lib/phone-parse";
 
 const API_BASES = [
@@ -43,19 +44,23 @@ async function quoFetch(
     headers["Quo-Api-Version"] = QUO_API_VERSION;
   }
 
+  // Keep enrich inside the webhook for now; 4s cap avoids stalling Quo retries.
+  const signal = init?.signal ?? AbortSignal.timeout(4000);
+
   let last: Response | null = null;
   for (const base of API_BASES) {
     try {
       const res = await fetch(`${base}${path}`, {
         ...init,
         headers,
+        signal,
         cache: "no-store",
       });
       last = res;
       // Fall through to alternate host only on clear "wrong API" 404s.
       if (res.status !== 404) return res;
     } catch {
-      /* try next base */
+      /* timeout / network — try next base, then treat as unavailable */
     }
   }
   return last;

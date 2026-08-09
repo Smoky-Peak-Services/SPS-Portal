@@ -4,8 +4,9 @@ import { describe, it } from "node:test";
 import {
   decodeWhsecKey,
   verifyLegacyOpenPhoneSignature,
+  verifyOpenPhoneSignatureWithSecrets,
   verifyQuoWhsecSignature,
-} from "./openphone";
+} from "./openphone-signature";
 
 describe("decodeWhsecKey", () => {
   it("decodes whsec_ prefix", () => {
@@ -60,10 +61,10 @@ describe("verifyQuoWhsecSignature", () => {
 });
 
 describe("verifyLegacyOpenPhoneSignature", () => {
-  it("accepts hmac;1;ts;sig", () => {
+  it("accepts hmac;1;ts;sig with fresh timestamp", () => {
     const keyBytes = Buffer.from("legacy-key-material-bytes");
     const secret = keyBytes.toString("base64");
-    const timestamp = "1710000000";
+    const timestamp = String(Math.floor(Date.now() / 1000));
     const rawBody = '{"type":"call.completed"}';
     const signed = `${timestamp}.${rawBody}`;
     const sig = createHmac("sha256", keyBytes)
@@ -73,6 +74,39 @@ describe("verifyLegacyOpenPhoneSignature", () => {
 
     assert.equal(
       verifyLegacyOpenPhoneSignature(rawBody, header, [secret]),
+      true,
+    );
+  });
+
+  it("rejects signature older than 5 minutes", () => {
+    const keyBytes = Buffer.from("legacy-key-material-bytes");
+    const secret = keyBytes.toString("base64");
+    const timestamp = "1710000000"; // March 2024
+    const rawBody = '{"type":"call.completed"}';
+    const signed = `${timestamp}.${rawBody}`;
+    const sig = createHmac("sha256", keyBytes)
+      .update(signed, "utf8")
+      .digest("base64");
+    const header = `hmac;1;${timestamp};${sig}`;
+
+    assert.equal(
+      verifyLegacyOpenPhoneSignature(rawBody, header, [secret]),
+      false,
+    );
+  });
+});
+
+describe("verifyOpenPhoneSignatureWithSecrets", () => {
+  it("rejects when secret missing and opt-in unset", () => {
+    assert.equal(
+      verifyOpenPhoneSignatureWithSecrets("{}", null, [], false),
+      false,
+    );
+  });
+
+  it("allows unsigned when opt-in is set", () => {
+    assert.equal(
+      verifyOpenPhoneSignatureWithSecrets("{}", null, [], true),
       true,
     );
   });

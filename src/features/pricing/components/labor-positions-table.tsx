@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { WorkContext } from "@prisma/client";
 import { updateLaborPosition } from "@/features/pricing/actions";
+import { installAllocationTotal } from "@/features/pricing/allocation-sum";
 import {
   recomputeRates,
   type LaborRateMultipliers,
@@ -42,36 +43,51 @@ export function LaborPositionsTable({
 }) {
   // Discounted column follows the scope's multiplier (Cabin only).
   const hasDiscounted = multipliers.discountedMultiplier != null;
+  const installAlloc = installAllocationTotal(
+    positions.map((p) => ({
+      id: p.id,
+      context: p.context,
+      quotedAllocationPct: Number(p.quotedAllocationPct.toString()),
+    })),
+  );
+  const allocOk = Math.abs(installAlloc - 100) <= 0.01;
 
   return (
-    <table className="w-full text-left text-sm">
-      <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-        <tr>
-          <th className="px-3 py-2">Title / SKU</th>
-          <th className="px-3 py-2">Ctx</th>
-          <th className="px-3 py-2">Base</th>
-          <th className="px-3 py-2">Cost</th>
-          <th className="px-3 py-2">Std</th>
-          <th className="px-3 py-2">AH</th>
-          <th className="px-3 py-2">Hol</th>
-          {hasDiscounted ? <th className="px-3 py-2">Disc</th> : null}
-          <th className="px-3 py-2">Alloc %</th>
-          <th className="px-3 py-2">Sort</th>
-          {canWrite ? <th className="px-3 py-2" /> : null}
-        </tr>
-      </thead>
-      <tbody>
-        {positions.map((p) => (
-          <PositionEditRow
-            key={p.id}
-            position={p}
-            multipliers={multipliers}
-            canWrite={canWrite}
-            hasDiscounted={hasDiscounted}
-          />
-        ))}
-      </tbody>
-    </table>
+    <div className="space-y-2">
+      <p
+        className={`text-xs ${allocOk ? "text-muted-foreground" : "text-destructive"}`}
+      >
+        INSTALL allocation total: {installAlloc}% (must be 100%)
+      </p>
+      <table className="w-full text-left text-sm">
+        <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2">Title / SKU</th>
+            <th className="px-3 py-2">Ctx</th>
+            <th className="px-3 py-2">Base</th>
+            <th className="px-3 py-2">Cost</th>
+            <th className="px-3 py-2">Std</th>
+            <th className="px-3 py-2">AH</th>
+            <th className="px-3 py-2">Hol</th>
+            {hasDiscounted ? <th className="px-3 py-2">Disc</th> : null}
+            <th className="px-3 py-2">Alloc %</th>
+            <th className="px-3 py-2">Sort</th>
+            {canWrite ? <th className="px-3 py-2" /> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {positions.map((p) => (
+            <PositionEditRow
+              key={p.id}
+              position={p}
+              multipliers={multipliers}
+              canWrite={canWrite}
+              hasDiscounted={hasDiscounted}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -102,13 +118,17 @@ function PositionEditRow({
     setError(null);
     start(async () => {
       try {
-        await updateLaborPosition({
+        const result = await updateLaborPosition({
           id: position.id,
           title: fd.get("title"),
           baseHourlyRate: fd.get("baseHourlyRate"),
           quotedAllocationPct: fd.get("quotedAllocationPct"),
           sortOrder: fd.get("sortOrder"),
         });
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Save failed");

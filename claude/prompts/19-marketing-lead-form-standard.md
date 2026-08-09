@@ -43,6 +43,7 @@ Send **flat fields only**. Do **not** paste labels into `message`.
 | `message` | no | `message` | **Freeform body only.** No `Division:` / `Company:` / `Subject:` prefixes |
 | `budget` | no | `budget` | Keep existing option values if the form has them |
 | `timeline` | no | `timeline` | Same |
+| `idempotencyKey` | no | `externalId` | Optional unique key per submission (UUID). When present, retries upsert the same lead instead of creating duplicates. When absent, portal soft-dedupes matching `(division, email, name)` within 5 minutes and returns `{ ok: true, duplicate: true }`. |
 
 \*Strongly recommended: every site should send `division` from its inquiry-type / Division control.
 

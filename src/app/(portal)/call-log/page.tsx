@@ -7,6 +7,7 @@ import {
   CallLogClient,
   type CallLogRow,
 } from "@/features/phone/components/call-log-client";
+import { formatRelativeInCompanyTz } from "@/lib/datetime";
 import { PageHeader } from "@/components/patterns/page-header";
 import { EmptyState } from "@/components/patterns/empty-state";
 
@@ -30,6 +31,7 @@ export default async function CallLogPage() {
     partyE164: g.partyE164,
     leadMessage: g.leadMessage,
     lastAtMs: g.lastAt.getTime(),
+    lastAtLabel: formatRelativeInCompanyTz(g.lastAt),
     total: g.total,
     counts: g.counts,
     statusLine: g.statusLine,

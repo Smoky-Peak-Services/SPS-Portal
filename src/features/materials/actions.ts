@@ -42,10 +42,18 @@ const MATERIALS_PATHS = [
   "/materials/categories",
   "/materials/attributes",
   "/materials/items",
+  "/materials/consumables",
+  "/materials/equipment",
+  "/materials/import-export",
 ] as const;
 
-function revalidateMaterials() {
+type MaterialsKind = "domains" | "categories" | "attributes" | "items";
+
+function revalidateMaterials(kind?: MaterialsKind, id?: string) {
   for (const p of MATERIALS_PATHS) revalidatePath(p);
+  if (kind && id) {
+    revalidatePath(`/materials/${kind}/${id}`);
+  }
 }
 
 function emptyToNull(v: string | null | undefined) {
@@ -303,7 +311,7 @@ export async function createDomain(raw: unknown) {
       isActive: data.isActive ?? true,
     },
   });
-  revalidateMaterials();
+  revalidateMaterials("domains", domain.id);
   return domain;
 }
 
@@ -325,7 +333,7 @@ export async function updateDomain(raw: unknown) {
       isActive: data.isActive ?? true,
     },
   });
-  revalidateMaterials();
+  revalidateMaterials("domains", domain.id);
   return domain;
 }
 
@@ -369,7 +377,7 @@ export async function createCategory(raw: unknown) {
     category.id,
     category.requiresManualPartNumber,
   );
-  revalidateMaterials();
+  revalidateMaterials("categories", category.id);
   return category;
 }
 
@@ -420,7 +428,7 @@ export async function updateCategory(raw: unknown) {
       category.requiresManualPartNumber,
     );
   }
-  revalidateMaterials();
+  revalidateMaterials("categories", category.id);
   return category;
 }
 
@@ -432,7 +440,7 @@ export async function markCategoryTaxReviewed(raw: unknown) {
     where: { id: data.id },
     data: { taxReviewed: data.taxReviewed },
   });
-  revalidateMaterials();
+  revalidateMaterials("categories", category.id);
   return category;
 }
 
@@ -455,7 +463,7 @@ export async function createAttribute(raw: unknown) {
       isActive: data.isActive ?? true,
     },
   });
-  revalidateMaterials();
+  revalidateMaterials("attributes", attribute.id);
   return attribute;
 }
 
@@ -474,7 +482,7 @@ export async function updateAttribute(raw: unknown) {
       isActive: data.isActive ?? true,
     },
   });
-  revalidateMaterials();
+  revalidateMaterials("attributes", attribute.id);
   return attribute;
 }
 
@@ -491,7 +499,7 @@ export async function createOption(raw: unknown) {
       isActive: data.isActive ?? true,
     },
   });
-  revalidateMaterials();
+  revalidateMaterials("attributes", data.attributeId);
   return option;
 }
 
@@ -508,7 +516,7 @@ export async function updateOption(raw: unknown) {
       isActive: data.isActive ?? true,
     },
   });
-  revalidateMaterials();
+  revalidateMaterials("attributes", option.attributeId);
   return option;
 }
 
@@ -585,7 +593,8 @@ export async function upsertAssignment(raw: unknown) {
       sortOrder: data.sortOrder ?? 0,
     },
   });
-  revalidateMaterials();
+  revalidateMaterials("categories", data.categoryId);
+  revalidatePath(`/materials/attributes/${data.attributeId}`);
   return assignment;
 }
 
@@ -606,7 +615,8 @@ export async function deleteAssignment(raw: unknown) {
     );
   }
   await prisma.materialAttributeAssignment.delete({ where: { id: data.id } });
-  revalidateMaterials();
+  revalidateMaterials("categories", existing.categoryId);
+  revalidatePath(`/materials/attributes/${existing.attributeId}`);
 }
 
 // ---------- Items ----------
@@ -690,7 +700,7 @@ export async function createItem(raw: unknown) {
   if (writeCatalog) {
     await writeItemValues(item.id, data.categoryId, values);
   }
-  revalidateMaterials();
+  revalidateMaterials("items", item.id);
   return item;
 }
 
@@ -734,6 +744,6 @@ export async function updateItem(raw: unknown) {
   if (writeCatalog) {
     await writeItemValues(item.id, data.categoryId, values);
   }
-  revalidateMaterials();
+  revalidateMaterials("items", item.id);
   return item;
 }

@@ -47,11 +47,12 @@ enum WorkContext {
   SERVICE
 }
 
-/// Billable rate column for labor engines (prompt 09).
+/// Billable rate column for labor engines (prompt 09 + 25).
 enum LaborRateType {
   STANDARD
   AFTER_HOURS
   HOLIDAY
+  DISCOUNTED
 }
 
 /// Complexity multiplier shape (prompt 14). PERCENT stores a decimal rate
@@ -132,6 +133,7 @@ model Session {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
   @@map("session")
 }
 
@@ -151,6 +153,7 @@ model Account {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
+  @@index([userId])
   @@map("account")
 }
 
@@ -310,11 +313,11 @@ model MaterialCategory {
   taxProfile               MaterialTaxProfile @default(REAL_PROPERTY)
   taxReviewed              Boolean            @default(false)
   stripeTaxCodeId          String?
-  stripeTaxCode            StripeTaxCode?     @relation("CategoryMaterialTaxCode", fields: [stripeTaxCodeId], references: [id])
+  stripeTaxCode            StripeTaxCode?     @relation("CategoryMaterialTaxCode", fields: [stripeTaxCodeId], references: [id], onDelete: Restrict)
   laborInstallTaxCodeId    String?
-  laborInstallTaxCode      StripeTaxCode?     @relation("CategoryLaborInstallTaxCode", fields: [laborInstallTaxCodeId], references: [id])
+  laborInstallTaxCode      StripeTaxCode?     @relation("CategoryLaborInstallTaxCode", fields: [laborInstallTaxCodeId], references: [id], onDelete: Restrict)
   laborServiceTaxCodeId    String?
-  laborServiceTaxCode      StripeTaxCode?     @relation("CategoryLaborServiceTaxCode", fields: [laborServiceTaxCodeId], references: [id])
+  laborServiceTaxCode      StripeTaxCode?     @relation("CategoryLaborServiceTaxCode", fields: [laborServiceTaxCodeId], references: [id], onDelete: Restrict)
   createdAt                DateTime           @default(now())
   updatedAt                DateTime           @updatedAt
 
@@ -393,6 +396,9 @@ model MaterialAttributeAssignment {
   @@map("material_attribute_assignment")
 }
 
+/// Catalog line. Scope is via category→domain today. When a quote line-item
+/// picker scans thousands of rows per keystroke, denormalize divisionId/segment
+/// onto this table (prompt 25 note) — do not add until volume justifies it.
 model MaterialItem {
   id                    String              @id @default(cuid())
   categoryId            String
@@ -407,11 +413,11 @@ model MaterialItem {
   isActive              Boolean             @default(true)
   taxProfile            MaterialTaxProfile?
   stripeTaxCodeId       String?
-  stripeTaxCode         StripeTaxCode?      @relation("ItemMaterialTaxCode", fields: [stripeTaxCodeId], references: [id])
+  stripeTaxCode         StripeTaxCode?      @relation("ItemMaterialTaxCode", fields: [stripeTaxCodeId], references: [id], onDelete: Restrict)
   laborInstallTaxCodeId String?
-  laborInstallTaxCode   StripeTaxCode?      @relation("ItemLaborInstallTaxCode", fields: [laborInstallTaxCodeId], references: [id])
+  laborInstallTaxCode   StripeTaxCode?      @relation("ItemLaborInstallTaxCode", fields: [laborInstallTaxCodeId], references: [id], onDelete: Restrict)
   laborServiceTaxCodeId String?
-  laborServiceTaxCode   StripeTaxCode?      @relation("ItemLaborServiceTaxCode", fields: [laborServiceTaxCodeId], references: [id])
+  laborServiceTaxCode   StripeTaxCode?      @relation("ItemLaborServiceTaxCode", fields: [laborServiceTaxCodeId], references: [id], onDelete: Restrict)
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
@@ -451,11 +457,12 @@ model LaborTaxCodeDefault {
   taxProfile      MaterialTaxProfile
   workContext     WorkContext
   stripeTaxCodeId String
-  stripeTaxCode   StripeTaxCode      @relation(fields: [stripeTaxCodeId], references: [id])
+  stripeTaxCode   StripeTaxCode      @relation(fields: [stripeTaxCodeId], references: [id], onDelete: Restrict)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
   @@unique([taxProfile, workContext])
+  @@index([stripeTaxCodeId])
   @@map("labor_tax_code_default")
 }
 

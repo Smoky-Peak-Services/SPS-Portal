@@ -10,6 +10,7 @@
  */
 
 import ExcelJS from "exceljs";
+import { todayStampInCompanyTz } from "@/lib/datetime";
 import { cellValue, safeSheetName, worksheetToAoa } from "./io";
 import { normalizeName, slugify } from "./normalize";
 
@@ -187,7 +188,7 @@ export function attributeListsExportFileName(
   scopeCode: string,
   date = new Date(),
 ): string {
-  return `attribute-lists_${scopeCode}_${date.toISOString().slice(0, 10)}.xlsx`;
+  return `attribute-lists_${scopeCode}_${todayStampInCompanyTz(date)}.xlsx`;
 }
 
 // ---------------------------------------------------------------------------

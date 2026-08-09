@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { company } from "@/config/company";
 import { prisma } from "@/lib/prisma";
+import { companyHour } from "@/lib/datetime";
 import { PageHeader } from "@/components/patterns/page-header";
 import { MetricCard } from "@/components/patterns/metric-card";
 import { Panel } from "@/components/patterns/panel";
@@ -21,7 +22,7 @@ export default async function DashboardPage() {
       ])
     : [0, 0, 0];
 
-  const hour = new Date().getHours();
+  const hour = companyHour();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 

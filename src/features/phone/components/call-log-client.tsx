@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -28,6 +28,8 @@ export interface CallLogRow {
   partyE164: string | null;
   leadMessage: string | null;
   lastAtMs: number;
+  /** Preformatted on the server (company TZ) — avoids hydration mismatch. */
+  lastAtLabel: string;
   total: number;
   counts: { calls: number; missed: number; voicemails: number; sms: number };
   statusLine: string | null;
@@ -36,18 +38,6 @@ export interface CallLogRow {
   smsPreview: string | null;
   latestRecordingUrl: string | null;
   match: Match;
-}
-
-function ago(ms: number): string {
-  const s = (Date.now() - ms) / 1000;
-  if (s < 60) return "just now";
-  const m = s / 60;
-  if (m < 60) return `${Math.floor(m)}m ago`;
-  const h = m / 60;
-  if (h < 24) return `${Math.floor(h)}h ago`;
-  const d = h / 24;
-  if (d < 7) return `${Math.floor(d)}d ago`;
-  return new Date(ms).toLocaleDateString();
 }
 
 function KindChips({ counts }: { counts: CallLogRow["counts"] }) {
@@ -143,14 +133,13 @@ export function CallLogClient({
   canWrite: boolean;
 }) {
   const router = useRouter();
-  const [visibleRows, setVisibleRows] = useState(rows);
+  const [dismissedKeys, setDismissedKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setVisibleRows(rows);
-  }, [rows]);
+  const visibleRows = rows.filter((r) => !dismissedKeys.has(r.key));
 
   function dismiss(key: string) {
     if (!canWrite) return;
@@ -168,7 +157,7 @@ export function CallLogClient({
         setError(res.error);
         return;
       }
-      setVisibleRows((prev) => prev.filter((r) => r.key !== key));
+      setDismissedKeys((prev) => new Set(prev).add(key));
       router.refresh();
     });
   }
@@ -176,7 +165,13 @@ export function CallLogClient({
   function triageHref(mode: "lead" | "customer", row: CallLogRow): string {
     const params = new URLSearchParams();
     if (row.partyE164) params.set("phone", row.partyE164);
-    if (row.leadMessage) params.set("message", row.leadMessage);
+    if (row.leadMessage) {
+      const msg =
+        row.leadMessage.length > 4900
+          ? `${row.leadMessage.slice(0, 4900)}…`
+          : row.leadMessage;
+      params.set("message", msg);
+    }
     if (mode === "lead") return `/leads/new?${params.toString()}`;
     return `/clients/new?${params.toString()}`;
   }
@@ -229,7 +224,7 @@ export function CallLogClient({
                     <span className="font-medium">{row.display}</span>
                   )}
                   <span className="text-xs text-muted-foreground">
-                    {ago(row.lastAtMs)}
+                    {row.lastAtLabel}
                   </span>
                 </div>
                 {row.match ? (

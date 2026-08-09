@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { isPiiConfigured, prismaPii } from "@/lib/prisma-pii";
 import { requireCrmArchive, requireCrmWrite } from "./authz";
-import { phoneForStorage } from "@/lib/openphone";
+import { phoneNat10 } from "@/lib/phone-parse";
+import { createLeadRecord } from "./create-lead-record";
 import {
   archiveCustomerSchema,
   createContactSchema,
@@ -36,6 +37,7 @@ const CLIENTS_PATHS = ["/clients", "/clients/archive"] as const;
 
 function revalidateClients(id?: string) {
   for (const p of CLIENTS_PATHS) revalidatePath(p);
+  revalidatePath("/call-log");
   if (id) {
     revalidatePath(`/clients/${id}`);
     revalidatePath(`/clients/${id}/billing`);
@@ -129,6 +131,7 @@ export async function createCustomer(
           lastName: emptyToNull(data.contactLastName),
           directEmail: emptyToNull(data.contactEmail),
           directPhone: emptyToNull(data.contactPhone),
+          directPhoneNat: phoneNat10(data.contactPhone),
           roleTag: data.contactRoleTag ?? "CLIENT",
           isPrimary: true,
           isBilling: true,
@@ -382,6 +385,26 @@ export async function updateBillingProfile(
   }
   const data = updateBillingProfileSchema.parse(raw);
 
+  const customer = await prismaPii.customer.findUnique({
+    where: { id: data.rootOrgId },
+    select: { id: true },
+  });
+  if (!customer) return { ok: false, error: "Customer not found." };
+
+  const pocId = emptyToNull(data.pointOfContactId);
+  if (pocId) {
+    const poc = await prismaPii.contact.findFirst({
+      where: { id: pocId, customerId: data.rootOrgId },
+      select: { id: true },
+    });
+    if (!poc) {
+      return {
+        ok: false,
+        error: "Point of contact must belong to this client.",
+      };
+    }
+  }
+
   await prismaPii.billingProfile.upsert({
     where: { rootOrgId: data.rootOrgId },
     create: {
@@ -397,7 +420,7 @@ export async function updateBillingProfile(
       billingPostal: emptyToNull(data.billingPostal),
       billingLat: data.billingLat ?? null,
       billingLng: data.billingLng ?? null,
-      pointOfContactId: emptyToNull(data.pointOfContactId),
+      pointOfContactId: pocId,
       taxExemptionNumber: emptyToNull(data.taxExemptionNumber),
       taxExemptEntityType: data.taxExemptEntityType ?? null,
       taxExemptCertOnFile: data.taxExemptCertOnFile ?? false,
@@ -415,7 +438,7 @@ export async function updateBillingProfile(
       billingPostal: emptyToNull(data.billingPostal),
       billingLat: data.billingLat ?? null,
       billingLng: data.billingLng ?? null,
-      pointOfContactId: emptyToNull(data.pointOfContactId),
+      pointOfContactId: pocId,
       taxExemptionNumber: emptyToNull(data.taxExemptionNumber),
       taxExemptEntityType: data.taxExemptEntityType ?? null,
       taxExemptCertOnFile: data.taxExemptCertOnFile ?? false,
@@ -434,6 +457,12 @@ export async function createContact(raw: unknown): Promise<ActionResult> {
   }
   const data = createContactSchema.parse(raw);
 
+  const customer = await prismaPii.customer.findUnique({
+    where: { id: data.customerId },
+    select: { id: true, displayName: true, type: true },
+  });
+  if (!customer) return { ok: false, error: "Customer not found." };
+
   const contact = await prismaPii.$transaction(async (tx) => {
     if (data.isPrimary) {
       await tx.contact.updateMany({
@@ -447,18 +476,42 @@ export async function createContact(raw: unknown): Promise<ActionResult> {
         data: { isBilling: false },
       });
     }
-    return tx.contact.create({
+    const created = await tx.contact.create({
       data: {
         customerId: data.customerId,
         firstName: data.firstName.trim(),
         lastName: emptyToNull(data.lastName),
         directEmail: emptyToNull(data.directEmail),
         directPhone: emptyToNull(data.directPhone),
+        directPhoneNat: phoneNat10(data.directPhone),
         roleTag: data.roleTag ?? null,
         isPrimary: data.isPrimary ?? false,
         isBilling: data.isBilling ?? false,
       },
     });
+    if (data.isBilling) {
+      const billingName = [created.firstName, created.lastName]
+        .filter(Boolean)
+        .join(" ");
+      await tx.billingProfile.upsert({
+        where: { rootOrgId: data.customerId },
+        create: {
+          rootOrgId: data.customerId,
+          profileType: defaultBillingType(customer.type),
+          billingName: billingName || customer.displayName,
+          billingEmail: created.directEmail,
+          billingPhone: created.directPhone,
+          pointOfContactId: created.id,
+        },
+        update: {
+          billingName: billingName || undefined,
+          billingEmail: created.directEmail,
+          billingPhone: created.directPhone,
+          pointOfContactId: created.id,
+        },
+      });
+    }
+    return created;
   });
 
   revalidateClients(data.customerId);
@@ -489,7 +542,7 @@ export async function updateContact(raw: unknown): Promise<ActionResult> {
         data: { isBilling: false },
       });
     }
-    await tx.contact.update({
+    const updated = await tx.contact.update({
       where: { id: data.id },
       data: {
         firstName: data.firstName?.trim(),
@@ -503,11 +556,29 @@ export async function updateContact(raw: unknown): Promise<ActionResult> {
           data.directPhone !== undefined
             ? emptyToNull(data.directPhone)
             : undefined,
+        directPhoneNat:
+          data.directPhone !== undefined
+            ? phoneNat10(data.directPhone)
+            : undefined,
         roleTag: data.roleTag === undefined ? undefined : data.roleTag,
         isPrimary: data.isPrimary,
         isBilling: data.isBilling,
       },
     });
+    if (data.isBilling) {
+      const billingName = [updated.firstName, updated.lastName]
+        .filter(Boolean)
+        .join(" ");
+      await tx.billingProfile.updateMany({
+        where: { rootOrgId: existing.customerId },
+        data: {
+          billingName: billingName || undefined,
+          billingEmail: updated.directEmail,
+          billingPhone: updated.directPhone,
+          pointOfContactId: updated.id,
+        },
+      });
+    }
   });
 
   revalidateClients(existing.customerId);
@@ -515,7 +586,7 @@ export async function updateContact(raw: unknown): Promise<ActionResult> {
 }
 
 export async function deleteContact(raw: unknown): Promise<ActionResult> {
-  await requireCrmWrite();
+  await requireCrmArchive();
   if (!isPiiConfigured()) {
     return { ok: false, error: "PII database is not configured." };
   }
@@ -524,7 +595,16 @@ export async function deleteContact(raw: unknown): Promise<ActionResult> {
     where: { id: data.id },
   });
   if (!existing) return { ok: false, error: "Contact not found." };
-  await prismaPii.contact.delete({ where: { id: data.id } });
+  await prismaPii.$transaction(async (tx) => {
+    await tx.billingProfile.updateMany({
+      where: {
+        rootOrgId: existing.customerId,
+        pointOfContactId: existing.id,
+      },
+      data: { pointOfContactId: null },
+    });
+    await tx.contact.delete({ where: { id: data.id } });
+  });
   revalidateClients(existing.customerId);
   return { ok: true };
 }
@@ -537,6 +617,12 @@ export async function createServiceLocation(
     return { ok: false, error: "PII database is not configured." };
   }
   const data = createServiceLocationSchema.parse(raw);
+  const customer = await prismaPii.customer.findUnique({
+    where: { id: data.customerId },
+    select: { id: true },
+  });
+  if (!customer) return { ok: false, error: "Customer not found." };
+
   const lines = normalizeServiceLines(
     data.classification,
     data.serviceLines as ServiceLine[],
@@ -620,7 +706,7 @@ export async function updateServiceLocation(
 export async function deleteServiceLocation(
   raw: unknown,
 ): Promise<ActionResult> {
-  await requireCrmWrite();
+  await requireCrmArchive();
   if (!isPiiConfigured()) {
     return { ok: false, error: "PII database is not configured." };
   }
@@ -643,12 +729,26 @@ export async function createCustomerActivity(
   }
   const data = createCustomerActivitySchema.parse(raw);
 
+  const locId = emptyToNull(data.serviceLocationId);
+  if (locId) {
+    const loc = await prismaPii.serviceLocation.findFirst({
+      where: { id: locId, customerId: data.customerId },
+      select: { id: true },
+    });
+    if (!loc) {
+      return {
+        ok: false,
+        error: "Service location must belong to this client.",
+      };
+    }
+  }
+
   const activity = await prismaPii.activity.create({
     data: {
       type: "NOTE",
       body: data.body.trim(),
       customerId: data.customerId,
-      serviceLocationId: emptyToNull(data.serviceLocationId),
+      serviceLocationId: locId,
       createdById: user.id,
     },
   });
@@ -677,19 +777,18 @@ export async function createLead(raw: unknown): Promise<ActionResult> {
   });
   if (!division) return { ok: false, error: "Unknown division." };
 
-  const lead = await prismaPii.lead.create({
-    data: {
-      source: data.source,
-      divisionId: data.divisionId,
-      name: data.name.trim(),
-      email: emptyToNull(data.email),
-      phone: phoneForStorage(data.phone),
-      company: emptyToNull(data.company),
-      message: emptyToNull(data.message),
-      budget: emptyToNull(data.budget),
-      timeline: emptyToNull(data.timeline),
-      division: emptyToNull(data.division),
-    },
+  const lead = await createLeadRecord(prismaPii, {
+    divisionId: data.divisionId,
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    company: data.company,
+    division: data.division,
+    message: data.message,
+    budget: data.budget,
+    timeline: data.timeline,
+    source: data.source,
+    activityBody: "Lead created manually",
   });
   revalidateLeads(lead.id);
   revalidatePath("/call-log");
@@ -732,7 +831,7 @@ export async function updateLeadStatus(raw: unknown): Promise<ActionResult> {
 
 /** Hard-delete any lead (spam / not interested). Customer row is kept if promoted. */
 export async function deleteLead(raw: unknown): Promise<ActionResult> {
-  await requireCrmWrite();
+  await requireCrmArchive();
   if (!isPiiConfigured()) {
     return { ok: false, error: "PII database is not configured." };
   }
@@ -743,7 +842,7 @@ export async function deleteLead(raw: unknown): Promise<ActionResult> {
   });
   if (!lead) return { ok: false, error: "Lead not found." };
   await prismaPii.lead.delete({ where: { id: data.id } });
-  revalidateLeads();
+  revalidateLeads(data.id);
   revalidatePath("/call-log");
   return { ok: true, id: data.id };
 }
@@ -780,45 +879,77 @@ export async function promoteLeadToCustomer(
     return { ok: false, error: "PII database is not configured." };
   }
   const data = promoteLeadSchema.parse(raw);
-  const lead = await prismaPii.lead.findUnique({ where: { id: data.leadId } });
+  const lead = await prismaPii.lead.findUnique({
+    where: { id: data.leadId },
+    include: { orgDivision: { select: { id: true, slug: true } } },
+  });
   if (!lead) return { ok: false, error: "Lead not found." };
   if (lead.customerId) return { ok: true, id: lead.customerId };
 
-  const [firstName, ...rest] = lead.name.trim().split(/\s+/);
-  const customer = await prismaPii.customer.create({
-    data: {
-      type: data.type,
-      displayName: lead.name.trim(),
-      divisionId: lead.divisionId,
-      generalEmail: lead.email,
-      mainPhone: lead.phone,
-      source: `lead:${lead.source}`,
-      notes: lead.message,
-      createdById: user.id,
-      billingProfile: {
-        create: {
-          profileType: defaultBillingType(data.type),
-        },
-      },
-      contacts: {
-        create: {
-          firstName: firstName || lead.name.trim(),
-          lastName: rest.join(" ") || null,
-          directEmail: lead.email,
-          directPhone: lead.phone,
-          roleTag: "CLIENT",
-          isPrimary: true,
-        },
-      },
-    },
-  });
-  await prismaPii.lead.update({
-    where: { id: lead.id },
-    data: { customerId: customer.id },
-  });
+  const pairErr = customerTypeDivisionError(data.type, lead.orgDivision.slug);
+  if (pairErr) {
+    return {
+      ok: false,
+      error: `${pairErr} Change the customer type or the lead's owning division first.`,
+    };
+  }
 
-  revalidateLeads(lead.id);
-  revalidateClients(customer.id);
-  revalidatePath("/call-log");
-  return { ok: true, id: customer.id };
+  const [firstName, ...rest] = lead.name.trim().split(/\s+/);
+  try {
+    const customerId = await prismaPii.$transaction(async (tx) => {
+      const customer = await tx.customer.create({
+        data: {
+          type: data.type,
+          displayName: lead.name.trim(),
+          divisionId: lead.divisionId,
+          generalEmail: lead.email,
+          mainPhone: lead.phone,
+          source: `lead:${lead.source}`,
+          notes: lead.message,
+          createdById: user.id,
+          billingProfile: {
+            create: {
+              profileType: defaultBillingType(data.type),
+            },
+          },
+          contacts: {
+            create: {
+              firstName: firstName || lead.name.trim(),
+              lastName: rest.join(" ") || null,
+              directEmail: lead.email,
+              directPhone: lead.phone,
+              directPhoneNat: phoneNat10(lead.phone) ?? lead.phoneNat,
+              roleTag: "CLIENT",
+              isPrimary: true,
+            },
+          },
+        },
+      });
+      const claimed = await tx.lead.updateMany({
+        where: { id: lead.id, customerId: null },
+        data: {
+          customerId: customer.id,
+          phoneNat: lead.phoneNat ?? phoneNat10(lead.phone),
+        },
+      });
+      if (claimed.count === 0) {
+        throw new Error("PROMOTE_RACE");
+      }
+      return customer.id;
+    });
+
+    revalidateLeads(lead.id);
+    revalidateClients(customerId);
+    revalidatePath("/call-log");
+    return { ok: true, id: customerId };
+  } catch (err) {
+    if (err instanceof Error && err.message === "PROMOTE_RACE") {
+      const again = await prismaPii.lead.findUnique({
+        where: { id: data.leadId },
+        select: { customerId: true },
+      });
+      if (again?.customerId) return { ok: true, id: again.customerId };
+    }
+    throw err;
+  }
 }
